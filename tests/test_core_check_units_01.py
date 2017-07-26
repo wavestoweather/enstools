@@ -38,12 +38,31 @@ def example_function_for_dims_with_return_value(a, b):
     """
     return a * b
 
+
 @check_arguments(dims={"a": ["lon", "lat"], "b": ("lon", "lat"), "return_value": ("lon", "lat")})
 def example_function_for_dims_with_wrong_return_value(a, b):
     """
     Example function for unit checks. Unit of return value not set
     """
     return (a * b).sum()
+
+
+@check_arguments(shape={"a": "b"})
+def example_function_with_shape(a, b):
+    """
+    Example function for unit checks
+    """
+    result = a * b
+    return result
+
+
+@check_arguments(shape={"a": (2, 3)})
+def example_function_with_shape_pre_defined(a, b):
+    """
+    Example function for unit checks
+    """
+    result = a * b
+    return result
 
 
 def test_check_units():
@@ -68,6 +87,9 @@ def test_check_units():
     # both arguments correct, but return value has no unit
     with numpy.testing.assert_raises(ValueError):
         res = example_function_no_return_unit(da2, da2)
+
+    # test with named arguments
+    res = example_function(b=da2, a=da1)
 
 
 def test_check_dims():
@@ -99,3 +121,19 @@ def test_check_dims():
     res = example_function_for_dims_with_return_value(da3, da2)
     with numpy.testing.assert_raises(ValueError):
         res = example_function_for_dims_with_wrong_return_value(da3, da2)
+
+
+def test_check_shape():
+    """
+    check the automatic shape control
+    """
+    a = numpy.random.randn(2, 2)
+    b = numpy.random.randn(3, 2)
+
+    # shape of a should be identical to shape of b
+    with numpy.testing.assert_raises(ValueError):
+        res = example_function_with_shape(a, b)
+
+    # shape of a should be (2, 3)
+    with numpy.testing.assert_raises(ValueError):
+        res = example_function_with_shape_pre_defined(a, b)
