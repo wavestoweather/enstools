@@ -5,4 +5,5 @@ Python modules:
     xarray
     dask
     toolz
-
+    pint
+    nose
