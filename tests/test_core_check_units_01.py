@@ -1,6 +1,5 @@
 import xarray
 import numpy
-from pint.unit import DimensionalityError
 
 from enstools.core import check_arguments
 
@@ -81,7 +80,7 @@ def test_check_units():
     numpy.testing.assert_array_almost_equal(res, da1 * da2 * 1000.0)
 
     # one array has wrong not convertible units
-    with numpy.testing.assert_raises(DimensionalityError):
+    with numpy.testing.assert_raises(ValueError):
         res = example_function(da3, da2)
 
     # both arguments correct, but return value has no unit

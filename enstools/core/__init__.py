@@ -8,7 +8,7 @@ import pint
 import inspect
 import xarray
 from functools import wraps
-from pint.unit import DimensionalityError
+from pint import DimensionalityError
 
 
 class UnitRegistry(pint.UnitRegistry):
@@ -135,13 +135,16 @@ def check_arguments(units={}, dims={}, shape={}):
                         # the units differ? try to find a conversion!
                         if target_arg_unit != actual_arg_unit:
                             if __default_settings["check_arguments:convert"]:
+                                conversion_failed = False
                                 try:
                                     factor = actual_arg_unit.to(target_arg_unit)
                                     current_argument = current_argument * factor.magnitude
                                     logging.warning("The unit of the argument '%s' was converted from '%s' to '%s' by multiplication with the factor %f" % (arg_names[iarg], actual_arg_unit, target_arg_unit, factor.magnitude))
                                 except DimensionalityError as ex:
-                                    ex.extra_msg = "; Unable to convert units of argument '%s' of method '%s'!" % (arg_names[iarg], func.__name__)
-                                    raise
+                                    conversion_failed = True
+                                    error_msg = "%s; Unable to convert units of argument '%s' of method '%s'!" % (str(ex), arg_names[iarg], func.__name__)
+                                if conversion_failed:
+                                    raise ValueError(error_msg)
                             else:
                                 logging.warning("The unit of the argument '%s' differs from '%s', no conversion was done!" % (arg_names[iarg], target_arg_unit))
 
