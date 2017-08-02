@@ -84,6 +84,28 @@ def __replace_argument(args, index, new_arg):
     return tuple(arg_list)
 
 
+def __shapes_are_equal(shape1, shape2):
+    """
+    compare the shape of two array. zeros in the second arguments are ignored
+
+    Parameters
+    ----------
+    shape1 : tuple
+    shape2 : tuple
+
+    Returns
+    -------
+    bool
+            True, if both shapes are identical
+    """
+    if len(shape1) != len(shape2):
+        return False
+    for i in range(len(shape1)):
+        if shape1[i] != shape2[i] and shape2[i] != 0:
+            return False
+    return True
+
+
 def check_arguments(units={}, dims={}, shape={}):
     """
     Parameters
@@ -99,7 +121,8 @@ def check_arguments(units={}, dims={}, shape={}):
 
     shape: dict
             Definition of the arguments shape in the format {"argument_name": (10,17)} for a fixed shape or
-            {"argument_name": "other_argument_name"} if two arguments are required to have the same shape.
+            {"argument_name": "other_argument_name"} if two arguments are required to have the same shape. In the first
+            case, zero may be used to indicate, that the size in a direction does not matter.
 
     Returns
     -------
@@ -117,7 +140,6 @@ def check_arguments(units={}, dims={}, shape={}):
             arg_values = inspect.getcallargs(func, *args, **kwargs)
             # create a list of the new arguments
             modified_args = []
-
 
             # loop over all none-keyword arguments
             for iarg, one_arg_name in enumerate(arg_names):
@@ -147,7 +169,6 @@ def check_arguments(units={}, dims={}, shape={}):
                                     raise ValueError(error_msg)
                             else:
                                 logging.warning("The unit of the argument '%s' differs from '%s', no conversion was done!" % (arg_names[iarg], target_arg_unit))
-
 
                     # no units attribute, is that an error?
                     else:
@@ -202,7 +223,7 @@ def check_arguments(units={}, dims={}, shape={}):
                 if one_arg_name in shape and hasattr(current_argument, "shape"):
                     # is the shape given as tuple or as name of another variable?
                     if type(shape[one_arg_name]) == tuple:
-                        if current_argument.shape != shape[one_arg_name]:
+                        if not __shapes_are_equal(current_argument.shape, shape[one_arg_name]):
                             raise ValueError("The shape of the argument '%s', which is %s, differs from the pre-defined shape %s" % (one_arg_name, current_argument.shape, shape[one_arg_name]))
                     # shape should be identical to other variables shape
                     else:
@@ -217,10 +238,12 @@ def check_arguments(units={}, dims={}, shape={}):
                                 raise ValueError("The reference variable '%s' has no shape attribute!" % shape[one_arg_name])
 
                 # construct new argument list
-                if one_arg_name in kwargs:
+                if iarg > len(modified_args) and one_arg_name in kwargs:
                     kwargs[one_arg_name] = current_argument
                 else:
                     modified_args.append(current_argument)
+                    if one_arg_name in kwargs:
+                        del kwargs[one_arg_name]
 
             # perform the actual calculation
             modified_args = tuple(modified_args)
@@ -292,6 +315,27 @@ def check_arguments(units={}, dims={}, shape={}):
                         raise ValueError(msg)
                     else:
                         logging.warning(msg)
+
+            # check the shape of the return value
+            if "return_value" in shape:
+                # is the shape given as tuple or as name of another variable?
+                if type(shape["return_value"]) == tuple:
+                    if not __shapes_are_equal(return_value.shape, shape["return_value"]):
+                        raise ValueError(
+                            "The shape of the return value, which is %s, differs from the pre-defined shape %s" % (
+                            return_value.shape, shape["return_value"]))
+                # shape should be identical to other variables shape
+                else:
+                    if shape["return_value"] in arg_names:
+                        if hasattr(arg_values[shape["return_value"]], "shape"):
+                            target_shape = arg_values[shape["return_value"]].shape
+                            if return_value.shape != target_shape:
+                                raise ValueError(
+                                    "The shape of the return value, which is %s, differs from the shape %s of the reference variable '%s'!" % (
+                                        return_value.shape, target_shape, shape["return_value"]))
+                        else:
+                            raise ValueError(
+                                "The reference variable '%s' has no shape attribute!" % shape["return_value"])
 
             # finally return the result
             return return_value

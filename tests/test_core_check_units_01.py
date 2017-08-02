@@ -64,6 +64,24 @@ def example_function_with_shape_pre_defined(a, b):
     return result
 
 
+@check_arguments(shape={"a": (2, 3), "return_value": (0, 3)})
+def example_function_with_shape_of_return_pre_defined(a, b):
+    """
+    Example function for unit checks
+    """
+    result = a * b
+    return result
+
+
+@check_arguments(shape={"a": (0, 0)})
+def example_function_keyword(a, b, c=1):
+    """
+    Example with keyword and default value
+
+    """
+    return a * b * c
+
+
 def test_check_units():
     """
     check the automatic unit check mechanism
@@ -136,3 +154,13 @@ def test_check_shape():
     # shape of a should be (2, 3)
     with numpy.testing.assert_raises(ValueError):
         res = example_function_with_shape_pre_defined(a, b)
+
+    # shape of return value should be (?, 3)
+    with numpy.testing.assert_raises(ValueError):
+        res = example_function_with_shape_of_return_pre_defined(b, b)
+
+    # one value with defined shape, another one without restriction but with default
+    res = example_function_keyword(a, b=6)
+    numpy.testing.assert_array_equal(res, a*6)
+    res = example_function_keyword(a, 6, c=2)
+    numpy.testing.assert_array_equal(res, a*12)
