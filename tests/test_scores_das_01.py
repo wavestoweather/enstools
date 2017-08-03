@@ -133,6 +133,12 @@ def test_das():
     numpy.testing.assert_array_almost_equal(das["amp"], 0.829826644421)
     numpy.testing.assert_array_almost_equal(das["rms_obs"], 0.11111111)
 
+    # perfect score
+    das = enstools.scores.DisplacementAmplitudeScore.das(obs, obs)
+    numpy.testing.assert_array_almost_equal(das["das"], 0.0)
+    numpy.testing.assert_array_almost_equal(das["dis"], 0.0)
+    numpy.testing.assert_array_almost_equal(das["amp"], 0.0)
+
     # only values below threshold
     obs[50:52, 50:52] = 1
     fct[51:53, 51:53] = 1

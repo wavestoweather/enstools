@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import ndimage
 from enstools.core import check_arguments
+from enstools.interpolation import downsize
 
 
 @check_arguments(shape={"im": (0, 0)})
@@ -117,30 +118,6 @@ def gauss_kern(size, sigma):
     return g / g.sum()
 
 
-@check_arguments(shape={"arr": (0, 0)})
-def downsize(arr, fac):
-    """
-    Reduce resolution of an array by neighbourhood averaging - 2D averaging of fac x fac element
-
-    Parameters
-    ----------
-    arr : xarray.DataArray or np.ndarray
-            array to downsize by neighbourhood averaging
-
-    fac : int
-            factor of downsizing, 2D averaging of fac x fac element
-
-    Returns
-    -------
-    xarray.DataArray or np.ndarray
-    """
-    row, col = np.shape(arr)
-    r_small = int(row // fac)
-    c_small = int(col // fac)
-    return np.column_stack(np.column_stack(
-        arr.reshape((r_small, row // r_small, c_small, col // c_small)))).mean(1).reshape((r_small, c_small))
-
-
 @check_arguments(shape={"image1": (0, 0), "image2": (0, 0)})
 def match_pyramid(image1, image2, factor=4, sigma=5 / 3.):
     """
@@ -212,7 +189,7 @@ def match_pyramid(image1, image2, factor=4, sigma=5 / 3.):
     #	lse = convolve(((f1-im2)**2).astype(np.float), gauss_kern(2,.5), mode='nearest')[:oS[0],:oS[1]]
     #	lse = ((f1-im2)**2).astype(np.float)[:oS[0],:oS[1]]
     f1 = f1[:oS[0], :oS[1]]
-    xdis = xdis[:oS[0], :oS[1]]
-    ydis = ydis[:oS[0], :oS[1]]
+    xdis = -xdis[:oS[0], :oS[1]]
+    ydis = -ydis[:oS[0], :oS[1]]
 
     return f1, xdis, ydis, lse
