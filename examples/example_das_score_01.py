@@ -35,8 +35,8 @@ if __name__ == "__main__":
     print('Score: DAS %.2f, DIS %.2f, AMP %.2f' % (das["das"], das["dis"], das["amp"]))
 
     # average displacement vectors for plotting
-    xdis_o = enstools.interpolation.downsize(das["xdis_o"], 50)
-    ydis_o = enstools.interpolation.downsize(das["ydis_o"], 50)
+    xdis_o = enstools.interpolation.downsize(das["xdis_o"], 40)
+    ydis_o = enstools.interpolation.downsize(das["ydis_o"], 40)
 
     # create a plot comparable to Keil and Craig 2009, Fig. 2.
     fig, ax = plt.subplots(2, 2, subplot_kw={"ylim": [0, 1000], "xlim": [0, 1000], "aspect": "equal"})
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     ax[0, 1].imshow(fct, cmap="Greys")
     ax[0, 1].text(50, 950, "Forecast", verticalalignment="top", fontsize=14)
     ax[1, 0].imshow(fct, cmap="Greys")
-    ax[1, 0].quiver(numpy.linspace(25, 975, 20), numpy.linspace(25, 975, 20), xdis_o, ydis_o, scale=1000)
+    ax[1, 0].quiver(numpy.linspace(20, 980, 25), numpy.linspace(20, 980, 25), xdis_o, ydis_o, scale=1000)
     ax[1, 0].text(50, 950, "Forecast and\nDisplacement-Vectors", verticalalignment="top", fontsize=14)
     ax[1, 1].imshow(das["morph_o"], cmap="Greys")
     ax[1, 1].text(50, 950, "Forecast morphed to\nObservations", verticalalignment="top", fontsize=14)
