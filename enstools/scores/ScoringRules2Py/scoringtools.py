@@ -30,33 +30,6 @@ def __init_R():
         srl = rpy2.robjects.packages.importr('scoringRules')
 
 
-def __r_wrapper_vec(y, dat, function_name, concat=False):
-    __init_R()
-    if concat:
-        y_exp = np.expand_dims(y, 1)
-        if (len(y_exp.shape) != 3
-            or len(dat.shape) != 3
-            or y_exp.shape[0] != dat.shape[0]
-            or y_exp.shape[2] != dat.shape[2]):
-            raise ValueError('Parameters have wrong dimension.')
-
-        df = np.concatenate((y_exp, dat), axis=1)
-        df_r = rpy2.robjects.numpy2ri.py2ri(df)
-        rpy2.robjects.globalenv['df'] = df_r
-        return rpy2.robjects.r('mean(apply(df, c(3), function(x) %s(x[,1], x[,-1])))' % function_name)[0]
-    else:
-        y_r = rpy2.robjects.FloatVector(y)
-        dat_r = rpy2.robjects.numpy2ri.py2ri(dat)
-        if (len(y.shape) != 1
-            or len(dat.shape) != 2
-            or y.shape[0] != dat.shape[1]):
-            raise ValueError('Parameters have wrong dimension.')
-
-        rpy2.robjects.globalenv['obs'] = y_r
-        rpy2.robjects.globalenv['forc'] = dat_r
-        return rpy2.robjects.r('mean(apply(rbind(obs,forc), 2, function(x) %s(x[1], x[-1])))' % function_name)[0]
-
-
 # list of argument types for R functions that don't need any conversion
 directly_supported_r_args = [float, np.float32, np.float64, str]
 
@@ -103,6 +76,8 @@ def __r_caller(*args):
                 r_args.append(rpy2.robjects.FloatVector(arg.data))
             else:
                 r_args.append(rpy2.robjects.numpy2ri.py2ri(arg.data))
+        elif arg is None:
+            r_args.append(rpy2.rinterface.NULL)
         # any other arguments are not supported
         else:
             raise ValueError("Unsupported argument type: %s" % type(arg))
@@ -138,34 +113,11 @@ def es_sample(y, dat):
     return __r_caller("es_sample", y, dat)
 
 
-es_sample_vec2 = enstools.core.vectorize_multivariate_two_arg(es_sample)
-es_sample_vec3 = enstools.core.vectorize_multivariate_two_arg(es_sample, arrays_concatenated=False)
+es_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(es_sample)
+es_sample_vec = enstools.core.vectorize_multivariate_two_arg(es_sample, arrays_concatenated=False)
 
 
-def es_sample_vec(y_mat, dat_mat):
-    """Sample Energy Score; vectorized version
-
-    This function calculates the energy score for a given pair of
-    a series of observations (y_mat) and 
-    corresponding ensemble predictions (dat_mat). The data in
-    y_mat is considered to be a series of multivariate observations.
-
-    Args:
-        y_mat (np.array): Series of multivariate observations of 
-        dimension d times n. Where d is the dimension of the multivariate
-        observation and n the number of observations.
-        
-        dat (np.array): Ensemble prediction for the values y_mat containing
-        d times m times n values where m is the number of ensemble members.
-
-    Returns:
-        float: Returns the energy score of the forecast-observation series.
-
-    """
-    return __r_wrapper_vec(y_mat, dat_mat, "es_sample", concat=True)
-
-
-def vs_sample(y, dat):
+def vs_sample(y, dat, w=None, p=0.5):
     """Sample Variogram Score
 
     This function calculates the variogram score for a given pair of
@@ -183,30 +135,11 @@ def vs_sample(y, dat):
         float: Returns the variogram score of the forecast-observation pair.
 
     """
-    return __r_caller("vs_sample", y, dat)
+    return __r_caller("vs_sample", y, dat, w, p)
 
 
-def vs_sample_vec(y_mat, dat_mat):
-    """Sample Variogram Score; vectorized version
-
-    This function calculates the Energy score for a given pair of
-    a series of observations (y_mat) and 
-    corresponding ensemble predictions (dat_mat). The data in
-    y_mat is considered to be a series of multivariate observations.
-
-    Args:
-        y_mat (np.array): Series of multivariate observations of 
-        dimension d times n. Where d is the dimension of the multivariate
-        observation and n the number of observations.
-        
-        dat (np.array): Ensemble prediction for the values y_mat containing
-        d times m times n values where m is the number of ensemble members.
-
-    Returns:
-        float: Returns the variogram score of the forecast-observation series.
-
-    """
-    return __r_wrapper_vec(y_mat, dat_mat, "vs_sample", concat=True)
+vs_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(vs_sample)
+vs_sample_vec = enstools.core.vectorize_multivariate_two_arg(vs_sample, arrays_concatenated=False)
 
 
 def crps_sample(y, dat, method="edf"):
@@ -229,25 +162,4 @@ def crps_sample(y, dat, method="edf"):
     return __r_caller("crps_sample", y, dat, method)
 
 
-crps_sample_vec2 = enstools.core.vectorize_univariate_two_arg(crps_sample)
-
-def crps_sample_vec(y_vec, dat_mat):
-    """Sample Continuous Ranked Probability Score (CRPS); vectorized version
-
-    This function calculates the CRPS for a given pair of
-    a series of observations (y_vec) and 
-    corresponding ensemble predictions (dat_mat). The data in
-    y_vec is considered to be a series of univariate observations.
-
-    Args:
-        y_vec (np.array): Series of multivariate observations of 
-        length n which is the number of observations.
-        
-        dat_mat (np.array): Ensemble prediction for the values y_vec containing
-        m times n values where m is the number of ensemble members.
-
-    Returns:
-        float: Returns the CRPS of the forecast-observation series.
-
-    """
-    return __r_wrapper_vec(y_vec, dat_mat, "crps_sample", concat=False)
+crps_sample_vec = enstools.core.vectorize_univariate_two_arg(crps_sample)

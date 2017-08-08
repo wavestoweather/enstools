@@ -525,21 +525,18 @@ def vectorize_multivariate_two_arg(func, arrays_concatenated=True):
         chunk_size = get_chunk_size_for_n_procs(arg0.shape[1:], get_num_available_procs())
         da0 = dask.array.from_array(arg0, chunks=(arg0.shape[0],) + chunk_size)
         da1 = dask.array.from_array(arg1, chunks=arg1.shape[0:2] + chunk_size)
-        print(da0.chunks)
-        print(da1.chunks)
 
         # perform the actual calculation on a chunk of the array
         def dask_calculation(a0, a1):
             return vfunc(numpy.moveaxis(a0, 0, -1), numpy.moveaxis(a1, (0, 1), (-2, -1)), **kwargs)
 
         # order of index in input and output
-        obs_ind = "o" + string.ascii_lowercase[:len(chunk_size)]
+        out_ind = string.ascii_lowercase[:len(chunk_size)]
+        obs_ind = "o" + out_ind
         fct_int = obs_ind.replace("o", "oz")
 
         # perform the actual calculation
-        print(obs_ind, fct_int)
-        print(da0.shape, da1.shape)
-        result = dask.array.atop(dask_calculation, obs_ind, da0, obs_ind, da1, fct_int, dtype=da0.dtype,
+        result = dask.array.atop(dask_calculation, out_ind, da0, obs_ind, da1, fct_int, dtype=da0.dtype,
                                  concatenate=True)
 
         # calculate mean if requested
