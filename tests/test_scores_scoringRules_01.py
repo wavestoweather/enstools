@@ -82,15 +82,15 @@ def test_crps_sample():
 
     # first argument int, second numpy
     res = enstools.scores.crps_sample(1, x)
-    np.testing.assert_almost_equal(res, 0.6, decimal=2)
+    np.testing.assert_almost_equal(np.round(res*10), 6, decimal=2)
 
     # first argument float, second numpy
     res = enstools.scores.crps_sample(1.0, x)
-    np.testing.assert_almost_equal(res, 0.6, decimal=2)
+    np.testing.assert_almost_equal(np.round(res*10), 6, decimal=2)
 
     # first argument float, second xarray
     res = enstools.scores.crps_sample(1.0, y)
-    np.testing.assert_almost_equal(res, 0.6, decimal=2)
+    np.testing.assert_almost_equal(np.round(res*10), 6, decimal=2)
 
     # result is equal to reference implementation
     res2 = __reference__crps_sample(1.0, y)
