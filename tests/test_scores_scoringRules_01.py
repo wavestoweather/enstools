@@ -1,5 +1,4 @@
 import xarray
-import numpy
 import enstools
 import timeit
 import numpy as np
@@ -9,25 +8,93 @@ from rpy2.robjects.packages import importr
 srl = importr('scoringRules')
 
 
+def test_es_sample():
+    """
+    test of es_sample
+    """
+    # compare with reference version
+    obs = np.ones(2)
+    fct = np.random.randn(2, 20)
+    res = enstools.scores.es_sample(obs, fct)
+    res2 = __reference__es_sample(obs, fct)
+    np.testing.assert_almost_equal(res, res2)
+
+
+def test_es_sample_vec():
+    """
+    test of es_sample vectorization
+    """
+    # compare with reference version for variant with concatenated input arrays
+    obs = np.ones((2, 10000))
+    fct = np.random.randn(2, 20, 10000)
+    res = enstools.scores.es_sample_vec_cat(obs, fct)
+    res2 = __reference__es_sample_vec(obs, fct)
+    np.testing.assert_array_almost_equal(res, res2)
+
+    # compare to variant with separate input variables
+    obs1 = obs[0, :]
+    obs2 = obs[1, :]
+    fct1 = fct[0, :, :]
+    fct2 = fct[1, :, :]
+    res3 = enstools.scores.es_sample_vec(obs1, obs2, fct1, fct2)
+    np.testing.assert_array_almost_equal(res3, res2)
+
+
+def test_vs_sample():
+    """
+    test of vs_sample
+    """
+    # compare with reference version
+    obs = np.ones(2)
+    fct = np.random.randn(2, 20)
+    res = enstools.scores.vs_sample(obs, fct)
+    res2 = __reference__vs_sample(obs, fct)
+    np.testing.assert_almost_equal(res, res2)
+
+
+def test_vs_sample_vec():
+    """
+    test of vs_sample vectorization
+    """
+    # compare with reference version for variant with concatenated input arrays
+    obs = np.ones((2, 10000))
+    fct = np.random.randn(2, 20, 10000)
+    res = enstools.scores.vs_sample_vec_cat(obs, fct)
+    res2 = __reference__vs_sample_vec(obs, fct)
+    np.testing.assert_array_almost_equal(res, res2)
+
+    # compare to variant with separate input variables
+    obs1 = obs[0, :]
+    obs2 = obs[1, :]
+    fct1 = fct[0, :, :]
+    fct2 = fct[1, :, :]
+    res3 = enstools.scores.vs_sample_vec(obs1, obs2, fct1, fct2)
+    np.testing.assert_array_almost_equal(res3, res2)
+
+
 def test_crps_sample():
     """
     test of crps_sample from scoringtools.py
     """
     # create example data
-    x = numpy.random.randn(100000)
+    x = np.random.randn(100000)
     y = xarray.DataArray(x)
 
     # first argument int, second numpy
     res = enstools.scores.crps_sample(1, x)
-    numpy.testing.assert_almost_equal(res, 0.6, decimal=2)
+    np.testing.assert_almost_equal(res, 0.6, decimal=2)
 
     # first argument float, second numpy
     res = enstools.scores.crps_sample(1.0, x)
-    numpy.testing.assert_almost_equal(res, 0.6, decimal=2)
+    np.testing.assert_almost_equal(res, 0.6, decimal=2)
 
     # first argument float, second xarray
     res = enstools.scores.crps_sample(1.0, y)
-    numpy.testing.assert_almost_equal(res, 0.6, decimal=2)
+    np.testing.assert_almost_equal(res, 0.6, decimal=2)
+
+    # result is equal to reference implementation
+    res2 = __reference__crps_sample(1.0, y)
+    np.testing.assert_almost_equal(res, res2)
 
 
 def test_crps_sample_vec():
@@ -35,28 +102,26 @@ def test_crps_sample_vec():
     test of crps_sample vectorization
     """
     # create example data
-    obs = numpy.ones(100000)
-    fct = numpy.random.randn(20, 100000)
+    obs = np.ones(10000)
+    fct = np.random.randn(20, 10000)
+
+    # test for not averaged result
     res = enstools.scores.crps_sample_vec(obs, fct)
-    res2 = enstools.scores.crps_sample_vec2(obs, fct, mean=True)
-    res3 = enstools.scores.crps_sample_vec2(numpy.reshape(obs, (100, 1000)), numpy.reshape(fct, (20, 100, 1000)), mean=True)
-    #t = timeit.Timer("enstools.scores.crps_sample_vec2(obs, fct)", setup="""gc.enable() ; import enstools ; import numpy ; obs = numpy.ones(194081) ;fct = numpy.random.randn(20, 194081)""")
-    #print(t.timeit(10))
-    print(res, res2, res3)
+    res2 = __reference__crps_sample_vec(obs, fct)
+    np.testing.assert_array_almost_equal(res, res2)
+
+    # test for averaged result
+    res = enstools.scores.crps_sample_vec(obs, fct, mean=True)
+    res2 = np.mean(__reference__crps_sample_vec(obs, fct))
+    np.testing.assert_almost_equal(res, res2)
+
+    # test for gridded data
+    obs = obs.reshape(100, 100)
+    fct = fct.reshape(20, 100, 100)
+    res = enstools.scores.crps_sample_vec(obs, fct, mean=True)
+    np.testing.assert_almost_equal(res, res2)
 
 
-def test_es_sample_vec():
-    """
-    test of es_sample vectorization
-    """
-    obs = numpy.ones((2, 10000))
-    fct = numpy.random.randn(2, 20, 10000)
-    res = enstools.scores.es_sample_vec(obs, fct)
-    res2 = enstools.scores.es_sample_vec2(obs, fct)
-    res3 = enstools.scores.es_sample_vec2(numpy.reshape(obs, (2, 100, 100)), numpy.reshape(fct, (2, 20, 100, 100)))
-    res4 = enstools.scores.es_sample_vec3(obs[0,:], obs[1,:], fct[0,:,:], fct[1,:,:])
-    #print(res, res2, res2.shape, numpy.mean(res2))
-    #print(res, res3, res3.shape, numpy.mean(res3))
 # reference implementation from Sebastian Lerch and Manuel Klar
 def __reference__es_sample(y, dat):
     try:
