@@ -25,8 +25,8 @@ def test_es_sample_vec():
     test of es_sample vectorization
     """
     # compare with reference version for variant with concatenated input arrays
-    obs = np.ones((2, 10000))
-    fct = np.random.randn(2, 20, 10000)
+    obs = np.ones((2, 1000))
+    fct = np.random.randn(2, 20, 1000)
     res = enstools.scores.es_sample_vec_cat(obs, fct)
     res2 = __reference__es_sample_vec(obs, fct)
     np.testing.assert_array_almost_equal(res, res2)
@@ -57,8 +57,8 @@ def test_vs_sample_vec():
     test of vs_sample vectorization
     """
     # compare with reference version for variant with concatenated input arrays
-    obs = np.ones((2, 10000))
-    fct = np.random.randn(2, 20, 10000)
+    obs = np.ones((2, 1000))
+    fct = np.random.randn(2, 20, 1000)
     res = enstools.scores.vs_sample_vec_cat(obs, fct)
     res2 = __reference__vs_sample_vec(obs, fct)
     np.testing.assert_array_almost_equal(res, res2)
@@ -77,7 +77,7 @@ def test_crps_sample():
     test of crps_sample from scoringtools.py
     """
     # create example data
-    x = np.random.randn(100000)
+    x = np.random.randn(1000)
     y = xarray.DataArray(x)
 
     # first argument int, second numpy
@@ -102,8 +102,8 @@ def test_crps_sample_vec():
     test of crps_sample vectorization
     """
     # create example data
-    obs = np.ones(10000)
-    fct = np.random.randn(20, 10000)
+    obs = np.ones(1000)
+    fct = np.random.randn(20, 1000)
 
     # test for not averaged result
     res = enstools.scores.crps_sample_vec(obs, fct)
@@ -116,8 +116,8 @@ def test_crps_sample_vec():
     np.testing.assert_almost_equal(res, res2)
 
     # test for gridded data
-    obs = obs.reshape(100, 100)
-    fct = fct.reshape(20, 100, 100)
+    obs = obs.reshape(100, 10)
+    fct = fct.reshape(20, 100, 10)
     res = enstools.scores.crps_sample_vec(obs, fct, mean=True)
     np.testing.assert_almost_equal(res, res2)
 
