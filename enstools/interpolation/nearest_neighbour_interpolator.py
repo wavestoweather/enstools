@@ -98,7 +98,19 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
 
     Returns
     -------
+    NearestNeighbourInterpolator
+            callable interpolator object. Each call returns interpolated values
 
+    Examples
+    --------
+    >>> import numpy
+    >>> lon = numpy.arange(10)
+    >>> lat = numpy.arange(15)
+    >>> gridded_data = numpy.zeros((10, 15))
+    >>> gridded_data[4, 8] = 3
+    >>> f = nearest_neighbour(lon, lat, 4.4, 7.6)
+    >>> f(gridded_data)
+    array([ 3.])
     """
     # create an array containing all coordinates
     if input_grid == "regular":
