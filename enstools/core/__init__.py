@@ -2,6 +2,7 @@
 Core functionality used by other components of the ensemble tools
 """
 import sys
+import os
 import re
 import logging
 import pint
@@ -381,14 +382,25 @@ def check_arguments(units={}, dims={}, shape={}):
 
 def get_num_available_procs():
     """
-    Find the number of processors available for computations. This is a dummy implementation returning only the number
-    of cores available on the local machine.
+    Find the number of processors available for computations. The function will look for environment variables from
+    SLURM and openMP (in that order). If no environment variables are defined, the number of cpus will be returned.
 
     Returns
     -------
     int
             Number of processes available for parallel computations.
     """
+    # running inside a slurm job?
+    SLURM_NTASKS = os.getenv("SLURM_NTASKS")
+    if SLURM_NTASKS is not None:
+        return int(SLURM_NTASKS)
+
+    # openmp number of threads?
+    OMP_NUM_THREADS = os.getenv("OMP_NUM_THREADS")
+    if OMP_NUM_THREADS is not None:
+        return int(OMP_NUM_THREADS)
+
+    # no hints from environment variables, the number of hardware cpus is returned
     return multiprocessing.cpu_count()
 
 
@@ -473,7 +485,8 @@ def vectorize_univariate_two_arg(func):
     def function_wrapper(arg0, arg1, mean=False, **kwargs):
         # paralyze with dask
         # calculate chunk sizes
-        chunk_size = get_chunk_size_for_n_procs(arg0.shape, get_num_available_procs())
+        nprocs = get_num_available_procs()
+        chunk_size = get_chunk_size_for_n_procs(arg0.shape, nprocs)
         da0 = dask.array.from_array(arg0, chunks=chunk_size)
         da1 = dask.array.from_array(arg1, chunks=(arg1.shape[0],) + chunk_size)
 
@@ -491,9 +504,9 @@ def vectorize_univariate_two_arg(func):
 
         # calculate mean if requested
         if mean:
-            return result.mean().compute(get=dask.multiprocessing.get)
+            return result.mean().compute(get=dask.multiprocessing.get, num_workers=nprocs)
         else:
-            return result.compute(get=dask.multiprocessing.get)
+            return result.compute(get=dask.multiprocessing.get, num_workers=nprocs)
 
     return function_wrapper
 
@@ -522,7 +535,8 @@ def vectorize_multivariate_two_arg(func, arrays_concatenated=True):
     def __vectorize_multivariate_two_arg_concatenated(arg0, arg1, mean=False, **kwargs):
         # paralyze with dask
         # calculate chunk sizes
-        chunk_size = get_chunk_size_for_n_procs(arg0.shape[1:], get_num_available_procs())
+        nprocs = get_num_available_procs()
+        chunk_size = get_chunk_size_for_n_procs(arg0.shape[1:], nprocs)
         da0 = dask.array.from_array(arg0, chunks=(arg0.shape[0],) + chunk_size)
         da1 = dask.array.from_array(arg1, chunks=arg1.shape[0:2] + chunk_size)
 
@@ -541,9 +555,9 @@ def vectorize_multivariate_two_arg(func, arrays_concatenated=True):
 
         # calculate mean if requested
         if mean:
-            return numpy.mean(result)
+            return result.mean().compute(get=dask.multiprocessing.get, num_workers=nprocs)
         else:
-            return result
+            return result.compute(get=dask.multiprocessing.get, num_workers=nprocs)
 
     # create a wrapper for argument and result conversion conversion
     if arrays_concatenated:
