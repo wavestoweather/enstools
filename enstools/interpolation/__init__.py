@@ -1,6 +1,8 @@
 from enstools.core import check_arguments
 import numpy as np
 
+from .nearest_neighbour_interpolator import nearest_neighbour
+
 
 @check_arguments(shape={"arr": (0, 0)})
 def downsize(arr, fac):

@@ -77,7 +77,7 @@ def test_crps_sample():
     test of crps_sample from scoringtools.py
     """
     # create example data
-    x = np.random.randn(1000)
+    x = np.random.randn(10000)
     y = xarray.DataArray(x)
 
     # first argument int, second numpy
