@@ -93,7 +93,7 @@ def __r_caller(*args):
 
 
 def es_sample(y, dat):
-    """Sample Energy Score
+    """Sample Energy Score;
     Compute the energy score ES(*y*, *dat*), where *y* is a vector of a
     *d*-dimensional observation and dat is a multivariate ensemble
     forecast.
@@ -161,7 +161,7 @@ es_sample_vec_cat.__doc__ = """Sample Energy Score; vectorized version
 
 
 def vs_sample(y, dat, w=None, p=0.5):
-    """Sample Variogram Score
+    """Sample Variogram Score;
     Compute the variogram score VS(*y*, *dat*) of order *p*, where *y* is a
     *d*-dimensional observation and dat is a multivariate ensemble
     forecast.
@@ -202,7 +202,9 @@ def vs_sample(y, dat, w=None, p=0.5):
 
 vs_sample_vec = enstools.core.vectorize_multivariate_two_arg(vs_sample, arrays_concatenated=False)
 vs_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(vs_sample)
-vs_sample_vec_cat.__doc__ = """Sample Variogram Score; vectorized version
+vs_sample_vec_cat.__doc__ = """
+    vs_sample_vec_cat(y_arr, dat_arr, p=0.5, w=1)
+    Sample Variogram Score; vectorized version
     Compute the variogram score VS(*y_arr*, *dat_arr*), where *y_arr* is a series of 
     *d*-dimensional observations and *dat_arr* is a series of 
     samples of multivariate forecasts.
@@ -245,7 +247,7 @@ vs_sample_vec_cat.__doc__ = """Sample Variogram Score; vectorized version
 
 
 def crps_sample(y, dat, method="edf"):
-    """Sample Continuous Ranked Probability Score (CRPS)
+    """Sample Continuous Ranked Probability Score (CRPS);
     Compute CRPS(*y*, *dat*), where *y* is a univariate
     observation and *dat* is an ensemble forecasts.
     For details, see [1]_.
@@ -273,7 +275,9 @@ def crps_sample(y, dat, method="edf"):
 
 
 crps_sample_vec = enstools.core.vectorize_univariate_two_arg(crps_sample)
-crps_sample_vec.__doc__ = """Sample Continuous Ranked Probability Score (CRPS); vectorized version
+crps_sample_vec.__doc__ = """
+    crps_sample_vec(y_arr, dat_arr, mean=False)
+    Sample Continuous Ranked Probability Score (CRPS); vectorized version
     Compute CRPS(*y_arr*, *dat_arr*), where *y_arr* is a series of 
     univariate observations and *dat_arr* is a series of
     ensemble forecasts.
@@ -289,10 +293,14 @@ crps_sample_vec.__doc__ = """Sample Continuous Ranked Probability Score (CRPS); 
             Ensemble forecasts  
             of shape (*m*, *n*), where *m* is the number of ensemble members, 
             and *n* the number of observation.
+            
+    mean : bool
+            if True, the mean value of the CRPS calculated for each grid point es returned. 
+            Otherwise an array with the same dimension as *y_arr* is returned.
     
     Returns
     -------
-    np.array
+    np.array or float
             CRPS of each forecast-observation pair.
 
     References
