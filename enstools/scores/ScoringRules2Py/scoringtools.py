@@ -97,19 +97,29 @@ def es_sample(y, dat):
     Compute the energy score ES(*y*, *dat*), where *y* is a vector of a
     *d*-dimensional observation and dat is a multivariate ensemble
     forecast.
-    For details, see Gneiting, T., Stanberry, L.I., Grimit, E.P.,
-    Held, L. and Johnson, N.A. (2008). Assessing probabilistic forecasts of
-    multivariate quantities, with an application to ensemble predictions of
-    surface winds. Test, 17, 211–235.
-    Args:
-        *y* (np.array): Realized values (numeric vector of length *d*).
+    For details, see [1]_.
 
-        *dat* (np.array): Forecast sample of shape (*d*, *m*), where
-        *d* is the dimension of the realization and
-        *m* the number of sample members. Each of the *m* columns corresponds
-        to the *d*-dimensional forecast of one ensemble member.
-    Returns:
-        float: Energy score of the forecast-observation pair.
+    Parameters
+    ----------
+    y : np.array
+            Realized values (numeric vector of length *d*)
+    dat : np.array
+            Forecast sample of shape (*d*, *m*), where
+            *d* is the dimension of the realization and
+            *m* the number of sample members. Each of the *m* columns corresponds
+            to the *d*-dimensional forecast of one ensemble member.
+
+    Returns
+    -------
+    float
+            Energy score of the forecast-observation pair.
+
+    References
+    ----------
+    .. [1] Gneiting, T., Stanberry, L.I., Grimit, E.P.,
+       Held, L. and Johnson, N.A. (2008). Assessing probabilistic forecasts of
+       multivariate quantities, with an application to ensemble predictions of
+       surface winds. Test, 17, 211–235.
     """
     return __r_caller("es_sample", y, dat)
 
@@ -120,22 +130,33 @@ es_sample_vec_cat.__doc__ = """Sample Energy Score; vectorized version
     Compute the energy score ES(*y_arr*, *dat_arr*), where *y_arr* is a series of 
     *d*-dimensional observations and *dat_arr* is a series of 
     samples of multivariate forecasts.
-    For details, see Gneiting, T., Stanberry, L.I., Grimit, E.P.,
-    Held, L. and Johnson, N.A. (2008). Assessing probabilistic forecasts of 
-    multivariate quantities, with an application to ensemble predictions of 
-    surface winds. Test, 17, 211-235.
-    Args:
-        *y_arr* (np.array): Series of observations of 
-        shape (*d*, *n*), where *d* is the dimension of the observations,
-        and *n* the number of observation. Hence each column contains a single 
-        *d*-dimensional realization.
+    For details, see [1]_.
+    
+    Parameters
+    ----------
+    y_arr : np.array
+            Series of observations of 
+            shape (*d*, *n*), where *d* is the dimension of the observations,
+            and *n* the number of observation. Hence each column contains a single 
+            *d*-dimensional realization.
         
-        *dat_arr* (np.array): Forecast sample  
-        of shape (*d*, *m*, *n*), where
-        *d* is the dimension of the realized values, *m* the number of 
-        samples, and *n* the number of realizations.
-    Returns:
-        np.array: Energy score of each forecast-observation pair.
+    dat_arr : np.array
+            Forecast sample  
+            of shape (*d*, *m*, *n*), where
+            *d* is the dimension of the realized values, *m* the number of 
+            samples, and *n* the number of realizations.
+    
+    Returns
+    -------
+    np.array
+            Energy score of each forecast-observation pair.
+
+    References
+    ----------
+    .. [1] Gneiting, T., Stanberry, L.I., Grimit, E.P.,
+       Held, L. and Johnson, N.A. (2008). Assessing probabilistic forecasts of
+       multivariate quantities, with an application to ensemble predictions of
+       surface winds. Test, 17, 211–235.
     """
 
 
@@ -144,56 +165,82 @@ def vs_sample(y, dat, w=None, p=0.5):
     Compute the variogram score VS(*y*, *dat*) of order *p*, where *y* is a
     *d*-dimensional observation and dat is a multivariate ensemble
     forecast.
-    For details, see Scheuerer, M. and Hamill, T.M. (2015). Variogram-based
-    proper scoring rules for probabilistic forecasts of multivariate quantities.
-    Monthly Weather Review, 143, 1321-1334.
-    Args:
-        *y* (np.array): Observation (numeric vector of length *d*).
+    For details, see [1]_.
 
-        *dat* (np.array): Forecast sample of shape (*d*, *m*), where
-        *d* is the dimension of the realization and
-        *m* the number of sample members.
+    Parameters
+    ----------
+    y : np.array
+            Observation (numeric vector of length *d*).
 
-        *p* (float): Order of variogram score. Standard choices include *p* = 1 and
-        *p* = 0.5 (default).
+    dat : np.array
+            Forecast sample of shape (*d*, *m*), where
+            *d* is the dimension of the realization and
+            *m* the number of sample members.
 
-        *w* (np.array):  Numeric array of weights for *dat* used in the variogram
-          score.  If no weights are specified, constant weights with *w*
-          = 1 are used.
-    Returns:
-        float: Variogram score of the forecast-observation pair.
+    p : float
+            Order of variogram score. Standard choices include *p* = 1 and
+            *p* = 0.5 (default).
+
+    w : np.array
+            Numeric array of weights for *dat* used in the variogram
+            score.  If no weights are specified, constant weights with *w*
+            = 1 are used.
+
+    Returns
+    -------
+    float
+            Variogram score of the forecast-observation pair.
+
+    References
+    ----------
+    .. [1] Scheuerer, M. and Hamill, T.M. (2015). Variogram-based
+       proper scoring rules for probabilistic forecasts of multivariate quantities.
+       Monthly Weather Review, 143, 1321-1334.
     """
     return __r_caller("vs_sample", y, dat, w, p)
 
 
 vs_sample_vec = enstools.core.vectorize_multivariate_two_arg(vs_sample, arrays_concatenated=False)
 vs_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(vs_sample)
-vs_sample_vec_cat.__doc__ =     """Sample Variogram Score; vectorized version
+vs_sample_vec_cat.__doc__ = """Sample Variogram Score; vectorized version
     Compute the variogram score VS(*y_arr*, *dat_arr*), where *y_arr* is a series of 
     *d*-dimensional observations and *dat_arr* is a series of 
     samples of multivariate forecasts.
-    For details, see Scheuerer, M. and Hamill, T.M. (2015). Variogram-based 
-    proper scoring rules for probabilistic forecasts of multivariate quantities. 
-    Monthly Weather Review, 143, 1321-1334.
-    Args:
-        *y_arr* (np.array): Series of observations of 
-        shape (*d*, *n*), where *d* is the dimension of the observations,
-        and *n* the number of observation. Hence each column contains a single 
-        *d*-dimensional realization.
+    For details, see [1]_.
+    
+    Parameters
+    ----------
+    y_arr : np.array
+            Series of observations of 
+            shape (*d*, *n*), where *d* is the dimension of the observations,
+            and *n* the number of observation. Hence each column contains a single 
+            *d*-dimensional realization.
         
-        *dat_arr* (np.array): Forecast sample  
-        of shape (*d*, *m*, *n*), where
-        *d* is the dimension of the realized values, *m* the number of 
-        samples, and *n* the number of realizations.
+    dat_arr : np.array
+            Forecast sample  
+            of shape (*d*, *m*, *n*), where
+            *d* is the dimension of the realized values, *m* the number of 
+            samples, and *n* the number of realizations.
         
-        *p* (float): Order of variogram score. Standard choices include *p* = 1 and
-        *p* = 0.5 (default).
+    p : float
+            Order of variogram score. Standard choices include *p* = 1 and
+            *p* = 0.5 (default).
         
-        *w* (np.array):  Numeric array of weights for *dat* used in the variogram
-          score.  If no weights are specified, constant weights with *w*
-          = 1 are used.
-    Returns:
-        *np.array*: Variogram score of each forecast-observation pair.
+    w : np.array
+            Numeric array of weights for *dat* used in the variogram
+            score.  If no weights are specified, constant weights with *w*
+            = 1 are used.
+    
+    Returns
+    -------
+    np.array
+            Variogram score of each forecast-observation pair.
+
+    References
+    ----------
+    .. [1] Scheuerer, M. and Hamill, T.M. (2015). Variogram-based
+       proper scoring rules for probabilistic forecasts of multivariate quantities.
+       Monthly Weather Review, 143, 1321-1334.
     """
 
 
@@ -201,16 +248,26 @@ def crps_sample(y, dat, method="edf"):
     """Sample Continuous Ranked Probability Score (CRPS)
     Compute CRPS(*y*, *dat*), where *y* is a univariate
     observation and *dat* is an ensemble forecasts.
-    For details, see Matheson, J.E. and Winkler, R.L. (1976). Scoring rules for
-    continuous probability distributions. Management Science, 22, 1087-1096.
+    For details, see [1]_.
 
-    Args:
-        *y* (float): Observation.
+    Parameters
+    ----------
+    y : float
+            Observation.
 
-        *dat* (np.array): Forecast ensemble of length *m*, where
-        *m* is the number of members.
-    Returns:
-        float: CRPS of the forecast-observation pair.
+    dat : np.array
+            Forecast ensemble of length *m*, where
+            *m* is the number of members.
+
+    Returns
+    -------
+    float
+            CRPS of the forecast-observation pair.
+
+    References
+    ----------
+    .. [1] Matheson, J.E. and Winkler, R.L. (1976). Scoring rules for
+       continuous probability distributions. Management Science, 22, 1087-1096.
     """
     return __r_caller("crps_sample", y, dat, method)
 
@@ -220,15 +277,26 @@ crps_sample_vec.__doc__ = """Sample Continuous Ranked Probability Score (CRPS); 
     Compute CRPS(*y_arr*, *dat_arr*), where *y_arr* is a series of 
     univariate observations and *dat_arr* is a series of
     ensemble forecasts.
-    For details, see Matheson, J.E. and Winkler, R.L. (1976). Scoring rules for
-    continuous probability distributions. Management Science, 22, 1087-1096.
-    Args:
-        *y_arr* (np.array): Series of observations of 
-        length *n*, where *n* is the number of observations. 
+    For details, see [1]_.
+    
+    Parameters
+    ----------
+    y_arr : np.array
+            Series of observations of 
+            length *n*, where *n* is the number of observations. 
         
-        *dat_arr* (np.array): Ensemble forecasts  
-        of shape (*m*, *n*), where *m* is the number of ensemble members, 
-        and *n* the number of observation.
-    Returns:
-        np.array: CRPS of each forecast-observation pair.
+    dat_arr : np.array
+            Ensemble forecasts  
+            of shape (*m*, *n*), where *m* is the number of ensemble members, 
+            and *n* the number of observation.
+    
+    Returns
+    -------
+    np.array
+            CRPS of each forecast-observation pair.
+
+    References
+    ----------
+    .. [1] Matheson, J.E. and Winkler, R.L. (1976). Scoring rules for
+       continuous probability distributions. Management Science, 22, 1087-1096.
     """

@@ -9,3 +9,4 @@ Python modules:
     toolz
     pint
     nose
+    decorator

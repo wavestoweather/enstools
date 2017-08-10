@@ -91,7 +91,7 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
             data on the ICON grid 3 or 6 might be used. The actual geometry of the grid is not taken into account. The
             points are selected based merely on distance.
 
-    method : string
+    method : {'mean', 'd-mean'}
             "mean" : the mean value of the neighbour points is used with equal weight.
             "d-mean": each point is weighted by the reciprocal of the squared distance. The minimum distance within this
             calculation is half of the mean grid spacing.
