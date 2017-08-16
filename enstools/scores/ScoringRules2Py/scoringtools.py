@@ -83,7 +83,11 @@ def __r_caller(*args):
             raise ValueError("Unsupported argument type: %s" % type(arg))
 
     # call the R-function
-    result = getattr(srl, args[0])(*r_args)[0]
+    result = getattr(srl, args[0])(*r_args)
+    if len(result) == 1:
+        result = result[0]
+    else:
+        result = rpy2.robjects.numpy2ri.ri2py(result)
 
     # convert back to xarray when input is an xarray
     if input_is_xarray and type(result) == np.ndarray:
@@ -92,26 +96,37 @@ def __r_caller(*args):
     return result
 
 
-def es_sample(y, dat):
-    """Sample Energy Score;
-    Compute the energy score ES(*y*, *dat*), where *y* is a vector of a
-    *d*-dimensional observation and dat is a multivariate ensemble
-    forecast.
+def es_sample(obs, fct, mean=False):
+    """Sample Energy Score
+
+    Compute the energy score ES(*obs*, *fct*), where *obs* is a vector of a
+    *d*-dimensional observation and *fct* is a multivariate ensemble forecast.
+
     For details, see [1]_.
 
     Parameters
     ----------
-    y : np.array
-            Realized values (numeric vector of length *d*)
-    dat : np.array
-            Forecast sample of shape (*d*, *m*), where
-            *d* is the dimension of the realization and
-            *m* the number of sample members. Each of the *m* columns corresponds
-            to the *d*-dimensional forecast of one ensemble member.
+    obs : np.ndarray
+            Series of observations of
+            shape (*d*, *n*), where *d* is the dimension of the observations,
+            and *n* the number of observation. Hence each column contains a single
+            *d*-dimensional realization. The dimension *n* may be omitted for single
+            observations.
+
+    fct : np.ndarray
+            Forecast sample
+            of shape (*d*, *m*, *n*), where
+            *d* is the dimension of the realized values, *m* the number of
+            samples, and *n* the number of realizations. The dimension *n* may be omitted
+            for single observations.
+
+    mean : bool
+            Applicable for multiple observations only. Is True, the mean value of all scores
+            is returned. Otherwise a grid with the same dimension as the *obs* array is returned.
 
     Returns
     -------
-    float
+    float or np.ndarray
             Energy score of the forecast-observation pair.
 
     References
@@ -121,35 +136,43 @@ def es_sample(y, dat):
        multivariate quantities, with an application to ensemble predictions of
        surface winds. Test, 17, 211–235.
     """
-    return __r_caller("es_sample", y, dat)
+    if obs.ndim == 1:
+        return __r_caller("es_sample", obs, fct)
+    if obs.ndim >= 2:
+        return __es_sample_vec_cat(obs, fct, mean)
 
 
-es_sample_vec = enstools.core.vectorize_multivariate_two_arg(es_sample, arrays_concatenated=False)
-es_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(es_sample)
-es_sample_vec_cat.__doc__ = """Sample Energy Score; vectorized version
-    Compute the energy score ES(*y_arr*, *dat_arr*), where *y_arr* is a series of 
-    *d*-dimensional observations and *dat_arr* is a series of 
-    samples of multivariate forecasts.
-    For details, see [1]_.
-    
+def es_sample2(obs0, obs1, fct0, fct1, mean=False):
+    """Sample Energy Score
+
+    Same computation as in es_sample, but for the special case of two observation and forecast variables.
+
     Parameters
     ----------
-    y_arr : np.array
-            Series of observations of 
-            shape (*d*, *n*), where *d* is the dimension of the observations,
-            and *n* the number of observation. Hence each column contains a single 
-            *d*-dimensional realization.
-        
-    dat_arr : np.array
-            Forecast sample  
-            of shape (*d*, *m*, *n*), where
-            *d* is the dimension of the realized values, *m* the number of 
+    obs0 : np.ndarray
+            Series of observations for the first variable of
+            shape (*n*), where *n* is the number of observation.
+
+    obs1 : np.ndarray
+            Series of observations for the second variable of
+            shape (*n*), where *n* is the number of observation.
+
+    fct0 : np.ndarray
+            Forecast sample for the first variable of shape (*m*, *n*), where *m* is the number of
             samples, and *n* the number of realizations.
-    
+
+    fct1 : np.ndarray
+            Forecast sample for the first variable of shape (*m*, *n*), where *m* is the number of
+            samples, and *n* the number of realizations.
+
+    mean : bool
+            Applicable for multiple observations only. Is True, the mean value of all scores
+            is returned. Otherwise a grid with the same dimension as the *obs* array is returned.
+
     Returns
     -------
-    np.array
-            Energy score of each forecast-observation pair.
+    float or np.ndarray
+            Energy score of the forecast-observation pair.
 
     References
     ----------
@@ -158,37 +181,54 @@ es_sample_vec_cat.__doc__ = """Sample Energy Score; vectorized version
        multivariate quantities, with an application to ensemble predictions of
        surface winds. Test, 17, 211–235.
     """
+    return __es_sample_vec(obs0, obs1, fct0, fct1, mean)
 
 
-def vs_sample(y, dat, w=None, p=0.5):
-    """Sample Variogram Score;
-    Compute the variogram score VS(*y*, *dat*) of order *p*, where *y* is a
+__es_sample_vec = enstools.core.vectorize_multivariate_two_arg(es_sample, arrays_concatenated=False)
+__es_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(es_sample)
+
+
+def vs_sample(obs, fct, w=None, p=0.5, mean=False):
+    """Sample Variogram Score
+
+    Compute the variogram score VS(*obs*, *fct*) of order *p*, where *obs* is a
     *d*-dimensional observation and dat is a multivariate ensemble
     forecast.
+
     For details, see [1]_.
 
     Parameters
     ----------
-    y : np.array
-            Observation (numeric vector of length *d*).
+    obs : np.ndarray
+            Series of observations of
+            shape (*d*, *n*), where *d* is the dimension of the observations,
+            and *n* the number of observation. Hence each column contains a single
+            *d*-dimensional realization. The dimension *n* may be omitted for single
+            observations.
 
-    dat : np.array
-            Forecast sample of shape (*d*, *m*), where
-            *d* is the dimension of the realization and
-            *m* the number of sample members.
+    fct : np.ndarray
+            Forecast sample
+            of shape (*d*, *m*, *n*), where
+            *d* is the dimension of the realized values, *m* the number of
+            samples, and *n* the number of realizations. The dimension *n* may be omitted
+            for single observations.
 
     p : float
             Order of variogram score. Standard choices include *p* = 1 and
             *p* = 0.5 (default).
 
-    w : np.array
+    w : np.ndarray
             Numeric array of weights for *dat* used in the variogram
             score.  If no weights are specified, constant weights with *w*
             = 1 are used.
 
+    mean : bool
+            Applicable for multiple observations only. Is True, the mean value of all scores
+            is returned. Otherwise a grid with the same dimension as the *obs* array is returned.
+
     Returns
     -------
-    float
+    float or np.ndarray
             Variogram score of the forecast-observation pair.
 
     References
@@ -197,46 +237,54 @@ def vs_sample(y, dat, w=None, p=0.5):
        proper scoring rules for probabilistic forecasts of multivariate quantities.
        Monthly Weather Review, 143, 1321-1334.
     """
-    return __r_caller("vs_sample", y, dat, w, p)
+    if obs.ndim == 1:
+        return __r_caller("vs_sample", obs, fct, w, p)
+    if obs.ndim >= 2:
+        return __vs_sample_vec_cat(obs, fct, mean, w=w, p=p)
 
 
-vs_sample_vec = enstools.core.vectorize_multivariate_two_arg(vs_sample, arrays_concatenated=False)
-vs_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(vs_sample)
-vs_sample_vec_cat.__doc__ = """
-    vs_sample_vec_cat(y_arr, dat_arr, p=0.5, w=1)
-    Sample Variogram Score; vectorized version
-    Compute the variogram score VS(*y_arr*, *dat_arr*), where *y_arr* is a series of 
-    *d*-dimensional observations and *dat_arr* is a series of 
-    samples of multivariate forecasts.
+def vs_sample2(obs0, obs1, fct0, fct1, w=None, p=0.5, mean=False):
+    """Sample Variogram Score;
+    Compute the variogram score VS(*y*, *dat*) of order *p*, where *y* is a
+    *d*-dimensional observation and dat is a multivariate ensemble
+    forecast.
     For details, see [1]_.
-    
+
     Parameters
     ----------
-    y_arr : np.array
-            Series of observations of 
-            shape (*d*, *n*), where *d* is the dimension of the observations,
-            and *n* the number of observation. Hence each column contains a single 
-            *d*-dimensional realization.
-        
-    dat_arr : np.array
-            Forecast sample  
-            of shape (*d*, *m*, *n*), where
-            *d* is the dimension of the realized values, *m* the number of 
+    obs0 : np.ndarray
+            Series of observations for the first variable of
+            shape (*n*), where *n* is the number of observation.
+
+    obs1 : np.ndarray
+            Series of observations for the second variable of
+            shape (*n*), where *n* is the number of observation.
+
+    fct0 : np.ndarray
+            Forecast sample for the first variable of shape (*m*, *n*), where *m* is the number of
             samples, and *n* the number of realizations.
-        
+
+    fct1 : np.ndarray
+            Forecast sample for the first variable of shape (*m*, *n*), where *m* is the number of
+            samples, and *n* the number of realizations.
+
     p : float
             Order of variogram score. Standard choices include *p* = 1 and
             *p* = 0.5 (default).
-        
-    w : np.array
+
+    w : np.ndarray
             Numeric array of weights for *dat* used in the variogram
             score.  If no weights are specified, constant weights with *w*
             = 1 are used.
-    
+
+    mean : bool
+            Applicable for multiple observations only. Is True, the mean value of all scores
+            is returned. Otherwise a grid with the same dimension as the *obs* array is returned.
+
     Returns
     -------
-    np.array
-            Variogram score of each forecast-observation pair.
+    float or np.ndarray
+            Variogram score of the forecast-observation pair.
 
     References
     ----------
@@ -244,9 +292,14 @@ vs_sample_vec_cat.__doc__ = """
        proper scoring rules for probabilistic forecasts of multivariate quantities.
        Monthly Weather Review, 143, 1321-1334.
     """
+    return __vs_sample_vec(obs0, obs1, fct0, fct1, mean, w=w, p=p)
 
 
-def crps_sample(y, dat, method="edf"):
+__vs_sample_vec = enstools.core.vectorize_multivariate_two_arg(vs_sample, arrays_concatenated=False)
+__vs_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(vs_sample)
+
+
+def crps_sample(y, dat, mean=False):
     """Sample Continuous Ranked Probability Score (CRPS);
     Compute CRPS(*y*, *dat*), where *y* is a univariate
     observation and *dat* is an ensemble forecasts.
@@ -254,16 +307,21 @@ def crps_sample(y, dat, method="edf"):
 
     Parameters
     ----------
-    y : float
-            Observation.
+    y : float or np.ndarray or xarray.DataArray
+            Single observation or *n*-dimensional array of observations
 
-    dat : np.array
-            Forecast ensemble of length *m*, where
-            *m* is the number of members.
+    dat : np.ndarray or xarray.DataArray
+            Ensemble forecasts *m* for a single observation or of shape (*m*, *n*),
+            where *m* is the number of ensemble members,
+            and *n* the number of observation.
+
+    mean : bool
+            If True, the mean value of all calculated CRPS values is returned. Otherwise
+            an array with the same shape as the observations is returned.
 
     Returns
     -------
-    float
+    float or np.ndarray
             CRPS of the forecast-observation pair.
 
     References
@@ -271,40 +329,18 @@ def crps_sample(y, dat, method="edf"):
     .. [1] Matheson, J.E. and Winkler, R.L. (1976). Scoring rules for
        continuous probability distributions. Management Science, 22, 1087-1096.
     """
-    return __r_caller("crps_sample", y, dat, method)
-
-
-crps_sample_vec = enstools.core.vectorize_univariate_two_arg(crps_sample)
-crps_sample_vec.__doc__ = """
-    crps_sample_vec(y_arr, dat_arr, mean=False)
-    Sample Continuous Ranked Probability Score (CRPS); vectorized version
-    Compute CRPS(*y_arr*, *dat_arr*), where *y_arr* is a series of 
-    univariate observations and *dat_arr* is a series of
-    ensemble forecasts.
-    For details, see [1]_.
-    
-    Parameters
-    ----------
-    y_arr : np.array
-            Series of observations of 
-            length *n*, where *n* is the number of observations. 
-        
-    dat_arr : np.array
-            Ensemble forecasts  
-            of shape (*m*, *n*), where *m* is the number of ensemble members, 
-            and *n* the number of observation.
-            
-    mean : bool
-            if True, the mean value of the CRPS calculated for each grid point es returned. 
-            Otherwise an array with the same dimension as *y_arr* is returned.
-    
-    Returns
-    -------
-    np.array or float
-            CRPS of each forecast-observation pair.
-
-    References
-    ----------
-    .. [1] Matheson, J.E. and Winkler, R.L. (1976). Scoring rules for
-       continuous probability distributions. Management Science, 22, 1087-1096.
-    """
+    if not hasattr(y, "shape"):
+        return __r_caller("crps_sample", y, dat)
+    else:
+        if len(y.shape) > 1:
+            # The R-function expects one dimensional forecasts and 1d observations
+            original_shape = y.shape
+            y_flat = y.flatten()
+            dat_reshaped = dat.reshape((dat.size // y_flat.size, y_flat.size))
+            result = __r_caller("crps_sample", y_flat, np.moveaxis(dat_reshaped, 0, -1))
+            result = result.reshape(original_shape)
+        else:
+            result = __r_caller("crps_sample", y, np.moveaxis(dat, 0, -1))
+        if mean:
+            result = result.mean()
+        return result

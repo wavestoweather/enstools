@@ -462,6 +462,62 @@ def get_chunk_size_for_n_procs(shape, nproc):
             return shape_for_chunk[0] // n_chunks_0, shape_for_chunk[1] // n_chunks_1
 
 
+def parallelize_univariate_two_arg(func):
+    """
+    Parallelize a function with two arguments. The first argument is a (N,...)-array, the second argument is a
+    (e,N,...)-array. The array in the first argument will be divided into chunks of (almost) equal size. The array in
+    the second argument will be divided in the same way in its rightmost dimensions.
+
+    The first call to the underlining function will be func(arg0[0:chunk0], arg1[:,0:chunk0]),
+    the second func(arg0[chunk0:chunk1], arg1[:,chunk0:chunk1]), ...
+
+    Parameters
+    ----------
+    func : function object
+
+    Returns
+    -------
+    numpy.ndarray or xarray.DataArray or float
+    """
+
+    # create a wrapper for argument and result conversion conversion
+    @check_arguments(shape={0: ("n-obs:",), 1: ("ensemble", "n-obs:")})
+    def function_wrapper(arg0, arg1, mean=False, **kwargs):
+        # paralyze with dask
+        # calculate chunk sizes
+        nprocs = get_num_available_procs()
+        chunk_size = get_chunk_size_for_n_procs(arg0.shape, nprocs)
+        da0 = dask.array.from_array(arg0, chunks=chunk_size)
+        da1 = dask.array.from_array(arg1, chunks=(arg1.shape[0],) + chunk_size)
+
+        # perform the actual calculation on a chunk of the array
+        def dask_calculation(a0, a1):
+            if len(a0.shape) > 1:
+                original_shape = a0.shape
+                a0 = a0.flatten()
+                a1 = a1.reshape((a1.size // a0.size, a0.size))
+                result = func(a0, numpy.moveaxis(a1, 0, -1), **kwargs)
+                result = result.reshape(original_shape)
+            else:
+                result = func(a0, numpy.moveaxis(a1, 0, -1), **kwargs)
+            return result
+
+        # order of index in input and output
+        obs_ind = string.ascii_lowercase[:len(chunk_size)]
+        fct_int = "z"+obs_ind
+
+        # perform the actual calculation
+        result = dask.array.atop(dask_calculation, obs_ind, da0, obs_ind, da1, fct_int, dtype=da0.dtype, concatenate=True)
+
+        # calculate mean if requested
+        if mean:
+            return result.mean().compute(get=dask.multiprocessing.get, num_workers=nprocs)
+        else:
+            return result.compute(get=dask.multiprocessing.get, num_workers=nprocs)
+
+    return function_wrapper
+
+
 def vectorize_univariate_two_arg(func):
     """
     Vectorize a function with two arguments. The first argument if a 1d-array, the second argument is a 2d-array. The
@@ -482,30 +538,14 @@ def vectorize_univariate_two_arg(func):
     # create a wrapper for argument and result conversion conversion
     @check_arguments(shape={0: ("n-obs:",), 1: ("ensemble", "n-obs:")})
     def function_wrapper(arg0, arg1, mean=False, **kwargs):
-        # paralyze with dask
-        # calculate chunk sizes
-        nprocs = get_num_available_procs()
-        chunk_size = get_chunk_size_for_n_procs(arg0.shape, nprocs)
-        da0 = dask.array.from_array(arg0, chunks=chunk_size)
-        da1 = dask.array.from_array(arg1, chunks=(arg1.shape[0],) + chunk_size)
-
-        # perform the actual calculation on a chunk of the array
-        def dask_calculation(a0, a1):
-            return vfunc(a0, numpy.moveaxis(a1, 0, -1), **kwargs)
-
-        # order of index in input and output
-        obs_ind = string.ascii_lowercase[:len(chunk_size)]
-        fct_int = "z"+obs_ind
-
         # perform the actual calculation
-        result = dask.array.atop(dask_calculation, obs_ind, da0, obs_ind, da1, fct_int, dtype=da0.dtype,
-                                 concatenate=True)
+        result = vfunc(arg0, numpy.moveaxis(arg1, 0, -1), **kwargs)
 
         # calculate mean if requested
         if mean:
-            return result.mean().compute(get=dask.multiprocessing.get, num_workers=nprocs)
+            return result.mean()
         else:
-            return result.compute(get=dask.multiprocessing.get, num_workers=nprocs)
+            return result
 
     return function_wrapper
 
@@ -527,36 +567,31 @@ def vectorize_multivariate_two_arg(func, arrays_concatenated=True):
     -------
     numpy.ndarray or xarray.DataArray or float
     """
+    # check the arguments of the functions. only the first two arguments are used in vectorization.
+    if sys.version_info >= (3, 0):
+        arg_spec = inspect.getfullargspec(func)
+    else:
+        arg_spec = inspect.getargspec(func)
 
     # create the vectorized version
-    vfunc = numpy.vectorize(func, signature="(d),(d,m)->()")
+    if len(arg_spec.args) > 2:
+        vfunc = numpy.vectorize(func, signature="(d),(d,m)->()", excluded=arg_spec.args[2:])
+    else:
+        vfunc = numpy.vectorize(func, signature="(d),(d,m)->()")
 
     def __vectorize_multivariate_two_arg_concatenated(arg0, arg1, mean=False, **kwargs):
-        # paralyze with dask
-        # calculate chunk sizes
-        nprocs = get_num_available_procs()
-        chunk_size = get_chunk_size_for_n_procs(arg0.shape[1:], nprocs)
-        da0 = dask.array.from_array(arg0, chunks=(arg0.shape[0],) + chunk_size)
-        da1 = dask.array.from_array(arg1, chunks=arg1.shape[0:2] + chunk_size)
-
-        # perform the actual calculation on a chunk of the array
-        def dask_calculation(a0, a1):
-            return vfunc(numpy.moveaxis(a0, 0, -1), numpy.moveaxis(a1, (0, 1), (-2, -1)), **kwargs)
-
-        # order of index in input and output
-        out_ind = string.ascii_lowercase[:len(chunk_size)]
-        obs_ind = "o" + out_ind
-        fct_int = obs_ind.replace("o", "oz")
-
         # perform the actual calculation
-        result = dask.array.atop(dask_calculation, out_ind, da0, obs_ind, da1, fct_int, dtype=da0.dtype,
-                                 concatenate=True)
+        if type(arg0) == xarray.DataArray:
+            arg0 = arg0.data
+        if type(arg1) == xarray.DataArray:
+            arg1 = arg1.data
+        result = vfunc(numpy.moveaxis(arg0, 0, -1), numpy.moveaxis(arg1, (0, 1), (-2, -1)), **kwargs)
 
         # calculate mean if requested
         if mean:
-            return result.mean().compute(get=dask.multiprocessing.get, num_workers=nprocs)
+            return result.mean()
         else:
-            return result.compute(get=dask.multiprocessing.get, num_workers=nprocs)
+            return result
 
     # create a wrapper for argument and result conversion conversion
     if arrays_concatenated:

@@ -27,8 +27,14 @@ def test_es_sample_vec():
     # compare with reference version for variant with concatenated input arrays
     obs = np.ones((2, 1000))
     fct = np.random.randn(2, 20, 1000)
-    res = enstools.scores.es_sample_vec_cat(obs, fct)
+    res = enstools.scores.es_sample(obs, fct)
     res2 = __reference__es_sample_vec(obs, fct)
+    np.testing.assert_array_almost_equal(res, res2)
+
+    # same test with xarray
+    obs = xarray.DataArray(obs)
+    fct = xarray.DataArray(fct)
+    res = enstools.scores.es_sample(obs, fct)
     np.testing.assert_array_almost_equal(res, res2)
 
     # compare to variant with separate input variables
@@ -36,7 +42,14 @@ def test_es_sample_vec():
     obs2 = obs[1, :]
     fct1 = fct[0, :, :]
     fct2 = fct[1, :, :]
-    res3 = enstools.scores.es_sample_vec(obs1, obs2, fct1, fct2)
+    res3 = enstools.scores.es_sample2(obs1, obs2, fct1, fct2)
+    np.testing.assert_array_almost_equal(res3, res2)
+
+    # same the with xarray
+    obs1 = xarray.DataArray(obs1)
+    obs2 = xarray.DataArray(obs2)
+    fct1 = xarray.DataArray(fct1)
+    fct2 = xarray.DataArray(fct2)
     np.testing.assert_array_almost_equal(res3, res2)
 
 
@@ -59,17 +72,25 @@ def test_vs_sample_vec():
     # compare with reference version for variant with concatenated input arrays
     obs = np.ones((2, 1000))
     fct = np.random.randn(2, 20, 1000)
-    res = enstools.scores.vs_sample_vec_cat(obs, fct)
+    res = enstools.scores.vs_sample(obs, fct)
     res2 = __reference__vs_sample_vec(obs, fct)
     np.testing.assert_array_almost_equal(res, res2)
+
+    # same test with mean values
+    res = enstools.scores.vs_sample(obs, fct, mean=True)
+    np.testing.assert_almost_equal(res, res2.mean())
 
     # compare to variant with separate input variables
     obs1 = obs[0, :]
     obs2 = obs[1, :]
     fct1 = fct[0, :, :]
     fct2 = fct[1, :, :]
-    res3 = enstools.scores.vs_sample_vec(obs1, obs2, fct1, fct2)
+    res3 = enstools.scores.vs_sample2(obs1, obs2, fct1, fct2)
     np.testing.assert_array_almost_equal(res3, res2)
+
+    # same test with mean values
+    res3 = enstools.scores.vs_sample2(obs1, obs2, fct1, fct2, mean=True)
+    np.testing.assert_almost_equal(res3, res2.mean())
 
 
 def test_crps_sample():
@@ -106,19 +127,19 @@ def test_crps_sample_vec():
     fct = np.random.randn(20, 1000)
 
     # test for not averaged result
-    res = enstools.scores.crps_sample_vec(obs, fct)
+    res = enstools.scores.crps_sample(obs, fct)
     res2 = __reference__crps_sample_vec(obs, fct)
     np.testing.assert_array_almost_equal(res, res2)
 
     # test for averaged result
-    res = enstools.scores.crps_sample_vec(obs, fct, mean=True)
+    res = enstools.scores.crps_sample(obs, fct, mean=True)
     res2 = np.mean(__reference__crps_sample_vec(obs, fct))
     np.testing.assert_almost_equal(res, res2)
 
     # test for gridded data
     obs = obs.reshape(100, 10)
     fct = fct.reshape(20, 100, 10)
-    res = enstools.scores.crps_sample_vec(obs, fct, mean=True)
+    res = enstools.scores.crps_sample(obs, fct, mean=True)
     np.testing.assert_almost_equal(res, res2)
 
 
