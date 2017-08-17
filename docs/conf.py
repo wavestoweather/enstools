@@ -295,5 +295,104 @@ texinfo_documents = [
 #texinfo_no_detailmenu = False
 
 # Settings for automodule
-#autodoc_mock_imports = ["multipledispatch"]
-import sphinx.ext.autodoc
+import sphinx.ext.autodoc as autodoc
+from sphinx.util.inspect import getargspec, is_builtin_class_method
+import inspect
+import multipledispatch
+import warnings
+
+# disable warning from numpydoc about Dispatcher docstrings
+warnings.filterwarnings("ignore", message="^Unknown section Inputs: <")
+
+
+class DispatcherDocumenter(autodoc.FunctionDocumenter):
+    """
+    Specialized Documenter subclass for multiple dispatch functions.
+    """
+    objtype = 'function'
+    member_order = 30
+
+    @classmethod
+    def can_document_member(cls, member, membername, isattr, parent):
+        return isinstance(member, (autodoc.FunctionType, autodoc.BuiltinFunctionType, multipledispatch.Dispatcher))
+
+    def get_doc(self, encoding=None, ignore=1):
+        if not isinstance(self.object, multipledispatch.Dispatcher):
+            return super(DispatcherDocumenter, self).get_doc(encoding, ignore)
+        lines = getattr(self, '_new_docstrings', None)
+        if lines is not None:
+            return lines
+        # iterate over all implementations
+        implementations = set()
+        lines = []
+        i = 0
+        for signature in sorted(self.object.funcs.keys(), key=lambda x: str(x)):
+            func = self.object.funcs[signature]
+            if not func in implementations:
+                i += 1
+                implementations.add(func)
+                docstring = self.get_attr(func, '__doc__', None)
+                # add signature
+                lines.append([u"``%s%s``" % (self.object_name, self.format_args_one_func(func))])
+                # make sure we have Unicode docstrings, then sanitize and split
+                # into lines
+                if isinstance(docstring, autodoc.text_type):
+                    lines.extend([autodoc.prepare_docstring(docstring, ignore)])
+                elif isinstance(docstring, str):  # this will not trigger on Py3
+                    lines.extend([autodoc.prepare_docstring(autodoc.force_decode(docstring, encoding), ignore)])
+        return lines
+
+    def format_args(self):
+        if not isinstance(self.object, multipledispatch.Dispatcher):
+            return super(DispatcherDocumenter, self).format_args()
+
+        # iterate over all implementations
+        implementations = set()
+        arg_list = []
+        i = 0
+        for signature in sorted(self.object.funcs.keys(), key=lambda x: str(x)):
+            func = self.object.funcs[signature]
+            if not func in implementations:
+                i += 1
+                implementations.add(func)
+                arg_list.append(self.format_args_one_func(func))
+        return " or ".join(arg_list)
+
+    @staticmethod
+    def format_args_one_func(func):
+        """
+        returns the docstring for one function
+
+        Parameters
+        ----------
+        func : function
+                function object with docstring
+        """
+        if inspect.isbuiltin(func) or \
+                inspect.ismethoddescriptor(func):
+            # cannot introspect arguments of a C function or method
+            return None
+        try:
+            argspec = getargspec(func)
+        except TypeError:
+            if (is_builtin_class_method(func, '__new__') and
+                    is_builtin_class_method(func, '__init__')):
+                raise TypeError('%r is a builtin class' % func)
+
+            # if a class should be documented as function (yay duck
+            # typing) we try to use the constructor signature as function
+            # signature without the first argument.
+            try:
+                argspec = getargspec(func.__new__)
+            except TypeError:
+                argspec = getargspec(func.__init__)
+                if argspec[0]:
+                    del argspec[0][0]
+        args = autodoc.formatargspec(*argspec)
+        # escape backslashes for reST
+        args = args.replace('\\', '\\\\')
+        return args
+
+
+def setup(app):
+    app.add_autodocumenter(DispatcherDocumenter)
