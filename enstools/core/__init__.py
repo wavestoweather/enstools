@@ -1,6 +1,7 @@
 """
 Core functionality used by other components of the ensemble tools
 """
+import six
 import sys
 import os
 import re
@@ -13,6 +14,7 @@ import dask.array
 import dask.multiprocessing
 import string
 import multiprocessing
+import importlib
 from decorator import decorator
 from pint import DimensionalityError
 
@@ -608,3 +610,30 @@ def vectorize_multivariate_two_arg(func, arrays_concatenated=True):
             return __vectorize_multivariate_two_arg_concatenated(arg0, arg1, mean, **kwargs)
 
         return function_wrapper
+
+
+def import_multipledispatch(dispatcher, globals):
+    """
+    Import all implementations of a function created by the multipledispatch module into the globals dictionary.
+    They will be made available by name_md%02d, where *%02d* is a counter.
+
+    The purpose of this function is to provide compatibility for multiple dispatch functions with sphinx.
+
+    Parameters
+    ----------
+    dispatcher
+            the dispatcher function object
+
+    globals
+            namespace into which the function and all its implementations should be imported
+
+    """
+    # iterate over all implementations
+    imported = set()
+    i = 0
+    for signature in sorted(dispatcher.funcs.keys(), key=lambda x: str(x)):
+        func = dispatcher.funcs[signature]
+        if not func in imported:
+            i += 1
+            globals["%s_md%02d" % (dispatcher.__name__, i)] = func
+            imported.add(func)

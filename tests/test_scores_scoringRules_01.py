@@ -42,7 +42,7 @@ def test_es_sample_vec():
     obs2 = obs[1, :]
     fct1 = fct[0, :, :]
     fct2 = fct[1, :, :]
-    res3 = enstools.scores.es_sample2(obs1, obs2, fct1, fct2)
+    res3 = enstools.scores.es_sample(obs1, obs2, fct1, fct2)
     np.testing.assert_array_almost_equal(res3, res2)
 
     # same the with xarray
@@ -50,6 +50,7 @@ def test_es_sample_vec():
     obs2 = xarray.DataArray(obs2)
     fct1 = xarray.DataArray(fct1)
     fct2 = xarray.DataArray(fct2)
+    res3 = enstools.scores.es_sample(obs1, obs2, fct1, fct2)
     np.testing.assert_array_almost_equal(res3, res2)
 
 
@@ -85,11 +86,11 @@ def test_vs_sample_vec():
     obs2 = obs[1, :]
     fct1 = fct[0, :, :]
     fct2 = fct[1, :, :]
-    res3 = enstools.scores.vs_sample2(obs1, obs2, fct1, fct2)
+    res3 = enstools.scores.vs_sample(obs1, obs2, fct1, fct2)
     np.testing.assert_array_almost_equal(res3, res2)
 
     # same test with mean values
-    res3 = enstools.scores.vs_sample2(obs1, obs2, fct1, fct2, mean=True)
+    res3 = enstools.scores.vs_sample(obs1, obs2, fct1, fct2, mean=True)
     np.testing.assert_almost_equal(res3, res2.mean())
 
 

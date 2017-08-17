@@ -11,6 +11,7 @@ import numpy as np
 import importlib
 import xarray
 import enstools
+from multipledispatch import dispatch
 
 rpy2 = None
 srl = None
@@ -96,6 +97,7 @@ def __r_caller(*args):
     return result
 
 
+@dispatch((np.ndarray, xarray.DataArray), (np.ndarray, xarray.DataArray))
 def es_sample(obs, fct, mean=False):
     """Sample Energy Score
 
@@ -142,7 +144,8 @@ def es_sample(obs, fct, mean=False):
         return __es_sample_vec_cat(obs, fct, mean)
 
 
-def es_sample2(obs0, obs1, fct0, fct1, mean=False):
+@dispatch((np.ndarray, xarray.DataArray), (np.ndarray, xarray.DataArray), (np.ndarray, xarray.DataArray), (np.ndarray, xarray.DataArray))
+def es_sample(obs0, obs1, fct0, fct1, mean=False):
     """Sample Energy Score
 
     Same computation as in es_sample, but for the special case of two observation and forecast variables.
@@ -184,10 +187,11 @@ def es_sample2(obs0, obs1, fct0, fct1, mean=False):
     return __es_sample_vec(obs0, obs1, fct0, fct1, mean)
 
 
-__es_sample_vec = enstools.core.vectorize_multivariate_two_arg(es_sample, arrays_concatenated=False)
-__es_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(es_sample)
+__es_sample_vec = enstools.core.vectorize_multivariate_two_arg(es_sample.dispatch(np.ndarray, np.ndarray), arrays_concatenated=False)
+__es_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(es_sample.dispatch(np.ndarray, np.ndarray))
 
 
+@dispatch((np.ndarray, xarray.DataArray), (np.ndarray, xarray.DataArray))
 def vs_sample(obs, fct, w=None, p=0.5, mean=False):
     """Sample Variogram Score
 
@@ -243,7 +247,8 @@ def vs_sample(obs, fct, w=None, p=0.5, mean=False):
         return __vs_sample_vec_cat(obs, fct, mean, w=w, p=p)
 
 
-def vs_sample2(obs0, obs1, fct0, fct1, w=None, p=0.5, mean=False):
+@dispatch((np.ndarray, xarray.DataArray), (np.ndarray, xarray.DataArray), (np.ndarray, xarray.DataArray), (np.ndarray, xarray.DataArray))
+def vs_sample(obs0, obs1, fct0, fct1, w=None, p=0.5, mean=False):
     """Sample Variogram Score;
     Compute the variogram score VS(*y*, *dat*) of order *p*, where *y* is a
     *d*-dimensional observation and dat is a multivariate ensemble
@@ -295,8 +300,8 @@ def vs_sample2(obs0, obs1, fct0, fct1, w=None, p=0.5, mean=False):
     return __vs_sample_vec(obs0, obs1, fct0, fct1, mean, w=w, p=p)
 
 
-__vs_sample_vec = enstools.core.vectorize_multivariate_two_arg(vs_sample, arrays_concatenated=False)
-__vs_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(vs_sample)
+__vs_sample_vec = enstools.core.vectorize_multivariate_two_arg(vs_sample.dispatch(np.ndarray, np.ndarray), arrays_concatenated=False)
+__vs_sample_vec_cat = enstools.core.vectorize_multivariate_two_arg(vs_sample.dispatch(np.ndarray, np.ndarray))
 
 
 def crps_sample(y, dat, mean=False):
