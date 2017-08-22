@@ -125,6 +125,7 @@ def read_grib_file(filename, debug=False):
                 attrs["long_name"] = msg["parameterName"]
                 attrs["_FillValue"] = msg["missingValue"]
                 attrs["short_name"] = msg["shortName"]
+                attrs["grid_type"] = msg["gridType"]
                 # information about the rotated pole?
                 if msg["gridType"] == "rotated_ll":
                     rotated_pole[variable_id] = msg.get_rotated_ll_info(dimension_names[variable_id])
