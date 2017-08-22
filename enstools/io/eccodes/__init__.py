@@ -124,15 +124,22 @@ def read_grib_file(filename, debug=False):
                 attrs["units"] = msg["parameterUnits"]
                 attrs["long_name"] = msg["parameterName"]
                 attrs["_FillValue"] = msg["missingValue"]
-                attrs["short_name"] = msg["shortName"]
+                # add alternative names
+                if "cfName" in msg:
+                    attrs["standard_name"] = msg["cfName"]
+                if "cfVarName" in msg:
+                    attrs["cf_short_name"] = msg["cfVarName"]
+                if "shortName" in msg:
+                    attrs["short_name"] = msg["shortName"]
+
                 attrs["grid_type"] = msg["gridType"]
                 # information about the rotated pole?
                 if msg["gridType"] == "rotated_ll":
                     rotated_pole[variable_id] = msg.get_rotated_ll_info(dimension_names[variable_id])
                     attrs["grid_mapping"] = rotated_pole[variable_id][0]
+                elif msg["gridType"] in ["reduced_gg", "unstructured_grid"]:
+                    attrs["coordinates"] = "lon lat"
                 attributes[variable_id] = attrs
-
-
 
             # select a datatype based on the number of bits per value in the grib message
             if variable_id not in datatype:
@@ -152,7 +159,7 @@ def read_grib_file(filename, debug=False):
 
     # create the coordinate definition for the dataset
     if len(ensemble_members) > 0:
-        coordinates["ens"] = ("ens", sorted(list(ensemble_members)))
+        coordinates["ens"] = ("ens", numpy.array(sorted(list(ensemble_members)), dtype=numpy.int32))
     coordinates["time"] = ("time", sorted(list(times)))
 
     # add vertical coordinates
@@ -278,7 +285,7 @@ def read_grib_file(filename, debug=False):
         # time, ens, and horizontal coordinates
         var_coords = OrderedDict()
         for coord in coordinates:
-            if coord in var_dim_names or "n%s" % coord in var_dim_names:
+            if coord in var_dim_names or "n%s" % coord in var_dim_names or "r%s" % coord in var_dim_names:
                 var_coords[coord] = coordinates[coord]
 
         # vertical coordinate
@@ -291,6 +298,11 @@ def read_grib_file(filename, debug=False):
                                                       name=var_name,
                                                       attrs=attributes[one_var],
                                                       coords=var_coords)
+
+        # are there lon-lat values?
+        if "ncells" in var_dim_names[-1] and "lon" not in xarray_variables and "lon" in coordinates:
+            xarray_variables["lon"] = coordinates["lon"]
+            xarray_variables["lat"] = coordinates["lat"]
 
         # is there a rotated pole for this variable?
         if one_var in rotated_pole and rotated_pole[one_var][0] not in xarray_variables:

@@ -155,9 +155,9 @@ class GribMessageMetadata:
         if self["gridType"] == "rotated_ll":
             lon = (dimension_names, numpy.array(self["longitudes"].reshape(self["Nj"], self["Ni"]), dtype=numpy.float32))
             lat = (dimension_names, numpy.array(self["latitudes"].reshape(self["Nj"], self["Ni"]), dtype=numpy.float32))
-        elif self["gridType"] == "reduced_gg":
-            lon = (dimension_names, numpy.array(self["longitudes"], dtype=numpy.float32))
-            lat = (dimension_names, numpy.array(self["latitudes"], dtype=numpy.float32))
+        elif self["gridType"] in ["sh", "reduced_gg", "unstructured_grid"]:
+            lon = (dimension_names[0], numpy.array(self["longitudes"], dtype=numpy.float32))
+            lat = (dimension_names[0], numpy.array(self["latitudes"], dtype=numpy.float32))
         elif self["gridType"] == "regular_ll":
             lon = (dimension_names[1], numpy.array(self["longitudes"].reshape(self["Nj"], self["Ni"])[0, :], dtype=numpy.float32))
             lat = (dimension_names[0], numpy.array(self["latitudes"].reshape(self["Nj"], self["Ni"])[:, 0], dtype=numpy.float32))
@@ -185,7 +185,7 @@ class GribMessageMetadata:
         if not dim_names[0].endswith("t"):
             rotated_pole_name += dim_names[0][-1]
         # create rotated pole description
-        rotated_pole = xarray.DataArray(numpy.zeros(0, dtype=numpy.int8), dims=(rotated_pole_name,))
+        rotated_pole = xarray.DataArray(numpy.zeros(1, dtype=numpy.int8), dims=(rotated_pole_name,))
         rotated_pole.attrs["grid_mapping_name"] = "rotated_latitude_longitude"
         rotated_pole.attrs["grid_north_pole_latitude"] = self["latitudeOfSouthernPoleInDegrees"] * -1
         rotated_pole.attrs["grid_north_pole_longitude"] = self["longitudeOfSouthernPoleInDegrees"] - 180
@@ -196,14 +196,14 @@ class GribMessageMetadata:
             first_lon -= 360
         rlon = xarray.DataArray(numpy.arange(first_lon,
                                              last_lon + self["iDirectionIncrementInDegrees"],
-                                             self["iDirectionIncrementInDegrees"]),
+                                             self["iDirectionIncrementInDegrees"], dtype=numpy.float32),
                                 dims=(dim_names[-1],))
         rlon.attrs["long_name"] = "longitude in rotated pole grid"
         rlon.attrs["units"] = "degrees"
         rlon.attrs["standard_name"] = "grid_longitude"
         rlat = xarray.DataArray(numpy.arange(self["latitudeOfFirstGridPointInDegrees"],
                                              self["latitudeOfLastGridPointInDegrees"] + self["jDirectionIncrementInDegrees"],
-                                             self["jDirectionIncrementInDegrees"]),
+                                             self["jDirectionIncrementInDegrees"], dtype=numpy.float32),
                                 dims=(dim_names[-2],))
         rlat.attrs["long_name"] = "latitude in rotated pole grid"
         rlat.attrs["units"] = "degrees"
