@@ -106,7 +106,9 @@ def read_grib_file(filename, debug=False):
 
             # horizontal coordinates
             if "lon" not in coordinates:
-                coordinates["lon"], coordinates["lat"] = msg.get_coordinates(dimension_names[variable_id])
+                coord_lon, coord_lat = msg.get_coordinates(dimension_names[variable_id])
+                if coord_lon is not None and coord_lat is not None:
+                    coordinates["lon"], coordinates["lat"] = coord_lon, coord_lat
 
             # create a list of all ensemble members
             for ensemble_member_key in ["localActualNumberOfEnsembleNumber", "perturbationNumber"]:
