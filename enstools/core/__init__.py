@@ -1,7 +1,6 @@
 """
 Core functionality used by other components of the ensemble tools
 """
-import six
 import sys
 import os
 import re
@@ -14,7 +13,6 @@ import dask.array
 import dask.multiprocessing
 import string
 import multiprocessing
-import importlib
 from decorator import decorator
 from pint import DimensionalityError
 
@@ -35,6 +33,11 @@ class UnitRegistry(pint.UnitRegistry):
     def __call__(self, *args, **kwargs):
         return super(UnitRegistry, self).__call__(re.sub("([a-zA-Z]+)(-[0-9]+)", "\g<1>**\g<2>", args[0]))
 
+
+# test of cache
+from dask.cache import Cache
+cache = Cache(2e9)
+cache.register()
 
 # all units from pint
 ureg = UnitRegistry()
