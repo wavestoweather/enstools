@@ -17,7 +17,6 @@ from datetime import datetime
 import logging
 from .metadata import GribMessageMetadata
 from .index import GribIndexHelper, get_lock
-import cloudpickle
 
 
 def read_grib_file(filename, debug=False):
