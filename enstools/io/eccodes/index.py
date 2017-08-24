@@ -68,7 +68,7 @@ class GribIndexHelper:
             return None
 
     def __create_cache_file_name(self):
-        cache_dir = os.path.join(os.getenv("HOME"), ".cache/enstools/grib_index")
+        cache_dir = os.path.join(os.getenv("HOME"), ".enstools/grib_index")
         if not os.path.isabs(cache_dir):
             raise IOError("the cache dir for the grib index is not an absolute path!")
         if not os.path.exists(cache_dir):
