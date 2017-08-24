@@ -1,6 +1,7 @@
 """
 Core functionality used by other components of the ensemble tools
 """
+import six
 import sys
 import os
 import re
@@ -13,8 +14,13 @@ import dask.array
 import dask.multiprocessing
 import string
 import multiprocessing
+from multiprocessing.pool import ThreadPool
 from decorator import decorator
 from pint import DimensionalityError
+if six.PY2:
+    from commands import getstatusoutput
+else:
+    from subprocess import getstatusoutput
 
 
 class UnitRegistry(pint.UnitRegistry):
@@ -406,6 +412,11 @@ def get_num_available_procs():
 
     # no hints from environment variables, the number of hardware cpus is returned
     return multiprocessing.cpu_count()
+
+
+# default scheduler for dask
+dask.set_options(get=dask.multiprocessing.get)
+dask.set_options(pool=multiprocessing.Pool(get_num_available_procs()))
 
 
 def get_chunk_size_for_n_procs(shape, nproc):

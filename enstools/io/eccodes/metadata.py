@@ -1,6 +1,10 @@
-import eccodes
+try:
+    import eccodes
+except ImportError:
+    pass
 import numpy
 import xarray
+from .index import get_lock
 
 
 class GribMessageMetadata:
@@ -51,6 +55,7 @@ class GribMessageMetadata:
         else:
             try:
                 value = self.__getitem__(item)
+                self.cache[item] = value
             except KeyError:
                 return False
             return True
@@ -59,23 +64,24 @@ class GribMessageMetadata:
         """
         for debugging: print a list all keys along with their values
         """
-        # create the iterator
-        iterid = eccodes.codes_keys_iterator_new(self.gid)
+        with get_lock():
+            # create the iterator
+            iterid = eccodes.codes_keys_iterator_new(self.gid)
 
-        # loop over all keys
-        print("-" * 100)
-        while eccodes.codes_keys_iterator_next(iterid):
-            key_name = eccodes.codes_keys_iterator_get_name(iterid)
-            if key_name.startswith("md5"):
-                continue
-            key_val = self.__getitem__(key_name)
-            if isinstance(key_val, numpy.ndarray):
-                print("%40s = array%s" % (key_name, key_val.shape))
-            else:
-                print("%40s = %s" % (key_name, key_val))
+            # loop over all keys
+            print("-" * 100)
+            while eccodes.codes_keys_iterator_next(iterid):
+                key_name = eccodes.codes_keys_iterator_get_name(iterid)
+                if key_name.startswith("md5"):
+                    continue
+                key_val = self.__getitem__(key_name)
+                if isinstance(key_val, numpy.ndarray):
+                    print("%40s = array%s" % (key_name, key_val.shape))
+                else:
+                    print("%40s = %s" % (key_name, key_val))
 
-        # clean memory
-        eccodes.codes_keys_iterator_delete(iterid)
+            # clean memory
+            eccodes.codes_keys_iterator_delete(iterid)
 
     def get_name(self, prefer_cf=True):
         """

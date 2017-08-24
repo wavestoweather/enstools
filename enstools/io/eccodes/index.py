@@ -1,4 +1,7 @@
-import eccodes
+try:
+    import eccodes
+except ImportError:
+    pass
 import os
 import threading
 
@@ -7,7 +10,7 @@ import threading
 _cache = {}
 
 # the grib_api is not thread-safe, ensure that iterators are not interrupted
-grib_lock = threading.Lock()
+_locks = {}
 
 
 class GribIndexHelper:
@@ -25,9 +28,9 @@ class GribIndexHelper:
         """
         # create grib-index of the input file, only the name is used
         self.filename = os.path.abspath(filename)
-        self.index_keys = ["shortName", "typeOfLevel", "level", "dateTime"]
-        if self.filename in _cache:
-            self.iid, self.index_vals = _cache[self.filename]
+        self.index_keys = ["shortName", "typeOfLevel", "level", "validityDate", "validityTime"]
+        if (self.filename, os.getpid()) in _cache:
+            self.iid, self.index_vals = _cache[(self.filename, os.getpid())]
         else:
             # try to load the index from a index file
             self.iid = self.load_from_file()
@@ -39,7 +42,7 @@ class GribIndexHelper:
 
             # get all possible index values
             self.index_vals = self.__get_index_values()
-            _cache[filename] = (self.iid, self.index_vals)
+            _cache[(self.filename, os.getpid())] = (self.iid, self.index_vals)
 
     def store_to_file(self):
         """
@@ -100,3 +103,11 @@ class GribIndexHelper:
             key_vals = eccodes.codes_index_get(self.iid, key)
             index_vals.append(key_vals)
         return index_vals
+
+
+def get_lock():
+    if os.getpid() in _locks:
+        return _locks[os.getpid()]
+    else:
+        _locks[os.getpid()] = threading.Lock()
+        return _locks[os.getpid()]

@@ -2,16 +2,22 @@
 preliminary minimal support for grib files. This module will be replaced as soon as the official eccodes xarray-
 support is available.
 """
+import logging
+try:
+    import eccodes
+except ImportError:
+    logging.warning("eccodes python interface not found, grib file support not available!")
+    pass
 from collections import OrderedDict
 import os
 import xarray
 import dask.array
 import numpy
-import eccodes
 from datetime import datetime
 import logging
 from .metadata import GribMessageMetadata
-from .index import GribIndexHelper, grib_lock
+from .index import GribIndexHelper, get_lock
+import cloudpickle
 
 
 def read_grib_file(filename, debug=False):
@@ -28,6 +34,8 @@ def read_grib_file(filename, debug=False):
     xarray.Dataset
             a netcdf-like representation of the file-content
     """
+    if "eccodes" not in globals():
+        raise ImportError("eccodes python interface not found, grib file support not available!")
 
     # use always the absolute path, the relative path may change during the lifetime of the dataset
     filename = os.path.abspath(filename)
@@ -40,6 +48,7 @@ def read_grib_file(filename, debug=False):
     dimension_names = {}
     coordinates = OrderedDict()
     attributes = {}
+    encodings = {}
     ensemble_members = set()
     times = set()
     datatype = {}
@@ -125,13 +134,12 @@ def read_grib_file(filename, debug=False):
                 attrs = OrderedDict()
                 attrs["units"] = msg["parameterUnits"]
                 attrs["long_name"] = msg["parameterName"]
-                attrs["_FillValue"] = msg["missingValue"]
                 # add alternative names
-                if "cfName" in msg:
+                if "cfName" in msg and msg["cfName"] != "unknown":
                     attrs["standard_name"] = msg["cfName"]
-                if "cfVarName" in msg:
+                if "cfVarName" in msg and msg["cfVarName"] != "unknown":
                     attrs["cf_short_name"] = msg["cfVarName"]
-                if "shortName" in msg:
+                if "shortName" in msg and msg["shortName"] != "unknown":
                     attrs["short_name"] = msg["shortName"]
 
                 attrs["grid_type"] = msg["gridType"]
@@ -142,6 +150,10 @@ def read_grib_file(filename, debug=False):
                 elif msg["gridType"] in ["reduced_gg", "unstructured_grid"]:
                     attrs["coordinates"] = "lon lat"
                 attributes[variable_id] = attrs
+                # values used for encoding during storage
+                encoding = OrderedDict()
+                encoding["_FillValue"] = msg["missingValue"]
+                encodings[variable_id] = encoding
 
             # select a datatype based on the number of bits per value in the grib message
             if variable_id not in datatype:
@@ -299,7 +311,8 @@ def read_grib_file(filename, debug=False):
                                                       dims=var_dim_names,
                                                       name=var_name,
                                                       attrs=attributes[one_var],
-                                                      coords=var_coords)
+                                                      coords=var_coords,
+                                                      encoding=encodings[one_var])
 
         # are there lon-lat values?
         if "ncells" in var_dim_names[-1] and "lon" not in xarray_variables and "lon" in coordinates:
@@ -333,6 +346,8 @@ def read_grib_file(filename, debug=False):
         coordinate_name = one_bounds.replace("_bnds", "")
         if coordinate_name in dataset:
             dataset[coordinate_name].attrs["bounds"] = one_bounds
+    if debug:
+        print("finished reading %s" % filename)
     return dataset
 
 
@@ -349,7 +364,7 @@ def __get_one_message(filename, index_selection_keys, shape, dtype, imsg_selecte
     -------
     numpy.ndarray
     """
-    with grib_lock:
+    with get_lock():
         # create grib-index of the input file, only the name is used
         index = GribIndexHelper(filename)
 
@@ -378,6 +393,8 @@ def __get_one_message(filename, index_selection_keys, shape, dtype, imsg_selecte
             else:
                 # close the message
                 eccodes.codes_release(gid)
+        if values is None:
+            raise IOError("unable to load grib message %d from %d for index keys: %s" % (imsg_selected, imsg, index_selection_keys))
         return values
 
 
