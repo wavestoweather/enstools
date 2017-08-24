@@ -61,10 +61,16 @@ def test_read_multiple_files():
     nose.tools.assert_equals(ds["noise"].dims, ("time", "lon", "lat"))
     numpy.testing.assert_array_equal(ds["noise"].coords["time"], numpy.linspace(1, 14, 14))
 
+    # same test with pattern
+    ds = enstools.io.read(os.path.join(test_dir, "??.nc"))
+    nose.tools.assert_equals(ds["noise"].shape, (14, 5, 6))
+    nose.tools.assert_equals(ds["noise"].dims, ("time", "lon", "lat"))
+    numpy.testing.assert_array_equal(ds["noise"].coords["time"], numpy.linspace(1, 14, 14))
+
 
 def test_open_with_wrong_argument():
     """
     try to open an something with an unsupported argument type
     """
-    with numpy.testing.assert_raises(TypeError):
+    with numpy.testing.assert_raises(NotImplementedError):
         ds = enstools.io.read(None)

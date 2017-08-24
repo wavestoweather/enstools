@@ -1,5 +1,4 @@
 from xarray.backends.netCDF4_ import NetCDF4DataStore
-
 from .file_type import get_file_type
 import dask.array
 import six
@@ -73,7 +72,7 @@ def __to_netcdf(ds, filename):
     # add the variables
     for varname, var in six.iteritems(ds.data_vars):
         if isinstance(var.data, dask.array.core.Array):
-            nc.store({varname: var.load()}, {})
+            nc.store({varname: var.compute()}, {})
 
     # close the file
     nc.close()

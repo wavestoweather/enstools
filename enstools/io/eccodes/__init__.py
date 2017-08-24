@@ -253,7 +253,7 @@ def read_grib_file(filename, debug=False):
                         stacked_levels.append(msg_by_var_level_ens[(one_var, one_level, one_ens, one_time)])
                     else:
                         stacked_levels.append(dask.array.from_delayed(
-                            dask.delayed(numpy.full)(var_dims, attributes[variable_id]["_FillValue"]),
+                            dask.delayed(numpy.full)(var_dims, encodings[variable_id]["_FillValue"]),
                             shape=dimensions[variable_id],
                             dtype=datatype[variable_id]))
 
