@@ -11,6 +11,7 @@ Contents:
 .. toctree::
     :maxdepth: 2
 
+    io.rst
     interpolation.rst
     scores.rst
 
