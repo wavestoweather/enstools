@@ -120,7 +120,7 @@ def __open_dataset(filename):
         raise ValueError("unable to guess the type of the input file '%s'" % filename)
 
     if file_type == "NC":
-        return xarray.open_dataset(filename)
+        return xarray.open_dataset(filename, chunks={})
     elif file_type == "GRIB":
         return read_grib_file(filename, debug=False)
     else:
