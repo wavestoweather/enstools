@@ -40,7 +40,7 @@ def read(filename, **kwargs):
 
 
 @dispatch((list, tuple))
-def read(filenames, **kwargs):
+def read(filenames, merge_same_size_dim=False, **kwargs):
     """
     Read multiple input files
 
@@ -64,6 +64,26 @@ def read(filenames, **kwargs):
         datasets.append(dask.delayed(read)(filename))
     # read all the files in parallel
     datasets = dask.compute(*datasets, traverse=False, get=dask.multiprocessing.get)
+
+    # if dimensions have the same size but different names, then merge them by renaming
+    if merge_same_size_dim:
+        size_name_mapping = {}
+        rename_mapping = {}
+        for ds in datasets:
+            for dim_name, dim_size in six.iteritems(ds.sizes):
+                if dim_size not in size_name_mapping:
+                    size_name_mapping[dim_size] = dim_name
+                else:
+                    if dim_name != size_name_mapping[dim_size]:
+                        rename_mapping[dim_name] = size_name_mapping[dim_size]
+        if len(rename_mapping) > 0:
+            for ds in datasets:
+                rename_mapping_for_ds = {}
+                for old_name, new_name in six.iteritems(rename_mapping):
+                    if old_name in ds.dims:
+                        rename_mapping_for_ds[old_name] = new_name
+                if len(rename_mapping_for_ds) > 0:
+                    ds.rename(rename_mapping_for_ds, inplace=True)
 
     # find common coordinates and sort variables according to those coordinates
     # get all coordinates
