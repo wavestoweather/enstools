@@ -2,6 +2,7 @@ import os
 import logging
 import urllib
 import bz2
+from numba import jit
 
 
 def download(url, destination, uncompress=True):
@@ -42,3 +43,37 @@ def download(url, destination, uncompress=True):
         bfile.close()
         # delete compressed
         os.remove(destination)
+
+
+@jit(["b1(f4[:],f4[:],f4,f4)", "b1(f8[:],f8[:],f8,f8)"], nopython=True)
+def point_in_polygon(polyx, polyy, testx, testy):
+    """
+    check whether or not a given coordinate is inside or outside of a polygon
+
+    Parameters
+    ----------
+    polyx : np.ndarray
+            x-coordinates of the polygon
+
+    polyy : np.ndarray
+            y-coordinates of the polygon
+
+    testx : float
+            x-coordinate of the point
+
+    testy : float
+            y-coordinate of the point
+
+    Returns
+    -------
+    bool
+            True, if the point is inside of the polygon
+    """
+    res = False
+    j = polyx.shape[0] - 1
+    for i in range(j):
+        if ((polyy[i] > testy) != (polyy[j] > testy)) \
+                and (testx < (polyx[j] - polyx[i]) * (testy - polyy[i]) / (polyy[j] - polyy[i]) + polyx[i]):
+            res = not res
+        j = i
+    return res

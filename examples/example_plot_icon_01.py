@@ -22,5 +22,5 @@ if __name__ == "__main__":
     grib = enstools.io.read("data/%s" % tp_file)
 
     # create a basic map plot
-    ax = enstools.plot.map_plot(grib["TOT_PREC"][0, :, :])
+    fig, ax = enstools.plot.contour(grib["TOT_PREC"][0, :, :])
     plt.show()

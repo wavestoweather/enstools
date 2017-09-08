@@ -13,6 +13,7 @@ Contents:
 
     io.rst
     interpolation.rst
+    plot.rst
     scores.rst
 
 

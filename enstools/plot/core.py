@@ -4,17 +4,24 @@ Basic plot routines usable to construct more advanced plots
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
+from matplotlib.axes import Axes
 import numpy as np
+from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
+from mpl_toolkits.axes_grid1.axes_size import AxesY, Fraction
 from numba import jit
 from multipledispatch import dispatch
+from enstools.misc import point_in_polygon
 import xarray
+import six
+import math
 
 
 # names for coordinates
-from shapely.geometry.multipoint import MultiPoint
-
 __lon_names = ["lon", "lons", "longitude", "longitudes", "clon", "rlon"]
 __lat_names = ["lat", "lats", "latitude", "latitudes", "clat", "rlat"]
+
+# cache for expensively calculated triangulations
+__triangulation_cache = {}
 
 
 def __is_global(lon, lat):
@@ -74,7 +81,7 @@ def __get_order_of_magnitude(value):
     return x3
 
 
-def __get_nice_levels(variable, nlevel=11, min_percentile=0.5, max_percentile=99.5):
+def __get_nice_levels(variable, nlevel=11, min_percentile=0.1, max_percentile=99.9):
     """
     Create levels for contour plots
 
@@ -123,90 +130,96 @@ def __get_nice_levels(variable, nlevel=11, min_percentile=0.5, max_percentile=99
 
 
 @jit(nopython=True)
-def __mask_triangles(lon, lat, triangles, proj_coords, mask):
+def __mask_triangles(triangles, proj_coords, boundary, mask):
+    # coordinates are given as 2d-arrays
     x_coords_proj = proj_coords[:, 0]
     y_coords_proj = proj_coords[:, 1]
 
-    min_x = x_coords_proj.min()
-    max_x = x_coords_proj.max()
-    man_length = 0.1
+    # shrink the boundary a bit to be sure that no point is on the boundary
+    boundary_x = np.empty(boundary.shape[0])
+    boundary_y = np.empty(boundary.shape[0])
+    offset = boundary.max() * 0.002
+    for i in range(boundary.shape[0]):
+        a = math.atan2(boundary[i, 1], boundary[i, 0])
+        l = math.hypot(boundary[i, 0], boundary[i, 1]) - offset
+        boundary_y[i] = math.sin(a) * l
+        boundary_x[i] = math.cos(a) * l
 
-    min_y = y_coords_proj.min() / 10.0
-    max_y = y_coords_proj.max() / 10.0
-
-    mean_length = 0.0
+    # mask all triangles with at least one point outside of the boundaries
     for icell in range(triangles.shape[0]):
-        l1 = np.sqrt((x_coords_proj[triangles[icell, 0]] - x_coords_proj[triangles[icell, 1]])**2 + (y_coords_proj[triangles[icell, 0]] - y_coords_proj[triangles[icell, 1]])**2)
-        l2 = np.sqrt((x_coords_proj[triangles[icell, 0]] - x_coords_proj[triangles[icell, 2]])**2 + (y_coords_proj[triangles[icell, 0]] - y_coords_proj[triangles[icell, 2]])**2)
-        l3 = np.sqrt((x_coords_proj[triangles[icell, 1]] - x_coords_proj[triangles[icell, 2]])**2 + (y_coords_proj[triangles[icell, 1]] - y_coords_proj[triangles[icell, 2]])**2)
-        mean_length += l1 + l2 + l3
-    mean_length = mean_length / (triangles.shape[0] * 3.0)
+        for iedge in range(3):
+            if not point_in_polygon(boundary_x, boundary_y, x_coords_proj[triangles[icell, iedge]], y_coords_proj[triangles[icell, iedge]]):
+                mask[icell] = True
+                break
 
-    for icell in range(triangles.shape[0]):
-        l1 = np.sqrt((x_coords_proj[triangles[icell, 0]] - x_coords_proj[triangles[icell, 1]])**2 + (y_coords_proj[triangles[icell, 0]] - y_coords_proj[triangles[icell, 1]])**2)
-        l2 = np.sqrt((x_coords_proj[triangles[icell, 0]] - x_coords_proj[triangles[icell, 2]])**2 + (y_coords_proj[triangles[icell, 0]] - y_coords_proj[triangles[icell, 2]])**2)
-        l3 = np.sqrt((x_coords_proj[triangles[icell, 1]] - x_coords_proj[triangles[icell, 2]])**2 + (y_coords_proj[triangles[icell, 1]] - y_coords_proj[triangles[icell, 2]])**2)
-        if l1 < mean_length / 10.0 or l2 < mean_length / 10.0 or l3 < mean_length / 10.0:
-            mask[icell] = 1
-        if l1 > mean_length * 10.0 or l2 > mean_length * 10.0 or l3 > mean_length * 10.0:
-            mask[icell] = 1
 
-                #in_east = False
-        #in_west = False
-        #in_north = False
-        #in_south = False
-        #for iedge in range(3):
-        #    if x_coords_proj[triangles[icell, iedge]] > max_x:
-        #        in_east = True
-        #    if x_coords_proj[triangles[icell, iedge]] < min_x:
-        #        in_west = True
-        #    if y_coords_proj[triangles[icell, iedge]] > max_y:
-        #        in_north = True
-        #    if y_coords_proj[triangles[icell, iedge]] < min_y:
-        #        in_south = True
-        #mask[icell] = (in_east and in_west) or (in_north and in_south)
+def __get_triangulation(projection, transformation, lon, lat, calculate_mask=True, cache=True):
+    """
+    calculate a triangulation for a given unstructured grid.
 
-                    #if lon[triangles[icell, iedge]] > 179.0 or lon[triangles[icell, iedge]] < -179.0:
-            #    mask[icell] = True
-            #    break
-            #if lat[triangles[icell, iedge]] > 87.0 or lat[triangles[icell, iedge]] < -87.0:
-            #    mask[icell] = True
-            #    break
+    Parameters
+    ----------
+    projection : cartopy.crs.Projection
+            the target projection for the plot
+
+    transformation : cartopy.crs.Projection
+            the source projection of the coordinates.
+
+    lon : xarray.DataArray or np.ndarray
+            longitudes of the grid
+
+    lat : xarray.DataArray or np.ndarray
+            latitudes of the grid
+
+    Returns
+    -------
+    mtri.Triangulation
+            the calculation triangulation with points outside of the projection masked
+    """
+    # we need the coordinates as numpy arrays
+    lon, lat = np.asarray(lon), np.asarray(lat)
+
+    # is the result in cache?
+    if cache:
+        cache_key = (projection, transformation, sum(lon[:10]), sum(lat[:10]))
+        if cache_key in __triangulation_cache:
+            return __triangulation_cache[cache_key]
+
+    # find the boundary of the projection as well as the grid coordinates in projection space
+    boundary = np.asarray(projection.boundary)
+    proj_coords = projection.transform_points(transformation, lon, lat)
+
+    # calculate the triangulation
+    tri = mtri.Triangulation(lon, lat)
+
+    # mask triangles outside the projection
+    if calculate_mask:
+        mask = np.zeros(tri.triangles.shape[0], dtype=np.bool)
+        __mask_triangles(tri.triangles, proj_coords, boundary, mask)
+        tri.set_mask(mask)
+
+    # cache the result
+    if cache:
+        __triangulation_cache[cache_key] = tri
+    return tri
+
 
 @dispatch((xarray.DataArray, np.ndarray), (xarray.DataArray, np.ndarray), (xarray.DataArray, np.ndarray))
-def map_plot(variable, lon, lat, **kwargs):
+def contour(variable, lon, lat, **kwargs):
     """
     Create a plot from an array variable that does not include its coordinates.
 
     Parameters
     ----------
     variable : xarray.DataArray or np.ndarray
+            the data to plot.
 
     lon : xarray.DataArray or np.ndarray
-            longitude coordinate
+            longitude coordinate.
 
     lat : xarray.DataArray or np.ndarray
-            latitude coordinate
+            latitude coordinate.
 
-    Optional keyword arguments:
-
-    **kwargs
-            *colorbar*: [*True* | *False]
-                If True, a colorbar is created. Default=True.
-
-            *gridlines*: [*True* | *False*]
-                If True, coordinate grid lines are drawn. Default=False
-
-            *gridline_labes*: [*True* | *False*]
-                Whether or not to label the grid lines. The default is not to label them.
-
-            *projection*: [*None* | *cartopy.crs.Projection *]
-                If not None, the Projection object is used to create the plot
-
-    Returns
-    -------
-    GeoAxes
-            the axes object of the new plot is returned.
     """
     # is it a global dataset?
     transformation = ccrs.PlateCarree()
@@ -214,43 +227,56 @@ def map_plot(variable, lon, lat, **kwargs):
     projection = kwargs.get("projection", None)
     if projection is None:
         if is_global:
-            projection = ccrs.Robinson()
+            projection = ccrs.Mollweide()
         else:
             projection = ccrs.PlateCarree()
 
     # create the plot
-    ax = plt.axes(projection=projection)
+    if not "figure" in kwargs:
+        fig = plt.figure()
+    else:
+        fig = kwargs["figure"]
+    if not "axes" in kwargs:
+        subplot_args = kwargs.get("subplot_args", (111,))
+        subplot_kwargs = kwargs.get("subplot_kwargs", {})
+        ax = fig.add_subplot(*subplot_args, projection=projection, **subplot_kwargs)
+    else:
+        ax = kwargs["axes"]
+
+    # construct arguments for the matplotlib contour
+    contour_args = {"transform": transformation,
+                    "cmap": "CMRmap_r",
+                    "levels": __get_nice_levels(variable),
+                    "extend": "both"}
+    # copy all arguments not specific to this function to the contour arguments
+    for arg, value in six.iteritems(kwargs):
+        if arg not in ["filled", "colorbar", "gridlines", "gridline_labes", "projection"]:
+            contour_args[arg] = value
 
     # decide on the plot type based on variable and coordinate dimension
     if variable.ndim == 1 and lon.ndim == 1 and lat.ndim == 1:
         # calculate the triangulation
-        #lon = np.where(lon > 179.5, 179.5, lon)
-        #lon = np.where(lon < -179.5, -179.5, lon)
+        tri = __get_triangulation(projection, transformation, lon, lat)
+        # create the plot
+        if kwargs.get("filled", True):
+            contour = ax.tricontourf(tri, variable, **contour_args)
+        else:
+            contour = ax.tricontour(tri, variable, **contour_args)
 
-        proj_coords = projection.transform_points(transformation, np.asarray(lon), np.asarray(lat))
-        tri = mtri.Triangulation(lon, lat)
-        mask = np.zeros(tri.triangles.shape[0], dtype=np.bool)
-
-        #print(proj_coords.shape)
-
-        __mask_triangles(np.asarray(lon), np.asarray(lat), tri.triangles, proj_coords, mask)
-        tri.set_mask(mask)
-        #print(np.any(mask))
-
-        contour = ax.tricontourf(tri, variable,
-                                 transform=transformation,
-                                 cmap="CMRmap_r",
-                                 levels=__get_nice_levels(variable),
-                                 extend="both")
     else:
         # create a contour plot
-        contour = ax.contourf(lon, lat, variable,
-                              transform=transformation,
-                              cmap="CMRmap_r",
-                              levels=__get_nice_levels(variable),
-                              extend="both")
+        if kwargs.get("filled", True):
+            contour = ax.contourf(lon, lat, variable, **contour_args)
+        else:
+            contour = ax.contour(lon, lat, variable, **contour_args)
+
     # add coastlines
-    ax.coastlines()
+    resolution = kwargs.get("coastlines", True)
+    if resolution is not False:
+        if isinstance(resolution, str):
+            ax.coastlines(resolution)
+        else:
+            ax.coastlines()
 
     # add gridlines
     if kwargs.get("gridlines", False) is True:
@@ -258,48 +284,34 @@ def map_plot(variable, lon, lat, **kwargs):
 
     # add a colorbar
     if kwargs.get("colorbar", True):
-        plt.colorbar(contour, ax=ax, shrink=.6)
+        divider = make_axes_locatable(ax)
+        width = AxesY(ax, aspect=0.07)
+        pad = Fraction(1.0, width)
+        cb_ax = divider.append_axes("right", size=width, pad=pad, axes_class=Axes, frameon=False)
+        fig.colorbar(contour, cax=cb_ax)
 
     if is_global:
         ax.set_global()
 
-    return ax
+    return fig, ax
 
 
 @dispatch(xarray.DataArray)
-def map_plot(variable, lon_name=None, lat_name=None, **kwargs):
+def contour(variable, lon_name=None, lat_name=None, **kwargs):
     """
     Create a plot from an xarray variable that includes coordinates.
 
     Parameters
     ----------
     variable : xarray.DataArray
+            the data to plot.
 
     lon_name : string
-            name of the longitude coordinate in the case of non standard names
+            name of the longitude coordinate in the case of non standard names.
 
     lat_name : string
-            name of the latitude coordinate in the case of non standard names
+            name of the latitude coordinate in the case of non standard names.
 
-    Optional keyword arguments:
-
-    **kwargs
-            *colorbar*: [*True* | *False]
-                If True, a colorbar is created. Default=True.
-
-            *gridlines*: [*True* | *False*]
-                If True, coordinate grid lines are drawn. Default=False
-
-            *gridline_labes*: [*True* | *False*]
-                Whether or not to label the grid lines. The default is not to label them.
-
-            *projection*: [*None* | *cartopy.crs.Projection *]
-                If not None, the Projection object is used to create the plot
-
-    Returns
-    -------
-    GeoAxes
-            the axes object of the new plot is returned.
     """
     # select projection and transformation based for global and non-global datasets
     # get the coordinates
@@ -349,4 +361,53 @@ def map_plot(variable, lon_name=None, lat_name=None, **kwargs):
         lon, lat = np.meshgrid(lon, lat)
 
     # create the plot with the coordinates found
-    return map_plot(variable, lon, lat, **kwargs)
+    return contour(variable, lon, lat, **kwargs)
+
+
+# add kwargs to all contour functions doc
+__contour_kwargs_doc = """
+Other optional keyword arguments:
+
+**kwargs
+        *figure*: matplotlib.figure.Figure
+            If provided, this figure instance will be used (and returned), otherwise a new
+            figure will be created.
+
+        *axes*: matplotlib.axes.Axes
+            If provided, this axes instance will be used (e.g., of overplotting), otherwise a
+            new axes object will be created.
+
+        *subplot_args*: tuple
+            Arguments passed on to add_subplot. These arguments are used only if no axes is provided.
+
+        *subplot_kwargs*: dict
+            Keyword arguments passed on to add_subplot. These arguments are used only if no axes is provided.
+
+        *filled*: [*True* | *False*]
+            If True a filled contour is plotted, which is the default
+
+        *colorbar*: [*True* | *False*]
+            If True, a colorbar is created. Default=True.
+
+        *gridlines*: [*True* | *False*]
+            If True, coordinate grid lines are drawn. Default=False
+
+        *gridline_labes*: [*True* | *False*]
+            Whether or not to label the grid lines. The default is not to label them.
+
+        *coastlines*: [*True* | *False*]
+            If True, coordinate grid lines are drawn. Default=True
+
+        *projection*: [*None* | *cartopy.crs.Projection*]
+            If not None, the Projection object is used to create the plot
+
+All other arguments are forwarded to the matplotlib contour or contourf function.
+
+Returns
+-------
+tuple
+        (Figure, Axes) of the new plot is returned. The returned values may be reused in subsequent calls to 
+        plot functions.
+"""
+for __func in six.itervalues(contour.funcs):
+    __func.__doc__ += __contour_kwargs_doc
