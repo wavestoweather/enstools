@@ -52,7 +52,7 @@ clean:
 	rm -rf $(BUILDDIR)/*
 
 .PHONY: html
-html:
+html: plots
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
@@ -214,3 +214,14 @@ pseudoxml:
 	$(SPHINXBUILD) -b pseudoxml $(ALLSPHINXOPTS) $(BUILDDIR)/pseudoxml
 	@echo
 	@echo "Build finished. The pseudo-XML files are in $(BUILDDIR)/pseudoxml."
+
+
+# create figures for the documentation
+.PHONY: plots
+plots: images images/example_plot_icon_01.png images/example_plot_icon_02.png
+
+images:
+	mkdir images
+
+images/%.png : ../examples/%.py
+	$< --data ../examples/data --save $@

@@ -301,6 +301,25 @@ def contour(variable, lon_name=None, lat_name=None, **kwargs):
     """
     Create a plot from an xarray variable that includes coordinates.
 
+    Examples
+    --------
+
+    >>> fig, ax = enstools.plot.contour(data["TOT_PREC"][0, :, :], coastlines="50m")    # doctest: +SKIP
+
+    .. figure:: images/example_plot_icon_01.png
+
+        24h ICON forecast for precipitation read from a grib2 file. Have a look at the script
+        examples/example_plot_icon_01.py for more details.
+
+    >>> fig, ax1 = enstools.plot.contour(data["PMSL"][0, :] / 100.0, gridlines=True, subplot_args=(121,))   # doctest: +SKIP
+    >>> fig, ax2 = enstools.plot.contour(data["TOT_PREC"][0, :], figure=fig, subplot_args=(122,))           # doctest: +SKIP
+
+    .. figure:: images/example_plot_icon_02.png
+
+        24h ICON forecast for mean sea level pressure (left) and precipitation (right). The data was read from
+        grib2 files on the native ICON grid and plotted without interpolation onto a regular grid. Have a look at the
+        script examples/example_plot_icon_02.py
+
     Parameters
     ----------
     variable : xarray.DataArray
