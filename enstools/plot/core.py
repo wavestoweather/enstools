@@ -14,6 +14,7 @@ from enstools.misc import point_in_polygon
 import xarray
 import six
 import math
+import cartopy
 
 
 # names for coordinates
@@ -231,6 +232,27 @@ def contour(variable, lon, lat, **kwargs):
         else:
             projection = ccrs.PlateCarree()
 
+    # is it a rotated pole array
+    if kwargs.get("rotated_pole", None) is not None:
+        rotated_pole = kwargs.get("rotated_pole")
+        if isinstance(rotated_pole, xarray.DataArray):
+            grid_north_pole_latitude = rotated_pole.grid_north_pole_latitude
+            grid_north_pole_longitude = rotated_pole.grid_north_pole_longitude
+        elif isinstance(rotated_pole, dict):
+            grid_north_pole_latitude = rotated_pole["grid_north_pole_latitude"]
+            grid_north_pole_longitude = rotated_pole["grid_north_pole_longitude"]
+        else:
+            raise ValueError("unsupported type of rotated_pole argument!")
+
+        # create a projection if no projection was specified
+        if not "projection" in kwargs:
+            projection = ccrs.RotatedPole(grid_north_pole_longitude, grid_north_pole_latitude)
+
+        # create a transformation if the coordinates are 1d
+        if lon.ndim == 1:
+            transformation = projection
+
+
     # create the plot
     if not "figure" in kwargs:
         fig = plt.figure()
@@ -271,12 +293,23 @@ def contour(variable, lon, lat, **kwargs):
             contour = ax.contour(lon, lat, variable, **contour_args)
 
     # add coastlines
-    resolution = kwargs.get("coastlines", True)
-    if resolution is not False:
-        if isinstance(resolution, str):
-            ax.coastlines(resolution)
+    resolution_coastlines = kwargs.get("coastlines", True)
+    if resolution_coastlines is not False:
+        if isinstance(resolution_coastlines, str):
+            ax.coastlines(resolution_coastlines)
         else:
             ax.coastlines()
+
+    # add borders
+    resolution_borders = kwargs.get("borders", True)
+    if not isinstance(resolution_borders, str) and isinstance(resolution_coastlines, str):
+        resolution_borders = resolution_coastlines
+    if resolution_borders is not False:
+        if isinstance(resolution_borders, str):
+            ax.natural_earth_shp("admin_0_boundary_lines_land", resolution_borders, "cultural",
+                                 edgecolor='black', facecolor='none', linestyle=":")
+        else:
+            ax.add_feature(cartopy.feature.BORDERS, linestyle=":")
 
     # add gridlines
     if kwargs.get("gridlines", False) is True:
@@ -414,11 +447,19 @@ Other optional keyword arguments:
         *gridline_labes*: [*True* | *False*]
             Whether or not to label the grid lines. The default is not to label them.
 
-        *coastlines*: [*True* | *False*]
+        *coastlines*: [*True* | '110m' | '50m' | '10m']
             If True, coordinate grid lines are drawn. Default=True
 
-        *projection*: [*None* | *cartopy.crs.Projection*]
+        *borders*: [*True* | '110m' | '50m' | '10m']
+            If True, coordinate grid lines are drawn. Default=False
+
+        *projection*: [ *cartopy.crs.Projection*]
             If not None, the Projection object is used to create the plot
+            
+        *rotated_pole*: [*xarray.DataArray* | dict]
+            Information about the rotated pole. This can either be the CF-standard rotated_pole variable from
+            an input file, or alternatively a dictionary with the keys grid_north_pole_latitude and 
+            grid_north_pole_longitude.
 
 All other arguments are forwarded to the matplotlib contour or contourf function.
 
