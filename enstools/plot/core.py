@@ -306,8 +306,9 @@ def contour(variable, lon, lat, **kwargs):
         resolution_borders = resolution_coastlines
     if resolution_borders is not False:
         if isinstance(resolution_borders, str):
-            ax.natural_earth_shp("admin_0_boundary_lines_land", resolution_borders, "cultural",
-                                 edgecolor='black', facecolor='none', linestyle=":")
+            ax.add_feature(cartopy.feature.NaturalEarthFeature(
+                "cultural", "admin_0_boundary_lines_land",
+                resolution_borders, edgecolor='black', facecolor='none', linestyle=":"))
         else:
             ax.add_feature(cartopy.feature.BORDERS, linestyle=":")
 
