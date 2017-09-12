@@ -10,3 +10,4 @@ Python modules:
     pint
     nose
     decorator
+    sklearn
