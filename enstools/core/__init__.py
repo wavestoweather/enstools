@@ -139,6 +139,22 @@ def __shapes_are_equal(shape1, shape2, named_dim_length):
     return True
 
 
+def get_arg_spec(func):
+    """
+    returns the arguments of a function and works for python 2 and 3.
+
+    Parameters
+    ----------
+    func: callable
+            function object to inspect
+    """
+    if six.PY3:
+        arg_spec = inspect.getfullargspec(func)
+    else:
+        arg_spec = inspect.getargspec(func)
+    return arg_spec
+
+
 def check_arguments(units={}, dims={}, shape={}):
     """
     Parameters
@@ -167,11 +183,7 @@ def check_arguments(units={}, dims={}, shape={}):
     @decorator
     def check_arguments_decorator(func, *args, **kwargs):
         # check the actual values of the functions arguments
-        if sys.version_info >= (3, 0):
-            arg_spec = inspect.getfullargspec(func)
-        else:
-            arg_spec = inspect.getargspec(func)
-        arg_names = arg_spec[0]
+        arg_spec = get_arg_spec(func)
         arg_values = inspect.getcallargs(func, *args, **kwargs)
         # create a list of the new arguments
         modified_args = []

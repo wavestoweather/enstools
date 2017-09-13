@@ -17,7 +17,10 @@ def __normalize(variable):
     """
     mean = variable.mean()
     std = variable.std()
-    result = (variable - mean) / std
+    if std != 0:
+        result = (variable - mean) / std
+    else:
+        result = variable - mean
     return result
 
 
