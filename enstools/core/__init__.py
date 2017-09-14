@@ -184,6 +184,7 @@ def check_arguments(units={}, dims={}, shape={}):
     def check_arguments_decorator(func, *args, **kwargs):
         # check the actual values of the functions arguments
         arg_spec = get_arg_spec(func)
+        arg_names = arg_spec[0]
         arg_values = inspect.getcallargs(func, *args, **kwargs)
         # create a list of the new arguments
         modified_args = []
