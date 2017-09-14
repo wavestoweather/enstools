@@ -218,7 +218,7 @@ pseudoxml:
 
 # create figures for the documentation
 .PHONY: plots
-plots: images images/example_plot_icon_01.png images/example_plot_icon_02.png
+plots: images images/example_plot_icon_01.png images/example_plot_icon_02.png images/example_cluster_cosmo_01.png
 
 images:
 	mkdir images

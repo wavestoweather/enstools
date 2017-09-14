@@ -15,6 +15,7 @@ import xarray
 import six
 import math
 import cartopy
+import warnings
 
 
 # names for coordinates
@@ -82,7 +83,7 @@ def __get_order_of_magnitude(value):
     return x3
 
 
-def __get_nice_levels(variable, nlevel=11, min_percentile=0.1, max_percentile=99.9):
+def get_nice_levels(variable, nlevel=11, min_percentile=0.1, max_percentile=99.9):
     """
     Create levels for contour plots
 
@@ -205,168 +206,32 @@ def __get_triangulation(projection, transformation, lon, lat, calculate_mask=Tru
     return tri
 
 
-@dispatch((xarray.DataArray, np.ndarray), (xarray.DataArray, np.ndarray), (xarray.DataArray, np.ndarray))
-def contour(variable, lon, lat, **kwargs):
+def get_coordinates_from_xarray(variable, lon_name=None, lat_name=None):
     """
-    Create a plot from an array variable that does not include its coordinates.
-
-    Parameters
-    ----------
-    variable : xarray.DataArray or np.ndarray
-            the data to plot.
-
-    lon : xarray.DataArray or np.ndarray
-            longitude coordinate.
-
-    lat : xarray.DataArray or np.ndarray
-            latitude coordinate.
-
-    """
-    # is it a global dataset?
-    transformation = ccrs.PlateCarree()
-    is_global = __is_global(lon, lat)
-    projection = kwargs.get("projection", None)
-    if projection is None:
-        if is_global:
-            projection = ccrs.Mollweide()
-        else:
-            projection = ccrs.PlateCarree()
-
-    # is it a rotated pole array
-    if kwargs.get("rotated_pole", None) is not None:
-        rotated_pole = kwargs.get("rotated_pole")
-        if isinstance(rotated_pole, xarray.DataArray):
-            grid_north_pole_latitude = rotated_pole.grid_north_pole_latitude
-            grid_north_pole_longitude = rotated_pole.grid_north_pole_longitude
-        elif isinstance(rotated_pole, dict):
-            grid_north_pole_latitude = rotated_pole["grid_north_pole_latitude"]
-            grid_north_pole_longitude = rotated_pole["grid_north_pole_longitude"]
-        else:
-            raise ValueError("unsupported type of rotated_pole argument!")
-
-        # create a projection if no projection was specified
-        if not "projection" in kwargs:
-            projection = ccrs.RotatedPole(grid_north_pole_longitude, grid_north_pole_latitude)
-
-        # create a transformation if the coordinates are 1d
-        if lon.ndim == 1:
-            transformation = projection
-
-
-    # create the plot
-    if not "figure" in kwargs:
-        fig = plt.figure()
-    else:
-        fig = kwargs["figure"]
-    if not "axes" in kwargs:
-        subplot_args = kwargs.get("subplot_args", (111,))
-        subplot_kwargs = kwargs.get("subplot_kwargs", {})
-        ax = fig.add_subplot(*subplot_args, projection=projection, **subplot_kwargs)
-    else:
-        ax = kwargs["axes"]
-
-    # construct arguments for the matplotlib contour
-    contour_args = {"transform": transformation,
-                    "cmap": "CMRmap_r",
-                    "levels": __get_nice_levels(variable),
-                    "extend": "both"}
-    # copy all arguments not specific to this function to the contour arguments
-    for arg, value in six.iteritems(kwargs):
-        if arg not in ["filled", "colorbar", "gridlines", "gridline_labes", "projection"]:
-            contour_args[arg] = value
-
-    # decide on the plot type based on variable and coordinate dimension
-    if variable.ndim == 1 and lon.ndim == 1 and lat.ndim == 1:
-        # calculate the triangulation
-        tri = __get_triangulation(projection, transformation, lon, lat)
-        # create the plot
-        if kwargs.get("filled", True):
-            contour = ax.tricontourf(tri, variable, **contour_args)
-        else:
-            contour = ax.tricontour(tri, variable, **contour_args)
-
-    else:
-        # create a contour plot
-        if kwargs.get("filled", True):
-            contour = ax.contourf(lon, lat, variable, **contour_args)
-        else:
-            contour = ax.contour(lon, lat, variable, **contour_args)
-
-    # add coastlines
-    resolution_coastlines = kwargs.get("coastlines", True)
-    if resolution_coastlines is not False:
-        if isinstance(resolution_coastlines, str):
-            ax.coastlines(resolution_coastlines)
-        else:
-            ax.coastlines()
-
-    # add borders
-    resolution_borders = kwargs.get("borders", True)
-    if not isinstance(resolution_borders, str) and isinstance(resolution_coastlines, str):
-        resolution_borders = resolution_coastlines
-    if resolution_borders is not False:
-        if isinstance(resolution_borders, str):
-            ax.add_feature(cartopy.feature.NaturalEarthFeature(
-                "cultural", "admin_0_boundary_lines_land",
-                resolution_borders, edgecolor='black', facecolor='none', linestyle=":"))
-        else:
-            ax.add_feature(cartopy.feature.BORDERS, linestyle=":")
-
-    # add gridlines
-    if kwargs.get("gridlines", False) is True:
-        ax.gridlines(color="black", linestyle="dotted", draw_labels=kwargs.get("gridline_labels", False))
-
-    # add a colorbar
-    if kwargs.get("colorbar", True):
-        divider = make_axes_locatable(ax)
-        width = AxesY(ax, aspect=0.07)
-        pad = Fraction(1.0, width)
-        cb_ax = divider.append_axes("right", size=width, pad=pad, axes_class=Axes, frameon=False)
-        fig.colorbar(contour, cax=cb_ax)
-
-    if is_global:
-        ax.set_global()
-
-    return fig, ax
-
-
-@dispatch(xarray.DataArray)
-def contour(variable, lon_name=None, lat_name=None, **kwargs):
-    """
-    Create a plot from an xarray variable that includes coordinates.
-
-    Examples
-    --------
-
-    >>> fig, ax = enstools.plot.contour(data["TOT_PREC"][0, :, :], coastlines="50m")    # doctest: +SKIP
-
-    .. figure:: images/example_plot_icon_01.png
-
-        24h ICON forecast for precipitation read from a grib2 file. Have a look at the script
-        examples/example_plot_icon_01.py for more details.
-
-    >>> fig, ax1 = enstools.plot.contour(data["PMSL"][0, :] / 100.0, gridlines=True, subplot_args=(121,))   # doctest: +SKIP
-    >>> fig, ax2 = enstools.plot.contour(data["TOT_PREC"][0, :], figure=fig, subplot_args=(122,))           # doctest: +SKIP
-
-    .. figure:: images/example_plot_icon_02.png
-
-        24h ICON forecast for mean sea level pressure (left) and precipitation (right). The data was read from
-        grib2 files on the native ICON grid and plotted without interpolation onto a regular grid. Have a look at the
-        script examples/example_plot_icon_02.py
+    get coordinate arrays from a xarray object
 
     Parameters
     ----------
     variable : xarray.DataArray
-            the data to plot.
+            xarray with coordinates
 
-    lon_name : string
-            name of the longitude coordinate in the case of non standard names.
+    lon_name : str
+            name of the longitude coordinate
 
-    lat_name : string
-            name of the latitude coordinate in the case of non standard names.
+    lat_name : str
+            name of the latitude coordinate
 
+    Returns
+    -------
+    tuple:
+            lon, lat arrays
     """
-    # select projection and transformation based for global and non-global datasets
+    # check arguments
+    if isinstance(lon_name, (np.ndarray, xarray.DataArray)) and isinstance(lat_name, (np.ndarray, xarray.DataArray)):
+        return lon_name, lat_name
+    if not isinstance(variable, xarray.DataArray):
+        raise ValueError("named coordinates are only allowed for xarray variable!")
+
     # get the coordinates
     if lon_name is not None:
         lon = variable.coords[lon_name]
@@ -412,63 +277,213 @@ def contour(variable, lon_name=None, lat_name=None, **kwargs):
     # do we need a mesh grid?
     if lon.ndim == 1 and variable.ndim == 2:
         lon, lat = np.meshgrid(lon, lat)
-
-    # create the plot with the coordinates found
-    return contour(variable, lon, lat, **kwargs)
+    return lon, lat
 
 
-# add kwargs to all contour functions doc
-__contour_kwargs_doc = """
-Other optional keyword arguments:
+def contour(variable, lon=None, lat=None, **kwargs):
+    """
+    Create a plot from an xarray variable that includes coordinates.
 
-**kwargs
-        *figure*: matplotlib.figure.Figure
-            If provided, this figure instance will be used (and returned), otherwise a new
-            figure will be created.
+    Examples
+    --------
 
-        *axes*: matplotlib.axes.Axes
-            If provided, this axes instance will be used (e.g., of overplotting), otherwise a
-            new axes object will be created.
+    >>> fig, ax = enstools.plot.contour(data["TOT_PREC"][0, :, :], coastlines="50m")    # doctest: +SKIP
 
-        *subplot_args*: tuple
-            Arguments passed on to add_subplot. These arguments are used only if no axes is provided.
+    .. figure:: images/example_plot_icon_01.png
 
-        *subplot_kwargs*: dict
-            Keyword arguments passed on to add_subplot. These arguments are used only if no axes is provided.
+        24h ICON forecast for precipitation read from a grib2 file. Have a look at the script
+        examples/example_plot_icon_01.py for more details.
 
-        *filled*: [*True* | *False*]
-            If True a filled contour is plotted, which is the default
+    >>> fig, ax1 = enstools.plot.contour(data["PMSL"][0, :] / 100.0, gridlines=True, subplot_args=(121,))   # doctest: +SKIP
+    >>> fig, ax2 = enstools.plot.contour(data["TOT_PREC"][0, :], figure=fig, subplot_args=(122,))           # doctest: +SKIP
 
-        *colorbar*: [*True* | *False*]
-            If True, a colorbar is created. Default=True.
+    .. figure:: images/example_plot_icon_02.png
 
-        *gridlines*: [*True* | *False*]
-            If True, coordinate grid lines are drawn. Default=False
+        24h ICON forecast for mean sea level pressure (left) and precipitation (right). The data was read from
+        grib2 files on the native ICON grid and plotted without interpolation onto a regular grid. Have a look at the
+        script examples/example_plot_icon_02.py
 
-        *gridline_labes*: [*True* | *False*]
-            Whether or not to label the grid lines. The default is not to label them.
+    Parameters
+    ----------
+    variable : xarray.DataArray
+            the data to plot.
 
-        *coastlines*: [*True* | '110m' | '50m' | '10m']
-            If True, coordinate grid lines are drawn. Default=True
+    lon : xarray.DataArray or np.ndarray or str
+            longitude coordinate or name of longitude coordinate. The name may only be used for xarray variables.
 
-        *borders*: [*True* | '110m' | '50m' | '10m']
-            If True, coordinate grid lines are drawn. Default=False
+    lat : xarray.DataArray or np.ndarray or str
+            latitude coordinate or name of longitude coordinate. The name may only be used for xarray variables.
 
-        *projection*: [ *cartopy.crs.Projection*]
-            If not None, the Projection object is used to create the plot
-            
-        *rotated_pole*: [*xarray.DataArray* | dict]
-            Information about the rotated pole. This can either be the CF-standard rotated_pole variable from
-            an input file, or alternatively a dictionary with the keys grid_north_pole_latitude and 
-            grid_north_pole_longitude.
+    Other optional keyword arguments:
 
-All other arguments are forwarded to the matplotlib contour or contourf function.
+    **kwargs
+            *figure*: matplotlib.figure.Figure
+                If provided, this figure instance will be used (and returned), otherwise a new
+                figure will be created.
 
-Returns
--------
-tuple
-        (Figure, Axes) of the new plot is returned. The returned values may be reused in subsequent calls to 
-        plot functions.
-"""
-for __func in six.itervalues(contour.funcs):
-    __func.__doc__ += __contour_kwargs_doc
+            *axes*: matplotlib.axes.Axes
+                If provided, this axes instance will be used (e.g., of overplotting), otherwise a
+                new axes object will be created.
+
+            *subplot_args*: tuple
+                Arguments passed on to add_subplot. These arguments are used only if no axes is provided.
+
+            *subplot_kwargs*: dict
+                Keyword arguments passed on to add_subplot. These arguments are used only if no axes is provided.
+
+            *filled*: [*True* | *False*]
+                If True a filled contour is plotted, which is the default
+
+            *colorbar*: [*True* | *False*]
+                If True, a colorbar is created. Default=True.
+
+            *levels*: np.ndarray
+                If provided, these levels are used, otherwise the levels are automatically selected.
+
+            *gridlines*: [*True* | *False*]
+                If True, coordinate grid lines are drawn. Default=False
+
+            *gridline_labes*: [*True* | *False*]
+                Whether or not to label the grid lines. The default is not to label them.
+
+            *coastlines*: [*True* | '110m' | '50m' | '10m']
+                If True, coordinate grid lines are drawn. Default=True
+
+            *borders*: [*True* | '110m' | '50m' | '10m']
+                If True, coordinate grid lines are drawn. Default=False
+
+            *projection*: [ *cartopy.crs.Projection*]
+                If not None, the Projection object is used to create the plot
+
+            *rotated_pole*: [*xarray.DataArray* | dict]
+                Information about the rotated pole. This can either be the CF-standard rotated_pole variable from
+                an input file, or alternatively a dictionary with the keys grid_north_pole_latitude and
+                grid_north_pole_longitude.
+
+    All other arguments are forwarded to the matplotlib contour or contourf function.
+
+    Returns
+    -------
+    tuple
+            (Figure, Axes) of the new plot is returned. The returned values may be reused in subsequent calls to
+            plot functions.
+    """
+    # get the coordinates
+    lon, lat = get_coordinates_from_xarray(variable, lon, lat)
+
+    # is it a global dataset?
+    transformation = ccrs.PlateCarree()
+    is_global = __is_global(lon, lat)
+    projection = kwargs.get("projection", None)
+    if projection is None:
+        if is_global:
+            projection = ccrs.Mollweide()
+        else:
+            projection = ccrs.PlateCarree()
+
+    # is it a rotated pole array
+    if kwargs.get("rotated_pole", None) is not None:
+        rotated_pole = kwargs.get("rotated_pole")
+        if isinstance(rotated_pole, xarray.DataArray):
+            grid_north_pole_latitude = rotated_pole.grid_north_pole_latitude
+            grid_north_pole_longitude = rotated_pole.grid_north_pole_longitude
+        elif isinstance(rotated_pole, dict):
+            grid_north_pole_latitude = rotated_pole["grid_north_pole_latitude"]
+            grid_north_pole_longitude = rotated_pole["grid_north_pole_longitude"]
+        else:
+            raise ValueError("unsupported type of rotated_pole argument!")
+
+        # create a projection if no projection was specified
+        if not "projection" in kwargs:
+            projection = ccrs.RotatedPole(grid_north_pole_longitude, grid_north_pole_latitude)
+
+        # create a transformation if the coordinates are 1d
+        if lon.ndim == 1:
+            transformation = projection
+
+    # create the plot
+    if kwargs.get("figure", None) is None:
+        fig = plt.figure()
+    else:
+        fig = kwargs["figure"]
+    if kwargs.get("axes", None) is None:
+        subplot_args = kwargs.get("subplot_args", (111,))
+        subplot_kwargs = kwargs.get("subplot_kwargs", {})
+        ax = fig.add_subplot(*subplot_args, projection=projection, **subplot_kwargs)
+    else:
+        ax = kwargs["axes"]
+
+    # construct arguments for the matplotlib contour
+    contour_args = {"transform": transformation,
+                    "extend": "both"}
+    if kwargs.get("levels", None) is None:
+        contour_args["levels"] = get_nice_levels(variable)
+    else:
+        contour_args["levels"] = kwargs["levels"]
+    if kwargs.get("cmap", None) is not None:
+        contour_args["cmap"] = kwargs["cmap"]
+    else:
+        contour_args["cmap"] = "CMRmap_r"
+
+    # copy all arguments not specific to this function to the contour arguments
+    for arg, value in six.iteritems(kwargs):
+        if arg not in ["filled", "colorbar", "gridlines", "gridline_labes", "projection"]:
+            contour_args[arg] = value
+
+    # decide on the plot type based on variable and coordinate dimension
+    # FIXME: suppress a specific warning about MaskedArrays
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', lineno=6385)  # suppress a specific warning about MaskedArrays
+
+        if variable.ndim == 1 and lon.ndim == 1 and lat.ndim == 1:
+            # calculate the triangulation
+            tri = __get_triangulation(projection, transformation, lon, lat)
+            # create the plot
+            if kwargs.get("filled", True):
+                contour = ax.tricontourf(tri, variable, **contour_args)
+            else:
+                contour = ax.tricontour(tri, variable, **contour_args)
+
+        else:
+            # create a contour plot
+            if kwargs.get("filled", True):
+                contour = ax.contourf(lon, lat, variable, **contour_args)
+            else:
+                contour = ax.contour(lon, lat, variable, **contour_args)
+
+    # add coastlines
+    resolution_coastlines = kwargs.get("coastlines", True)
+    if resolution_coastlines is not False:
+        if isinstance(resolution_coastlines, str):
+            ax.coastlines(resolution_coastlines)
+        else:
+            ax.coastlines()
+
+    # add borders
+    resolution_borders = kwargs.get("borders", True)
+    if not isinstance(resolution_borders, str) and isinstance(resolution_coastlines, str):
+        resolution_borders = resolution_coastlines
+    if resolution_borders is not False:
+        if isinstance(resolution_borders, str):
+            ax.add_feature(cartopy.feature.NaturalEarthFeature(
+                "cultural", "admin_0_boundary_lines_land",
+                resolution_borders, edgecolor='black', facecolor='none', linestyle=":"))
+        else:
+            ax.add_feature(cartopy.feature.BORDERS, linestyle=":")
+
+    # add gridlines
+    if kwargs.get("gridlines", False) is True:
+        ax.gridlines(color="black", linestyle="dotted", draw_labels=kwargs.get("gridline_labels", False))
+
+    # add a colorbar
+    if kwargs.get("colorbar", True):
+        divider = make_axes_locatable(ax)
+        width = AxesY(ax, aspect=0.07)
+        pad = Fraction(1.0, width)
+        cb_ax = divider.append_axes("right", size=width, pad=pad, axes_class=Axes, frameon=False)
+        fig.colorbar(contour, cax=cb_ax)
+
+    if is_global:
+        ax.set_global()
+
+    return fig, ax

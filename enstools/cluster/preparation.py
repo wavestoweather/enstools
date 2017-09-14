@@ -34,7 +34,9 @@ def prepare(*variables, **kwargs):
 
     **kwargs
             *ens_dim* : int or string
-                index or name of the dimension along which the clustering should be performed
+                index or name of the dimension along which the clustering should be performed. If not provided,
+                xarrays will be scanned for standard ensemble dimension names (ens, ensemble, member, members). If
+                no standard ensemble dimension is found, dimension 0 is used. That is also the default for numpy arrays.
 
     Returns
     -------
@@ -52,7 +54,23 @@ def prepare(*variables, **kwargs):
                              % (shape, ivar+1, one_var.shape))
 
     # 2. calculate the shape of the result
-    ens_dim = kwargs.get("ens_dim", 0)
+    ens_dim = kwargs.get("ens_dim", None)
+    if ens_dim is None:
+        if isinstance(variables[0], xarray.DataArray):
+            for idim, dim_name in enumerate(variables[0].dims):
+                if dim_name in ["ens", "ensemble", "member", "members"]:
+                    ens_dim = idim
+                    break
+        if ens_dim is None:
+            ens_dim = 0
+    if isinstance(ens_dim, str):
+        if isinstance(variables[0], xarray.DataArray):
+            ens_dim = variables[0].dims.index(ens_dim)
+        else:
+            raise ValueError("dimension names are only supported for xarray.DataArray variables!")
+    if ens_dim > len(shape)-1:
+        raise ValueError("the specified ensemble dimension is larger the the number dimension id the input array!")
+
     feature_shape = list(shape)
     del feature_shape[ens_dim]
     feature_shape = (np.product(feature_shape),)
