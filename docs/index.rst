@@ -11,6 +11,7 @@ Contents:
 .. toctree::
     :maxdepth: 2
 
+    clustering.rst
     io.rst
     interpolation.rst
     plot.rst

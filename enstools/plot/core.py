@@ -83,7 +83,7 @@ def __get_order_of_magnitude(value):
     return x3
 
 
-def get_nice_levels(variable, nlevel=11, min_percentile=0.1, max_percentile=99.9):
+def get_nice_levels(variable, center_on_zero=False, nlevel=11, min_percentile=0.1, max_percentile=99.9):
     """
     Create levels for contour plots
 
@@ -116,6 +116,9 @@ def get_nice_levels(variable, nlevel=11, min_percentile=0.1, max_percentile=99.9
     elif minval < 0 < maxval and abs(minval) < abs(maxval) / 1000:
         minval = 0
         minval_is_adjusted = True
+    elif center_on_zero:
+        minval = 0
+        minval_is_adjusted = True
     else:
         minval -= np.mod(minval, perc10)
 
@@ -128,6 +131,8 @@ def get_nice_levels(variable, nlevel=11, min_percentile=0.1, max_percentile=99.9
     range = maxval - minval
     if np.mod(range, step) != 0:
         maxval += step - np.mod(range, step)
+    if center_on_zero:
+        minval = -maxval
     return np.linspace(minval, maxval, nlevel)
 
 
@@ -340,6 +345,9 @@ def contour(variable, lon=None, lat=None, **kwargs):
             *levels*: np.ndarray
                 If provided, these levels are used, otherwise the levels are automatically selected.
 
+            *levels_center_on_zero* : bool
+                If true, automatically selected levels are centered around zero.
+
             *gridlines*: [*True* | *False*]
                 If True, coordinate grid lines are drawn. Default=False
 
@@ -417,7 +425,7 @@ def contour(variable, lon=None, lat=None, **kwargs):
     contour_args = {"transform": transformation,
                     "extend": "both"}
     if kwargs.get("levels", None) is None:
-        contour_args["levels"] = get_nice_levels(variable)
+        contour_args["levels"] = get_nice_levels(variable, center_on_zero=kwargs.get("levels_center_on_zero", False))
     else:
         contour_args["levels"] = kwargs["levels"]
     if kwargs.get("cmap", None) is not None:
@@ -427,7 +435,7 @@ def contour(variable, lon=None, lat=None, **kwargs):
 
     # copy all arguments not specific to this function to the contour arguments
     for arg, value in six.iteritems(kwargs):
-        if arg not in ["filled", "colorbar", "gridlines", "gridline_labes", "projection"]:
+        if arg not in ["filled", "colorbar", "gridlines", "gridline_labes", "projection", "levels_center_on_zero", "rotated_pole", "cmap"]:
             contour_args[arg] = value
 
     # decide on the plot type based on variable and coordinate dimension

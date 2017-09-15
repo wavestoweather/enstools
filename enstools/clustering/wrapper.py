@@ -18,21 +18,24 @@ methods = {"kmeans": sklearn.cluster.KMeans,
            "birch": sklearn.cluster.Birch}
 
 
-def cluster(algorithm, data, n_clusters=None, sort=True, **kwargs):
+def cluster(algorithm, data, n_clusters=None, n_clusters_max=None, sort=True, **kwargs):
     """
 
     Parameters
     ----------
-    algorithm : string
-            clustering method to use. all sklearn methods are supported.
+    algorithm : str
+            clustering method to use. all sklearn methods are supported. $methods
 
     data : xarray.DataArray or np.ndarray
-            the input data for the clustering. This is the output of the prepare function.
+            the input data for the clustering. This is the output of the :func:`prepare` function.
 
     n_clusters : int or None
             number of clusters to create. An Integer will create the specified number of
             clusters. None will try to estimate the number of clusters using the silhouette score if the algorithm
             supports the prescription of the number of clusters.
+
+    n_clusters_max : int
+            maximal number of clusters to create. The default is the number of ensemble members divided by four.
 
     sort : bool
             If True, the clusters are sorted in order to create better reproducible results.
@@ -54,23 +57,30 @@ def cluster(algorithm, data, n_clusters=None, sort=True, **kwargs):
     has_n_clusters = "n_clusters" in get_arg_spec(methods[algorithm].__init__)[0]
 
     # estimate the number of clusters?
+    scores = None
     if has_n_clusters and n_clusters is None:
         # calculate clustering up the 1/3 times the ensemble members
-        n_cluster_min, n_cluster_max = 2, data.shape[0] // 3
+        n_clusters_min = 2
+        if n_clusters_max is None:
+            n_clusters_max = data.shape[0] // 4
+
         labels = []
         scores = []
-        for nc in range(n_cluster_min, n_cluster_max + 1):
+        for nc in range(n_clusters_min, n_clusters_max + 1):
             labels.append(dask.delayed(cluster)(algorithm, data, n_clusters=nc, sort=False, **kwargs))
         labels = dask.compute(*labels)
-        for nc in range(n_cluster_min, n_cluster_max + 1):
-            scores.append(dask.delayed(silhouette_score)(data, labels[nc - n_cluster_min]))
+        for nc in range(n_clusters_min, n_clusters_max + 1):
+            scores.append(dask.delayed(silhouette_score)(data, np.asarray(labels[nc - n_clusters_min])))
 
         # the the number of clusters with the largest score
         scores = np.array(dask.compute(*scores))
+        n_clusters = scores.argmax() + n_clusters_min
         result = labels[scores.argmax()]
 
     # number of clusters is given as argument
     elif has_n_clusters:
+        n_clusters_min = n_clusters
+        n_clusters_max = n_clusters
         model = methods[algorithm](n_clusters=n_clusters, **kwargs).fit(data)
         result = model.labels_
 
@@ -88,5 +98,21 @@ def cluster(algorithm, data, n_clusters=None, sort=True, **kwargs):
             result = np.where(result == one_cluster[0], i_cluster + len(cluster_in_res), result)
         result -= len(cluster_in_res)
 
+    # convert to xarray and add some meta data
+    result = xarray.DataArray(result, dims=("ens",))
+    result.attrs["n_clusters"] = int(result.max() + 1)
+    if has_n_clusters:
+        result.attrs["n_clusters_min"] = n_clusters_min
+        result.attrs["n_clusters_max"] = n_clusters_max
+    result.attrs["algorithm"] = algorithm
+    if scores is not None:
+        result.attrs["scores"] = scores
+
     return result
 
+
+# add a list of methods to the doc-string
+__methods_str = "\n\n"
+for __method_name in sorted(methods.keys()):
+    __methods_str += "            *%s*: :class:`sklearn.cluster.%s`\n\n" % (__method_name, methods[__method_name].__name__)
+cluster.__doc__ = cluster.__doc__.replace("$methods", __methods_str)

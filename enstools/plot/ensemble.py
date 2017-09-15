@@ -83,7 +83,7 @@ def grid(plot_function, variable, lon=None, lat=None, figure=None, axes=None, sh
         raise ValueError("wrong number of colormaps given!")
 
     # loop over all panels
-    for ipanel in range(np.product(shape)):
+    for ipanel in range(variable.shape[0]):
         figure, axes[np.unravel_index(ipanel, shape)] = plot_function(variable[ipanel, ...],
                                                                       lon,
                                                                       lat,
