@@ -1,10 +1,11 @@
 import nose
 import numpy
-from enstools.cluster import prepare
+from enstools.clustering import prepare
+from enstools.clustering import cluster
 from sklearn.cluster import KMeans
 
 variables = []
-ens_members = 10
+ens_members = 20
 n_variables = 2
 
 
@@ -51,3 +52,19 @@ def test_prepare_kmeans():
     numpy.testing.assert_array_equal(even, numpy.repeat(even[0], ens_members / 2))
     numpy.testing.assert_array_equal(odd, numpy.repeat(odd[0], ens_members / 2))
     numpy.testing.assert_equal(even[0] != odd[0], True)
+
+
+def test_prepare_cluster():
+    """
+    test sklearn wrapper with automatic number of cluster estimation
+    """
+    # prepare the data
+    x = prepare(*variables)
+
+    # perform the clustering, the number of clusters should be 2
+    labels = cluster("kmeans", x)
+    numpy.testing.assert_equal(numpy.unique(labels).size, 2)
+
+    # same test with agglomerative clustering, method ward
+    labels = cluster("agglo", x)
+    numpy.testing.assert_equal(numpy.unique(labels).size, 2)

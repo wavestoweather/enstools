@@ -47,7 +47,7 @@ def cluster(algorithm, data, n_clusters=None, sort=True, **kwargs):
     """
 
     # is a valid algorithm selected?
-    if not algorithm in methods:
+    if algorithm not in methods:
         raise ValueError("unsupported algorithm selected: %s supported are only: %s" % (algorithm, ", ".join(methods.keys())))
 
     # is it possible to prescribe the number of clusters?
@@ -56,7 +56,7 @@ def cluster(algorithm, data, n_clusters=None, sort=True, **kwargs):
     # estimate the number of clusters?
     if has_n_clusters and n_clusters is None:
         # calculate clustering up the 1/3 times the ensemble members
-        n_cluster_min, n_cluster_max = 2, data.shape[0] / 3
+        n_cluster_min, n_cluster_max = 2, data.shape[0] // 3
         labels = []
         scores = []
         for nc in range(n_cluster_min, n_cluster_max + 1):
@@ -72,7 +72,7 @@ def cluster(algorithm, data, n_clusters=None, sort=True, **kwargs):
     # number of clusters is given as argument
     elif has_n_clusters:
         model = methods[algorithm](n_clusters=n_clusters, **kwargs).fit(data)
-        result = model.predict(data)
+        result = model.labels_
 
     # sort the result?
     if sort:

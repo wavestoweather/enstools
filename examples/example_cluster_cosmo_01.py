@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # this example is using python 2.7 as long as eccodes is not available for python 3.x
 from enstools.io import read
-from enstools.cluster import prepare, cluster
+from enstools.clustering import prepare, cluster
 from enstools.plot import contour, grid
 import matplotlib.pyplot as plt
 import argparse
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     # 1. prepare the data (reshape, normalize, etc...), use the last four time steps
     cl_data = prepare(data["TOT_PREC"][24:28, :, :, :], data["CAPE_ML"][24:28, :, :, :])
     # 2. perform the actual clustering, the number of clusters is estimated automatically
-    labels = cluster("kmeans", cl_data, n_clusters=4)
+    labels = cluster("agglo", cl_data)
     print("Clustering: %s" % ", ".join(map(lambda x:str(x), labels)))
 
     # plot the whole ensemble
