@@ -17,10 +17,11 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
     Parameters
     ----------
     pr:     xarray.DataArray
-            The precipitation rate [kg m-2 s-1]
+            Hourly or longer accumulated precipitation converted to [kg m-2 s-1].
 
     cape:   xarray.DataArray
-            The CAPE [J kg-1]
+            The CAPE of mean surface layer parcel [J kg-1].
+            For example, mean of start and end value of the period of the accumulation.
 
     th:     scalar
             threshold for the precipitation rate above which the calculation should be performed [kg m-2 h-1]. Grid
