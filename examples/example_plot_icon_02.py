@@ -37,9 +37,17 @@ if __name__ == "__main__":
     # read the grib files
     data = enstools.io.read(data_files, merge_same_size_dim=True)
 
+    # variable names depend on the presence of the DWD grib definitions
+    if "PMSL" in data:
+        PMSL = "PMSL"
+        TOT_PREC = "TOT_PREC"
+    else:
+        PMSL = "prmsl"
+        TOT_PREC = "tp"
+
     # create a basic map plot
-    fig, ax1 = enstools.plot.contour(data["PMSL"][0, :] / 100.0, gridlines=True, subplot_args=(121,))
-    fig, ax2 = enstools.plot.contour(data["TOT_PREC"][0, :], figure=fig, subplot_args=(122,))
+    fig, ax1 = enstools.plot.contour(data[PMSL][0, :] / 100.0, gridlines=True, subplot_args=(121,))
+    fig, ax2 = enstools.plot.contour(data[TOT_PREC][0, :], figure=fig, subplot_args=(122,))
     if args.save is None:
         plt.show()
     else:
