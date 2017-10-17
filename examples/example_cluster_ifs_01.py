@@ -6,7 +6,6 @@ from enstools.plot import contour, grid
 import matplotlib.pyplot as plt
 import argparse
 import xarray
-import numpy
 
 if __name__ == "__main__":
     # parse command line arguments
@@ -16,7 +15,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # read the data
-    data = read("/project/meteo/w2w/Z2/test/ifs-2016101012-*.grib")
+    data = read("/project/meteo/w2w/Z2/test/ifs-2016101112-*.grib")
     print(data)
 
     # prepare data for clustering
