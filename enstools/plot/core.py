@@ -39,7 +39,7 @@ def __is_global(lon, lat):
     -------
     bool
     """
-    if lon.max() - lon.min() > 350 and lat.max() - lat.min() > 80:
+    if lon.max() - lon.min() > 350 and lat.max() - lat.min() > 170:
         return True
     return False
 
@@ -211,7 +211,7 @@ def __get_triangulation(projection, transformation, lon, lat, calculate_mask=Tru
     return tri
 
 
-def get_coordinates_from_xarray(variable, lon_name=None, lat_name=None):
+def get_coordinates_from_xarray(variable, lon_name=None, lat_name=None, create_mesh=True, only_spatial_dims=True):
     """
     get coordinate arrays from a xarray object
 
@@ -268,19 +268,20 @@ def get_coordinates_from_xarray(variable, lon_name=None, lat_name=None):
             lat = np.rad2deg(lat)
 
     # check the dimensions, only the dimensions of lon and lat are allowed
-    coord_dim_names = []
-    for dim_name in lon.dims:
-        if dim_name not in coord_dim_names:
-            coord_dim_names.append(dim_name)
-    for dim_name in lat.dims:
-        if dim_name not in coord_dim_names:
-            coord_dim_names.append(dim_name)
-    for dim_name in variable.dims:
-        if dim_name not in coord_dim_names:
-            raise ValueError("the variable has more dimensions (%s) then the horizontal coordinates (%s). Please call this function with a slice of the variable!" % (", ".join(variable.dims), ", ".join(coord_dim_names)))
+    if only_spatial_dims:
+        coord_dim_names = []
+        for dim_name in lon.dims:
+            if dim_name not in coord_dim_names:
+                coord_dim_names.append(dim_name)
+        for dim_name in lat.dims:
+            if dim_name not in coord_dim_names:
+                coord_dim_names.append(dim_name)
+        for dim_name in variable.dims:
+            if dim_name not in coord_dim_names:
+                raise ValueError("the variable has more dimensions (%s) then the horizontal coordinates (%s). Please call this function with a slice of the variable!" % (", ".join(variable.dims), ", ".join(coord_dim_names)))
 
     # do we need a mesh grid?
-    if lon.ndim == 1 and variable.ndim == 2:
+    if create_mesh and lon.ndim == 1 and variable.ndim == 2:
         lon, lat = np.meshgrid(lon, lat)
     return lon, lat
 
@@ -339,8 +340,10 @@ def contour(variable, lon=None, lat=None, **kwargs):
             *filled*: [*True* | *False*]
                 If True a filled contour is plotted, which is the default
 
-            *colorbar*: [*True* | *False*]
-                If True, a colorbar is created. Default=True.
+            *colorbar*: [*True* | *False* | "empty"]
+                If True, a colorbar is created. Default=True. Use empty to reserve space for the colorbar
+                without actually creating it. This is usefull for multipanel plots, where one panel has a colorbar and
+                another not.
 
             *levels*: np.ndarray
                 If provided, these levels are used, otherwise the levels are automatically selected.
@@ -354,10 +357,13 @@ def contour(variable, lon=None, lat=None, **kwargs):
             *gridline_labes*: [*True* | *False*]
                 Whether or not to label the grid lines. The default is not to label them.
 
-            *coastlines*: [*True* | '110m' | '50m' | '10m']
+            *coastlines*: [*True* | *False* | '110m' | '50m' | '10m']
                 If True, coordinate grid lines are drawn. Default=True
 
-            *borders*: [*True* | '110m' | '50m' | '10m']
+            *coastlines_kwargs*: dict
+                dictionary with arguments passed on to ax.coastlines()
+
+            *borders*: [*True* | *False* | '110m' | '50m' | '10m']
                 If True, coordinate grid lines are drawn. Default=False
 
             *projection*: [ *cartopy.crs.Projection*]
@@ -430,12 +436,12 @@ def contour(variable, lon=None, lat=None, **kwargs):
         contour_args["levels"] = kwargs["levels"]
     if kwargs.get("cmap", None) is not None:
         contour_args["cmap"] = kwargs["cmap"]
-    else:
+    elif kwargs.get("colors", None) is None:
         contour_args["cmap"] = "CMRmap_r"
 
     # copy all arguments not specific to this function to the contour arguments
     for arg, value in six.iteritems(kwargs):
-        if arg not in ["filled", "colorbar", "gridlines", "gridline_labes", "projection", "levels_center_on_zero", "rotated_pole", "cmap"]:
+        if arg not in ["coastlines", "coastlines_kwargs", "borders", "borders_kwargs", "filled", "colorbar", "gridlines", "gridline_labes", "projection", "levels_center_on_zero", "rotated_pole", "cmap"]:
             contour_args[arg] = value
 
     # decide on the plot type based on variable and coordinate dimension
@@ -460,15 +466,17 @@ def contour(variable, lon=None, lat=None, **kwargs):
                 contour = ax.contour(lon, lat, variable, **contour_args)
 
     # add coastlines
+    # TODO: ensure that coastlines or borders are not added multiple times
     resolution_coastlines = kwargs.get("coastlines", True)
     if resolution_coastlines is not False:
+        coastlines_kwargs = kwargs.get("coastlines_kwargs", dict())
         if isinstance(resolution_coastlines, str):
-            ax.coastlines(resolution_coastlines)
+            ax.coastlines(resolution_coastlines, **coastlines_kwargs)
         else:
-            ax.coastlines()
+            ax.coastlines(**coastlines_kwargs)
 
     # add borders
-    resolution_borders = kwargs.get("borders", True)
+    resolution_borders = kwargs.get("borders", False)
     if not isinstance(resolution_borders, str) and isinstance(resolution_coastlines, str):
         resolution_borders = resolution_coastlines
     if resolution_borders is not False:
@@ -484,12 +492,16 @@ def contour(variable, lon=None, lat=None, **kwargs):
         ax.gridlines(color="black", linestyle="dotted", draw_labels=kwargs.get("gridline_labels", False))
 
     # add a colorbar
-    if kwargs.get("colorbar", True):
+    if kwargs.get("colorbar", True) is True or kwargs.get("colorbar", True) is "empty":
         divider = make_axes_locatable(ax)
         width = AxesY(ax, aspect=0.07)
         pad = Fraction(1.0, width)
         cb_ax = divider.append_axes("right", size=width, pad=pad, axes_class=Axes, frameon=False)
-        fig.colorbar(contour, cax=cb_ax)
+        if kwargs.get("colorbar", True) is True:
+            fig.colorbar(contour, cax=cb_ax)
+        else:
+            cb_ax.tick_params(bottom="off", left="off", top="off", right="off", which="both", labelbottom="off", labelleft="off")
+            print("empty!")
 
     if is_global:
         ax.set_global()

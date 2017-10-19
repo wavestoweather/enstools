@@ -54,7 +54,7 @@ __default_settings = {"check_arguments:convert": True,
                       "check_arguments:reorder": True}
 
 # default style for logging
-logging.basicConfig(level=logging.WARN, format="%(levelname)s: %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
 def set_behavior(check_arguments_convert=None, check_arguments_strict=None, check_arguments_reorder=None):

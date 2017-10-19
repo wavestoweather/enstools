@@ -1,8 +1,13 @@
 import os
 import logging
-import urllib
 import bz2
+import six
 from numba import jit
+
+if six.PY3:
+    from urllib.request import urlretrieve
+else:
+    from urllib import urlretrieve
 
 
 def download(url, destination, uncompress=True):
@@ -31,7 +36,8 @@ def download(url, destination, uncompress=True):
         return
 
     # download
-    fn, hd = urllib.urlretrieve(url, destination)
+    logging.info("downloading %s ..." % os.path.basename(destination))
+    fn, hd = urlretrieve(url, destination)
 
     # uncompress
     if destination.endswith(".bz2") and uncompress:

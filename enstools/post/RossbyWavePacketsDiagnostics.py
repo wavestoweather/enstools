@@ -8,17 +8,14 @@ The scripts have been tested in a Python 3.5 environment using the
 anaconda framework. Required modules are listed below.
 
 """
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import numpy as np
-import netCDF4 as nc
-from netCDF4 import Dataset, netcdftime
 from pylab import *
+from datetime import timedelta
 from mpl_toolkits.basemap import Basemap
 from scipy import fft, ifft, arange
-from scipy.fftpack import fftfreq, fftshift
 from scipy.interpolate import griddata, RectBivariateSpline
+import xarray
+from enstools.plot.core import get_coordinates_from_xarray
+from enstools.plot import contour
 
 
 def wsp_perpendicular(u,v,ubg,vbg):
@@ -392,7 +389,7 @@ def z_field(field, lats, lons):
     return zfield
 
 
-def double_threshold(field, sizelon, gridres, lats):
+def double_threshold(field, sizelon, gridres, lats, lat_range=(10, 70)):
     """
     Computation of double threshold for envelopss following Wolf (2015)
     Modules used:       numpy
@@ -414,8 +411,9 @@ def double_threshold(field, sizelon, gridres, lats):
     deltatau = 8.
     taustern = 2.9
     pihalbe = np.pi/2
+    lat_ind = np.where((lats >= lat_range[0]) & (lats <= lat_range[1]))[0]
     for ilon in np.arange(sizelon):
-        for jlat in np.arange(int(10/gridres), int(70/gridres)):
+        for jlat in lat_ind:
             envsum += field[ilon, jlat]*np.cos(np.pi*lats[jlat]/180)
             latsum += np.cos(np.pi*lats[jlat]/180)
     envmean = envsum/latsum
@@ -425,39 +423,203 @@ def double_threshold(field, sizelon, gridres, lats):
     taumax = (tauowp
               + deltatau*np.arctan((taustern*envmean-tauowp)
                                    / (deltatau*0.6))/pihalbe)
-    return taumin, taumax
+    return float(taumin), float(taumax)
 
 
-def plotitf(plotnr, title, corners, X, Y, Z, levz, colormap, ibar, levu, levo):
+def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(1, 90)):
+    """
+
+    Parameters
+    ----------
+    u : xarray.DataArray
+            u-wind component in 300 hPa (time, lev, lat, lon) [m s-1]
+
+    v : xarray.DataArray
+            v-wind component in 300 hPa (time, lev, lat, lon) [m s-1]
+
+    z : xarray.DataArray (time, lev, lat, lon) [m^2 s-2]
+            geopotential in 300 hPa
+
+    lon : xarray.DataArray or np.ndarray
+            longitude coordinate of the input arrays
+
+    lat : xarray.DataArray or np.ndarray
+            latitude coordinate of the input arrays
+
+    date : datetime
+            if provided, the calculation will be done for this specific date.
+
+    lat_range : tuple
+            (lat_min, lat_max) the latitude range to apply the diagnostic on
+
+    Returns
+    -------
+    xarray.Dataset
+    """
+
+    # get the coordinates
+    lon, lat = get_coordinates_from_xarray(u, lon, lat, create_mesh=False, only_spatial_dims=False)
+
+    # select the requested latitude range
+    lat_ind = np.where((lat >= lat_range[0]) & (lat <= lat_range[1]))[0]
+    u = u[..., lat_ind, :]
+    v = v[..., lat_ind, :]
+    z = z[..., lat_ind, :]
+
+    # select the requested time step
+    u_t = u.sel(time=date)
+    v_t = v.sel(time=date)
+    z_t = z.sel(time=date)
+
+    # select the time steps for the 21-day average
+    z_4mean = z.sel(time=slice(date - timedelta(days=10, hours=11), date + timedelta(days=10, hours=11)))
+
+    # calculate 21-day mean of geopotential
+    z_mean = z_4mean.mean(dim="time")
+
+    # some constants
+    kmin = 4
+    kmax = 17
+
+    # perform the actual calculation
+    lon_cycl = np.append(lon, lon[0] + 360)
+    ZU = z_field(u_t, lat_ind.size, lon.size + 1)
+    ZV = z_field(v_t, lat_ind.size, lon.size + 1)
+    ZUV = np.hypot(ZU, ZV)
+    ZPHI = z_field(z_t / 9.81, lat_ind.size, lon.size + 1)
+    ZPHI_mean = z_field(z_mean / 9.81, lat_ind.size, lon.size + 1)
+    ZENV = np.zeros([lat_ind.size, lon.size + 1])
+    ZVF= np.zeros([lat_ind.size, lon.size + 1])
+    for ilat in range(1, lat_ind.size):
+        ZVF[ilat, :] = wnedit(ZV[..., ilat], kmin, kmax)
+        ZENV[ilat, :] = hilbert(ZVF[ilat, :], lon.size)
+    ZENV = ZENV.transpose()
+
+    # compute double threshold
+    gridres = float(abs(lon[1]-lon[0]))
+    tauun, tauob = double_threshold(ZENV, lon.size, gridres, lat[lat_ind])
+
+    # assign points with ZENV > tauob to RWP objects
+    ZOBJ = ZENV/tauob
+    ZOBJ = np.ma.MaskedArray(ZOBJ, ZOBJ < 1)
+    ZOBJ = ZOBJ.astype(int)+1.e-15
+
+    # create result dataset for return
+    result = xarray.Dataset({"lon": ("lon", lon_cycl),
+                             "lat": ("lat", lat[lat_ind]),
+                             "ZU": (["lon", "lat"], ZU),
+                             "ZV": (["lon", "lat"], ZV),
+                             "ZUV": (["lon", "lat"], ZUV),
+                             "ZPHI": (["lon", "lat"], ZPHI),
+                             "ZPHI_mean": (["lon", "lat"], ZPHI_mean),
+                             "ZENV": (["lon", "lat"], ZENV),
+                             "ZOBJ": (["lon", "lat"], ZOBJ)})
+    result.attrs["levelu"] = tauun
+    result.attrs["levelo"] = tauob
+
+    # add description for the variables
+    result["ZU"].attrs["title"] = "Zonal wind speed"
+    result["ZU"].attrs["units"] = "m s-1"
+    result["ZV"].attrs["title"] = "Meridional wind speed"
+    result["ZV"].attrs["units"] = "m s-1"
+    result["ZUV"].attrs["title"] = "Horizontal wind speed"
+    result["ZUV"].attrs["units"] = "m s-1"
+    result["ZENV"].attrs["title"] = "Envelope of meridional wind"
+    result["ZENV"].attrs["units"] = "m s-1"
+    result["ZPHI"].attrs["title"] = "Height of 300 hPa surface"
+    result["ZPHI"].attrs["units"] = "gpm"
+    result["ZPHI_mean"].attrs["title"] = "Height of 300 hPa surface, 21 days average"
+    result["ZPHI_mean"].attrs["units"] = "gpm"
+    result["ZOBJ"].attrs["title"] = "RWP objects"
+    return result.transpose()
+
+
+def __plot(title, Z, levz, colormap, colorbar, levu, levo, filled=True, fig=None, subplot_args=None):
     """
     plot filled contours
     """
-    fig = plt.figure(facecolor='1.', figsize=[11, 4])
-    plt.title(title)
-    map = worldmap(corners)
-    CP = map.contourf(X, Y, Z, levz, cmap=colormap, extend='both', latlon='true')
-    if ibar == 1:
-        cbar = map.colorbar(CP, location='bottom', pad="18%", size="5%")
-        cbar.ax.tick_params(labelsize=10)
+    fig, ax = contour(Z, levels=levz,
+                      cmap=colormap,
+                      colorbar=colorbar,
+                      filled=filled,
+                      figure=fig,
+                      coastlines_kwargs={"color": (0., 0., 0., 0.5)},
+                      subplot_args=subplot_args)
+    ax.set_title(title)
 
-    if (levu != 0):
-        CPu = map.contour(X, Y, Z, levu, colors='k',
-                          linewidth=0.5, linestyles='dashed', latlon='true')
-        CPo = map.contour(X, Y, Z, levo, colors='k',
-                          linewidth=0.5, latlon='true')
-        for c in CPu.collections:
-
-            c.set_dashes([(0, (3.0, 2.0))])
-
-    savefig('Plots/' + plotnr + '.png', bbox_inches='tight')
+    if levu != 0:
+        fig, ax = contour(Z, figure=fig, axes=ax, levels=[levu],
+                          colorbar=False, filled=False, coastlines=False,
+                          linewidths=1.0, linestyles='dashed', dashes=[(0, (3.0, 2.0))], colors="k", subplot_args=subplot_args)
+        fig, ax = contour(Z, figure=fig, axes=ax, levels=[levo],
+                          colorbar=False, filled=False, coastlines=False,
+                          linewidths=2.0, linestyles='-', colors="k", subplot_args=subplot_args)
+    return fig, ax
 
 
-def plotit(plotnr, title, corners, X, Y, Z, levz):
+def rossby_wave_packets_plot(result, plot_numbers=None):
     """
-    plot contours
+    Create standard plots for rossby wave packet diagnostic
+
+    Parameters
+    ----------
+    plot_numbers : int or list of int
+            number of a plot or list of plots to create.
+
+    result : xarray.Dataset
+            output of rossby_wave_packets_diag
+
+    Returns
+    -------
+
     """
-    fig = plt.figure(facecolor='1.', figsize=[11, 4])
-    plt.title(title)
-    map = worldmap(corners)
-    CP = map.contour(X, Y, Z, levz, latlon='true')
-    savefig('Plots/' + plotnr + '.png', bbox_inches='tight')
+
+    # levels for individual plots
+    lev_phi = [8700, 8800, 8900, 9000, 9100, 9200, 9300, 9400, 9500, 9600, 9700]
+    lev_vabs = [10, 20, 30, 40, 50]
+    lev_v = [-60, -45, -30, -15, 15, 30, 45, 60]
+    lev_env = [10, 20, 30, 40, 50]
+    lev_obj = [0, 1, 1000]
+
+    # colorbar for objects
+    colobj = mpl.colors.ListedColormap((np.array([[255, 255, 255], [255, 0, 0]]) / 255.))
+
+    # how many plots should be created?
+    if plot_numbers is None:
+        plot_numbers = [1, 2, 3, 4, 5, 6]
+    if type(plot_numbers) == int:
+        nplots = 1
+        plot_numbers = [plot_numbers]
+    else:
+        nplots = len(plot_numbers)
+
+    # arrangement of sub-plots
+    nsubplots = 0
+    fig, ax = None, []
+    if 1 in plot_numbers:
+        nsubplots += 1
+        fig, _ax = __plot("%s (%s)" % (result["ZPHI_mean"].attrs["title"], result["ZPHI_mean"].attrs["units"]), result["ZPHI_mean"], lev_phi, 'RdYlBu_r', True, 0, 0, fig=fig, subplot_args=(nplots, 1, nsubplots))
+        ax.append(_ax)
+    if 2 in plot_numbers:
+        nsubplots += 1
+        fig, _ax = __plot("%s (%s)" % (result["ZPHI"].attrs["title"], result["ZPHI"].attrs["units"]), result["ZPHI"], lev_phi, 'RdYlBu_r', True, 0, 0, fig=fig, subplot_args=(nplots, 1, nsubplots))
+        ax.append(_ax)
+    if 3 in plot_numbers:
+        nsubplots += 1
+        fig, _ax = __plot("%s (%s)" % (result["ZUV"].attrs["title"], result["ZUV"].attrs["units"]), result["ZUV"], lev_vabs, 'YlGnBu', True, 0, 0, fig=fig, subplot_args=(nplots, 1, nsubplots))
+        ax.append(_ax)
+    if 4 in plot_numbers:
+        nsubplots += 1
+        fig, _ax = __plot("%s (%s)" % (result["ZV"].attrs["title"], result["ZV"].attrs["units"]), result["ZV"], lev_v, 'bwr', True, 0, 0, fig=fig, subplot_args=(nplots, 1, nsubplots))
+        ax.append(_ax)
+    if 5 in plot_numbers:
+        nsubplots += 1
+        fig, _ax = __plot("%s (%s)" % (result["ZENV"].attrs["title"], result["ZENV"].attrs["units"]), result["ZENV"], lev_env, 'Greens', True, result.attrs["levelu"], result.attrs["levelo"], fig=fig, subplot_args=(nplots, 1, nsubplots))
+        ax.append(_ax)
+    if 6 in plot_numbers:
+        nsubplots += 1
+        ZOBJ = result["ZOBJ"].copy().fillna(0.0)
+        fig, _ax = __plot(ZOBJ.attrs["title"], ZOBJ, lev_obj, colobj, "empty", 0, 0, fig=fig, subplot_args=(nplots, 1, nsubplots))
+        ax.append(_ax)
+
+    return fig, ax
