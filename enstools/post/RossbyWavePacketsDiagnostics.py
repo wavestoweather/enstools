@@ -426,7 +426,7 @@ def double_threshold(field, sizelon, gridres, lats, lat_range=(10, 70)):
     return float(taumin), float(taumax)
 
 
-def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(1, 90)):
+def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(10, 90), semigeostr=False, zimim2006=False):
     """
 
     Parameters
@@ -452,6 +452,12 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
     lat_range : tuple
             (lat_min, lat_max) the latitude range to apply the diagnostic on
 
+    semigeostr : bool
+            if True, semigeostrophic transformation is applied to the input data
+
+    zimim2006 : bool
+            if True, the calculation follows Zimim 2006
+
     Returns
     -------
     xarray.Dataset
@@ -460,44 +466,105 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
     # get the coordinates
     lon, lat = get_coordinates_from_xarray(u, lon, lat, create_mesh=False, only_spatial_dims=False)
 
+    # remove the level dimension if present
+    if u.ndim == 4:
+        if u.shape[1] == 1:
+            u = u[:, 0, ...]
+    if v.ndim == 4:
+        if v.shape[1] == 1:
+            v = v[:, 0, ...]
+    if z.ndim == 4:
+        if z.shape[1] == 1:
+            z = z[:, 0, ...]
+
     # select the requested latitude range
     lat_ind = np.where((lat >= lat_range[0]) & (lat <= lat_range[1]))[0]
-    u = u[..., lat_ind, :]
-    v = v[..., lat_ind, :]
-    z = z[..., lat_ind, :]
+    lat = np.asarray(lat[lat_ind])
+    if lat[0] > lat[1]:
+        lat_ind = np.flip(lat_ind, 0)
+        lat = np.asarray(lat[lat_ind])
+    lon = np.asarray(lon)
+    u = u[:, lat_ind, :]
+    v = v[:, lat_ind, :]
+    z = z[:, lat_ind, :]
 
     # select the requested time step
-    u_t = u.sel(time=date)
-    v_t = v.sel(time=date)
-    z_t = z.sel(time=date)
+    u_t = np.asarray(u.sel(time=date))
+    v_t = np.asarray(v.sel(time=date))
+    z_t = np.asarray(z.sel(time=date))
 
     # select the time steps for the 21-day average
     z_4mean = z.sel(time=slice(date - timedelta(days=10, hours=11), date + timedelta(days=10, hours=11)))
 
     # calculate 21-day mean of geopotential
-    z_mean = z_4mean.mean(dim="time")
+    z_mean = np.asarray(z_4mean.mean(dim="time"))
+
+    # for zimim2006, we also need mean wind values
+    if zimim2006:
+        # select the time steps for the 21-day average
+        u_4mean = u.sel(time=slice(date - timedelta(days=10, hours=11), date + timedelta(days=10, hours=11)))
+        v_4mean = v.sel(time=slice(date - timedelta(days=10, hours=11), date + timedelta(days=10, hours=11)))
+
+        # calculate 21-day mean of geopotential
+        u_mean = np.asarray(u_4mean.mean(dim="time"))
+        v_mean = np.asarray(v_4mean.mean(dim="time"))
+
+        # for Zimim 2006, we also need the non-semi-geostrophic values
+        z_t2 = z_t
+        u_t2 = u_t
+        v_t2 = v_t
 
     # some constants
     kmin = 4
     kmax = 17
 
+    # apply semi-geostrophic transformation
+    if semigeostr or zimim2006:
+        lon_mesh, lat_mesh = np.meshgrid(lon, lat)
+        data = [u_t, v_t, z_t]
+        data_sg = semigeostr_ct(data, z_t, z_mean, lat_mesh, lon_mesh, kmin, kmax)
+        u_t = data_sg[0]
+        v_t = data_sg[1]
+        z_t = data_sg[2]
+
     # perform the actual calculation
     lon_cycl = np.append(lon, lon[0] + 360)
-    ZU = z_field(u_t, lat_ind.size, lon.size + 1)
-    ZV = z_field(v_t, lat_ind.size, lon.size + 1)
+    ZU = z_field(u_t, lat.size, lon.size + 1)
+    ZV = z_field(v_t, lat.size, lon.size + 1)
     ZUV = np.hypot(ZU, ZV)
-    ZPHI = z_field(z_t / 9.81, lat_ind.size, lon.size + 1)
-    ZPHI_mean = z_field(z_mean / 9.81, lat_ind.size, lon.size + 1)
-    ZENV = np.zeros([lat_ind.size, lon.size + 1])
-    ZVF= np.zeros([lat_ind.size, lon.size + 1])
-    for ilat in range(1, lat_ind.size):
-        ZVF[ilat, :] = wnedit(ZV[..., ilat], kmin, kmax)
-        ZENV[ilat, :] = hilbert(ZVF[ilat, :], lon.size)
-    ZENV = ZENV.transpose()
+    ZPHI = z_field(z_t / 9.81, lat.size, lon.size + 1)
+    ZPHI_mean = z_field(z_mean / 9.81, lat.size, lon.size + 1)
+
+    # calculation according to Zimim 2006
+    if zimim2006:
+        kmin_env = 4
+        kmax_env = 14
+        kmin_sq = 4
+        kmax_sq = 14
+        wsp_perd = wsp_perpendicular(u_t, v_t, u_mean, v_mean)
+        wsp_perd_wnf = wnedit2Dlon(wsp_perd, kmin_sq, kmax_sq)
+        data = [wsp_perd_wnf]
+        result = semigeostr_ct(data, z_t2, z_mean, lat_mesh, lon_mesh, kmin_env, kmax_env)
+        wsp_sg = result[0]
+        # we need lon from 0 to 360?
+        if np.any(lon > 0):
+            lon_0_360 = lon + lon.min() * -1
+        else:
+            lon_0_360 = lon
+        da = envelope_along_streamline(u_mean, v_mean, wsp_sg, lat, lon_0_360, 1., 4.)
+        ZWSP = z_field(wsp_sg, lat.size, lon.size + 1)
+        ZENV = z_field(da, lat.size, lon.size + 1)
+    else:
+        ZENV = np.zeros([lat.size, lon.size + 1])
+        ZVF = np.zeros([lat.size, lon.size + 1])
+        for ilat in range(1, lat.size):
+            ZVF[ilat, :] = wnedit(ZV[..., ilat], kmin, kmax)
+            ZENV[ilat, :] = hilbert(ZVF[ilat, :], lon.size)
+        ZENV = ZENV.transpose()
 
     # compute double threshold
     gridres = float(abs(lon[1]-lon[0]))
-    tauun, tauob = double_threshold(ZENV, lon.size, gridres, lat[lat_ind])
+    tauun, tauob = double_threshold(ZENV, lon.size, gridres, lat)
 
     # assign points with ZENV > tauob to RWP objects
     ZOBJ = ZENV/tauob
@@ -506,7 +573,7 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
 
     # create result dataset for return
     result = xarray.Dataset({"lon": ("lon", lon_cycl),
-                             "lat": ("lat", lat[lat_ind]),
+                             "lat": ("lat", lat),
                              "ZU": (["lon", "lat"], ZU),
                              "ZV": (["lon", "lat"], ZV),
                              "ZUV": (["lon", "lat"], ZUV),
@@ -514,8 +581,6 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
                              "ZPHI_mean": (["lon", "lat"], ZPHI_mean),
                              "ZENV": (["lon", "lat"], ZENV),
                              "ZOBJ": (["lon", "lat"], ZOBJ)})
-    result.attrs["levelu"] = tauun
-    result.attrs["levelo"] = tauob
 
     # add description for the variables
     result["ZU"].attrs["title"] = "Zonal wind speed"
@@ -531,13 +596,39 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
     result["ZPHI_mean"].attrs["title"] = "Height of 300 hPa surface, 21 days average"
     result["ZPHI_mean"].attrs["units"] = "gpm"
     result["ZOBJ"].attrs["title"] = "RWP objects"
-    return result.transpose()
+    result["ZOBJ"].attrs["levelu"] = tauun
+    result["ZOBJ"].attrs["levelo"] = tauob
+
+    # modify title for semi-geostrophic data
+    if semigeostr or zimim2006:
+        for varname in ["ZU", "ZV", "ZUV", "ZENV", "ZPHI", "ZOBJ"]:
+            result[varname].attrs["title"] += ", semi-geostrophic"
+
+    # add zimim2006 variable
+    if zimim2006:
+        result["ZWSP"] = (["lon", "lat"], ZWSP)
+        result["ZWSP"].attrs["title"] = "Wave signal perp. to background flow, semi-geostrophic"
+        result["ZWSP"].attrs["units"] = "m s-1"
+        for varname in ["ZENV", "ZOBJ"]:
+            result[varname].attrs["title"] += ", Z2006"
+
+    # rotate the result back to the original shape and add a time coordinate
+    result.coords["time"] = date
+    result = result.transpose().expand_dims("time", 0)
+    return result
 
 
 def __plot(title, Z, levz, colormap, colorbar, levu, levo, filled=True, fig=None, subplot_args=None):
     """
     plot filled contours
     """
+    # remove time coordinate if present
+    if Z.ndim == 3 and Z.dims[0] == "time":
+        if Z.shape[0] > 1:
+            raise ValueError("plot only one time-step at a time!")
+        Z = Z.squeeze("time")
+
+    # create the contour plot
     fig, ax = contour(Z, levels=levz,
                       cmap=colormap,
                       colorbar=colorbar,
@@ -547,6 +638,7 @@ def __plot(title, Z, levz, colormap, colorbar, levu, levo, filled=True, fig=None
                       subplot_args=subplot_args)
     ax.set_title(title)
 
+    # add overlay
     if levu != 0:
         fig, ax = contour(Z, figure=fig, axes=ax, levels=[levu],
                           colorbar=False, filled=False, coastlines=False,
@@ -614,7 +706,7 @@ def rossby_wave_packets_plot(result, plot_numbers=None):
         ax.append(_ax)
     if 5 in plot_numbers:
         nsubplots += 1
-        fig, _ax = __plot("%s (%s)" % (result["ZENV"].attrs["title"], result["ZENV"].attrs["units"]), result["ZENV"], lev_env, 'Greens', True, result.attrs["levelu"], result.attrs["levelo"], fig=fig, subplot_args=(nplots, 1, nsubplots))
+        fig, _ax = __plot("%s (%s)" % (result["ZENV"].attrs["title"], result["ZENV"].attrs["units"]), result["ZENV"], lev_env, 'Greens', True, result["ZOBJ"].attrs["levelu"], result["ZOBJ"].attrs["levelo"], fig=fig, subplot_args=(nplots, 1, nsubplots))
         ax.append(_ax)
     if 6 in plot_numbers:
         nsubplots += 1

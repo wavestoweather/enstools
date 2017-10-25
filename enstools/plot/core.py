@@ -501,7 +501,6 @@ def contour(variable, lon=None, lat=None, **kwargs):
             fig.colorbar(contour, cax=cb_ax)
         else:
             cb_ax.tick_params(bottom="off", left="off", top="off", right="off", which="both", labelbottom="off", labelleft="off")
-            print("empty!")
 
     if is_global:
         ax.set_global()
