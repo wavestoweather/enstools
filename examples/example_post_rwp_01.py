@@ -32,4 +32,5 @@ if __name__ == "__main__":
     if args.save is None:
         plt.show()
     else:
+        fig.set_size_inches(8.27, 11.69)
         fig.savefig(args.save, bbox_inches="tight", transparent=True)

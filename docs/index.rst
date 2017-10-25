@@ -15,6 +15,7 @@ Contents:
     io.rst
     interpolation.rst
     plot.rst
+    post.rst
     scores.rst
 
 

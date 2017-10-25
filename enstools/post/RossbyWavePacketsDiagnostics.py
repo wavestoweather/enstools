@@ -428,6 +428,11 @@ def double_threshold(field, sizelon, gridres, lats, lat_range=(10, 70)):
 
 def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(10, 90), semigeostr=False, zimim2006=False):
     """
+    This function applies the Rossby wave packet diagnostics developed at the Institute for Atmospheric Physics
+    (Johannes Gutenberg-University, Mainz). Several parts of it are based on Gabriel Wolf's comprehensive set
+    of matlab tools, which can't be appreciated high enough.
+
+    This function is a wrapper around individual components of the analysis and is intended for convenient usage.
 
     Parameters
     ----------
@@ -453,14 +458,27 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
             (lat_min, lat_max) the latitude range to apply the diagnostic on
 
     semigeostr : bool
-            if True, semigeostrophic transformation is applied to the input data
+            if True, semigeostrophic transformation is applied to the input data following Wolf and Wirth (2015) [3]_.
 
     zimim2006 : bool
-            if True, the calculation follows Zimim 2006
+            if True, the calculation follows Zimim (2006) [2]_.
 
     Returns
     -------
     xarray.Dataset
+            The returned dataset contains all information necessary for plotting, it can easily be stored into a netcdf
+            file for later processing.
+
+    References
+    ----------
+    .. [1]  Zimin, A.V., I. Szunyogh, D.J. Patil, B.R. Hunt, and E. Ott, 2003: Extracting Envelopes of Rossby Wave
+            Packets. Mon. Wea. Rev., 131, 1011-1017, https://doi.org/10.1175/1520-0493(2003)131<1011:EEORWP>2.0.CO;2
+
+    .. [2]  Zimin, A.V., I. Szunyogh, B.R. Hunt, and E. Ott, 2006: Extracting Envelopes of Nonzonally Propagating
+            Rossby Wave Packets. Mon. Wea. Rev., 134, 1329-1333, https://doi.org/10.1175/MWR3122.1
+
+    .. [3]  Wolf, G. and V. Wirth, 2015: Implications of the Semigeostrophic Nature of Rossby Waves for Rossby Wave
+            Packet Detection. Mon. Wea. Rev., 143, 26-38, https://doi.org/10.1175/MWR-D-14-00120.1
     """
 
     # get the coordinates
@@ -661,8 +679,23 @@ def rossby_wave_packets_plot(result, plot_numbers=None):
     result : xarray.Dataset
             output of rossby_wave_packets_diag
 
-    Returns
-    -------
+    Examples
+    --------
+    Read a file, which contains u, v, geopotential on a regular grid. An example is available for download here:
+    https://syncandshare.lrz.de/dl/fiTi9jXWQAuk28ugV4GpZbEB/example_post_rwp_01.nc
+
+    >>> nc = read("example_post_rwp_01.nc"))                                                    # doctest: +SKIP
+
+    calculate the diagnostic for one point in time
+
+    >>> rwp = rossby_wave_packets_diag(nc["u"], nc["v"], nc["z"], date=datetime(2002, 8, 7))    # doctest: +SKIP
+
+    create standard plots
+
+    >>> fig, ax = rossby_wave_packets_plot(rwp)                                                 # doctest: +SKIP
+
+    .. figure:: images/example_post_rwp_01.png
+
 
     """
 
