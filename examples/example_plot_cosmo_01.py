@@ -23,7 +23,7 @@ if __name__ == "__main__":
     # download the 24h forecast from today 00 UTC.
     today = datetime.now().date()
     file_name = "COSMODE_org_single_level_elements_PMSL_%s00_024.grib2" % today.strftime("%Y%m%d")
-    download("http://opendata.dwd.de/weather/cosmo_de/grib/pmsl/%s.bz2" % file_name,
+    download("http://opendata.dwd.de/weather/cosmo_de/00/grib/pmsl/%s.bz2" % file_name,
              "%s/%s.bz2" % (args.data, file_name))
 
     # read the grib file

@@ -23,7 +23,7 @@ if __name__ == "__main__":
     # download the 24h forecast from today 00 UTC.
     today = datetime.now().date()
     tp_file = "ICON_EU_single_level_elements_TOT_PREC_%s00_024.grib2" % today.strftime("%Y%m%d")
-    download("http://opendata.dwd.de/weather/icon/eu_nest/grib/tot_prec/%s.bz2" % tp_file,
+    download("http://opendata.dwd.de/weather/icon/eu_nest/grib/00/tot_prec/%s.bz2" % tp_file,
              "%s/%s.bz2" % (args.data, tp_file))
 
     # read the grib file

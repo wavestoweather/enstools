@@ -25,7 +25,7 @@ if __name__ == "__main__":
     data_files = []
     for variable_name in ["PMSL", "TOT_PREC"]:
         file_name = "ICON_iko_single_level_elements_world_%s_%s00_024.grib2" % (variable_name, today.strftime("%Y%m%d"))
-        download("http://opendata.dwd.de/weather/icon/global/grib/%s/%s.bz2" % (variable_name.lower(), file_name),
+        download("http://opendata.dwd.de/weather/icon/global/grib/00/%s/%s.bz2" % (variable_name.lower(), file_name),
              "%s/%s.bz2" % (args.data, file_name))
         data_files.append("%s/%s" % (args.data, file_name))
 
