@@ -6,7 +6,7 @@
 
 # Installation in user home directory
 
-    python setup.py install --user
+    python2 setup.py install --user
     
 or 
 
