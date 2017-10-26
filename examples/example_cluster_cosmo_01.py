@@ -3,6 +3,7 @@
 from enstools.io import read
 from enstools.clustering import prepare, cluster
 from enstools.plot import contour, grid
+import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 
@@ -22,13 +23,13 @@ if __name__ == "__main__":
     cl_data = prepare(data["TOT_PREC"][24:28, :, :, :], data["CAPE_ML"][24:28, :, :, :])
     # 2. perform the actual clustering, the number of clusters is estimated automatically
     labels = cluster("agglo", cl_data)
-    print("Clustering: %s" % ", ".join(map(lambda x:str(x), labels)))
+    print("Clustering: %s" % ", ".join(map(lambda x:str(x), np.asarray(labels))))
 
     # plot the whole ensemble
     # -----------------------
     # use a different color map for each cluster
     cmap_names = ["Purples", "Blues", "Greens", "Oranges", "Reds", "Greys"]
-    cmaps = list(map(lambda x: cmap_names[x], labels))
+    cmaps = list(map(lambda x: cmap_names[x], np.asarray(labels)))
 
     # specifying rlon and rlat is not necessary, but using the rotated coordinates is much faster compared to the 2d
     # coordinate arrays.

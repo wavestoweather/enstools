@@ -88,11 +88,14 @@ class GribIndexHelper:
         max_cache_files = 100
         if len(index_files) > max_cache_files:
             # sort by date an d delete the oldest
-            index_with_date = list(map(lambda x: (os.path.getmtime(os.path.join(cache_dir, x)), os.path.join(cache_dir, x)), index_files))
-            index_with_date.sort(key=lambda x: x[0], reverse=True)
-            for ifile in range(len(index_files) - max_cache_files):
-                if index_with_date[ifile][1] != index_file:
-                    os.remove(index_with_date[ifile][1])
+            try:
+                index_with_date = list(map(lambda x: (os.path.getmtime(os.path.join(cache_dir, x)), os.path.join(cache_dir, x)), index_files))
+                index_with_date.sort(key=lambda x: x[0], reverse=True)
+                for ifile in range(len(index_files) - max_cache_files):
+                    if index_with_date[ifile][1] != index_file:
+                        os.remove(index_with_date[ifile][1])
+            except (IOError, OSError):
+                pass
 
         return index_file
 
