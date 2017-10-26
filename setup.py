@@ -1,6 +1,7 @@
 # install the ensemble tools
 from numpy.distutils.core import setup
 import re
+import sys
 
 
 def get_version():
@@ -17,6 +18,12 @@ def get_version():
             match = re.search('__version__\s*=\s*"([a-zA-Z0-9_.]+)"', line)
             if match is not None:
                 return match.group(1)
+
+
+# only print the version and exit?
+if len(sys.argv) == 2 and sys.argv[1] == "--get-version":
+    print(get_version())
+    exit()
 
 
 # perform the actual install operation
