@@ -1,8 +1,27 @@
 # install the ensemble tools
 from numpy.distutils.core import setup
+import re
 
+
+def get_version():
+    """
+    read version string from enstools package without importing it
+
+    Returns
+    -------
+    str:
+            version string
+    """
+    with open("enstools/__init__.py") as f:
+        for line in f:
+            match = re.search('__version__\s*=\s*"([a-zA-Z0-9_.]+)"', line)
+            if match is not None:
+                return match.group(1)
+
+
+# perform the actual install operation
 setup(name="enstools",
-      version="0.0.1",
+      version=get_version(),
       author="Robert Redl et al.",
       author_email="robert.redl@lmu.de",
       packages=['enstools',
@@ -28,6 +47,6 @@ setup(name="enstools",
                 "eccodes",
                 "cartopy",
                 "decorator",
-                "multipledispatch"
+                "multipledispatch",
                 "cachey"]
       )
