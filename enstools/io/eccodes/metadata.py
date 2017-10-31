@@ -133,7 +133,7 @@ class GribMessageMetadata:
             dim_names = ["lat", "lon"]
         elif self["gridType"] in ["sh", "reduced_gg", "unstructured_grid"]:
             shape = (self["numberOfValues"],)
-            dim_names = ["ncells"]
+            dim_names = ["cell"]
         else:
             raise ValueError("don't know how to calculate the shape for grid type %s" % self["gridType"])
 

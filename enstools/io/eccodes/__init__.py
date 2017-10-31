@@ -314,7 +314,7 @@ def read_grib_file(filename, debug=False):
                                                       encoding=encodings[one_var])
 
         # are there lon-lat values?
-        if "ncells" in var_dim_names[-1] and "lon" not in xarray_variables and "lon" in coordinates:
+        if "cell" in var_dim_names[-1] and "lon" not in xarray_variables and "lon" in coordinates:
             xarray_variables["lon"] = coordinates["lon"]
             xarray_variables["lat"] = coordinates["lat"]
 

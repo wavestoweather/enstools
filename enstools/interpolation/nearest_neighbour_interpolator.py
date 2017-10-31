@@ -1,5 +1,6 @@
 from enstools.core import check_arguments
 import numpy as np
+import xarray
 import scipy.spatial
 
 
@@ -7,13 +8,16 @@ class NearestNeighbourInterpolator:
     """
     This class performs the actual interpolation. It is initialised by nearest_neighbour, not directly
     """
-    def __init__(self, indices, weights, distances, shape, n_target_points, n_source_points):
+    def __init__(self, indices, weights, distances, shape, n_target_points, n_source_points, target_shape, target_lon, target_lat):
         self._indices = indices
         self._weights = weights
         self._distances = distances
         self._shape = shape
         self._n_target_points = n_target_points
         self._n_source_points = n_source_points
+        self._target_shape = target_shape
+        self._target_lon = target_lon
+        self._target_lat = target_lat
 
     def __call__(self, data):
         """
@@ -26,7 +30,9 @@ class NearestNeighbourInterpolator:
 
         Returns
         -------
-        np.ndarray or xarray.DataArray with the shape of the point coordinates used in the creation of the interpolator
+        np.ndarray or xarray.DataArray with the shape of the point coordinates used in the creation of the interpolator.
+        If the array to interpolate has more dimensions, then these dimensions are prepended to the result, e.g.
+        (level, points).
         """
         # check the shape of the data array
         if data.shape[-len(self._shape):] != self._shape:
@@ -36,32 +42,69 @@ class NearestNeighbourInterpolator:
         if len(data.shape) == len(self._shape):
             result = np.empty(self._n_target_points)
         else:
-            result = np.empty((self._n_target_points,) + data.shape[:-len(self._shape)])
+            result = np.empty(data.shape[:-len(self._shape)] + (self._n_target_points,))
+        #print(result.shape)
+        #print(self._indices.shape)
+        #print(data.shape)
 
         if len(self._shape) == 1:
             if self._n_source_points == 1:
-                for i in range(self._n_target_points):
-                    result[i, ...] = data[..., self._indices]
+                result[..., :] = data[..., self._indices]
             else:
                 for i in range(self._n_target_points):
                     data_values = data[..., self._indices[i]]
-                    result[i, ...] = np.sum(data_values * self._weights[i, ...], axis=-1)
+                    result[..., i] = np.sum(data_values * self._weights[i, ...], axis=-1)
         elif len(self._shape) == 2:
             if self._n_source_points == 1:
                 if self._n_target_points == 1:
-                    result[0, ...] = data[..., self._indices[0], self._indices[1]]
+                    result[..., 0] = data[..., self._indices[0], self._indices[1]]
                 else:
                     for i in range(self._n_target_points):
-                        result[i, ...] = data[..., self._indices[i][0], self._indices[i][1]]
+                        result[..., i] = data[..., self._indices[0][i], self._indices[1][i]]
             else:
                 for i in range(self._n_target_points):
-                    data_values = data[..., self._indices[i][0], self._indices[i][1]]
-                    result[i, ...] = np.sum(data_values * self._weights[i, ...], axis=-1)
+                    data_values = data[..., self._indices[0][i], self._indices[1][i]]
+                    result[..., i] = np.sum(data_values * self._weights[i, ...], axis=-1)
+
+        # reshape if necessary
+        if data.ndim > len(self._shape):
+            target_shape = data.shape[:data.ndim-len(self._shape)] + self._target_shape
+        else:
+            target_shape = self._target_shape
+        if result.shape != target_shape:
+            result = result.reshape(target_shape)
+
+        # create xarray dataset
+        result_coords = {}
+        result_attrs = {}
+        if isinstance(data, xarray.DataArray):
+            result_attrs = data.attrs
+            result_dims = data.dims[:data.ndim-len(self._shape)]
+            for one_dim in result_dims:
+                result_coords[one_dim] = data.coords[one_dim]
+        else:
+            if len(result.shape) > 1:
+                result_dims = ("dim_0",)
+                for d in range(1, data.ndim-len(self._shape)):
+                    result_dims += ("dim_%d" % d,)
+            else:
+                result_dims = ()
+        if len(self._target_shape) == 2:
+            result_dims += ("lon", "lat")
+            result_coords["lon"] = self._target_lon
+            result_coords["lat"] = self._target_lat
+            result_attrs["grid_type"] = "regular_ll"
+        else:
+            result_dims += ("cell",)
+            result_coords["lon"] = xarray.DataArray(np.asarray(self._target_lon), dims=("cell",))
+            result_coords["lat"] = xarray.DataArray(np.asarray(self._target_lat), dims=("cell",))
+            result_attrs["coordinates"] = "lon lat"
+            result_attrs["grid_type"] = "unstructured_grid"
+        result = xarray.DataArray(result, dims=result_dims, coords=result_coords, attrs=result_attrs)
         return result
 
 
-@check_arguments(shape={"point_lon": "point_lat"})
-def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regular", npoints=1, method="mean"):
+def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regular", output_grid="unstructured", npoints=1, method="mean"):
     """
     Find the coordinates of station locations within gridded model data. Supported are 1d- and 2d-coordinates of regular
     grids (e.g. rotated lat-lon) or 'unstructured' grids like the ICON grid.
@@ -85,6 +128,12 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
             "regular": a regular grid with 1d or 2d coordinates. 1d-coordinates are internally converted to 2d-
             coordinates using meshgrid. This selection is the default.
             "unstructured": The grid is given as a 1d list of points (e.g., station data or ICON model output).
+
+    output_grid : string
+            Type of output grid. Possible values are:
+            "regular": a regular grid with 1d coordinates.
+            "unstructured": The grid is given as a 1d list of points (e.g., station data or ICON model output). This
+            selection is the default.
 
     npoints : int
             Number of nearest points to be used in the interpolation. For a regular grid useful values are 4 or 12. For
@@ -110,7 +159,14 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
     >>> gridded_data[4, 8] = 3
     >>> f = nearest_neighbour(lon, lat, 4.4, 7.6)
     >>> f(gridded_data)
+    <xarray.DataArray (cell: 1)>
     array([ 3.])
+    Coordinates:
+        lat      (cell) float64 7.6
+        lon      (cell) float64 4.4
+    Dimensions without coordinates: cell
+    Attributes:
+        coordinates:  lon lat
     """
     # create an array containing all coordinates
     if input_grid == "regular":
@@ -136,6 +192,19 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
         point_lon = np.array((point_lon,))
         point_lat = np.array((point_lat,))
 
+    # keep the target coordinates
+    target_lon = point_lon
+    target_lat = point_lat
+
+    # create coordinates for regular output grid
+    if output_grid == "regular" and point_lon.ndim == 1 and point_lat.ndim == 1:
+        point_lon_2d, point_lat_2d = np.meshgrid(point_lon, point_lat, indexing="ij")
+        point_lon = point_lon_2d.flatten()
+        point_lat = point_lat_2d.flatten()
+        target_shape = point_lon_2d.shape
+    else:
+        target_shape = (len(point_lon),)
+
     # create the kd-tree and calculate the indices and the weights for the indices
     kdtree = scipy.spatial.cKDTree(coords)
 
@@ -147,7 +216,7 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
     if len(point_lon) == 1:
         distances, indices_flat = kdtree.query((point_lon[0], point_lat[0]), k=npoints)
     else:
-        distances, indices_flat = kdtree.query((point_lon, point_lat), k=npoints)
+        distances, indices_flat = kdtree.query(np.stack((point_lon, point_lat), axis=1), k=npoints)
     if npoints > 1 and len(distances.shape) == 1:
         distances = np.expand_dims(distances, 0)
         indices_flat = np.expand_dims(indices_flat, 0)
@@ -166,6 +235,8 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
         indices = np.unravel_index(indices_flat, input_dims)
     else:
         indices = indices_flat
+    if type(indices) == int:
+        indices = np.asarray([indices])
 
     # construct and return the interpolator object
-    return NearestNeighbourInterpolator(indices, weights, distances, input_dims, len(point_lon), npoints)
+    return NearestNeighbourInterpolator(indices, weights, distances, input_dims, len(point_lon), npoints, target_shape, target_lon, target_lat)
