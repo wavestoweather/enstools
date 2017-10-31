@@ -47,10 +47,13 @@ cache.register()
 
 # all units from pint
 ureg = UnitRegistry()
+# add specific units
+ureg.define("degrees_east = deg")
+ureg.define("degrees_north = deg")
 
 # default settings
 __default_settings = {"check_arguments:convert": True,
-                      "check_arguments:strict": True,
+                      "check_arguments:strict": False,
                       "check_arguments:reorder": True}
 
 # default style for logging
@@ -227,10 +230,10 @@ def check_arguments(units={}, dims={}, shape={}):
                 else:
                     # construct error or warning message
                     msg = "Argument '%s' has no unit information in form of the 'units' attribute" % arg_names[iarg]
-                    if __default_settings["check_arguments:convert"] or __default_settings["check_arguments:strict"]:
+                    if __default_settings["check_arguments:convert"] and __default_settings["check_arguments:strict"]:
                         raise ValueError(msg)
                     else:
-                        logging.warning(msg)
+                        logging.warning(msg + ", assuming '%s'" % target_arg_unit)
 
             # check the dimensions of the argument
             if one_arg_name in dims or iarg in dims:

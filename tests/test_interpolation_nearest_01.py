@@ -82,7 +82,7 @@ def test_nearest_neighbour_unstructured():
 
     # the nearest 3 points
     data[10:13] = 7
-    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, (11.2, 2.2), (11.2, 13.2), npoints=3, input_grid="unstructured")(data)
+    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, (11.2, 2.2), (11.2, 13.2), npoints=3, src_grid="unstructured")(data)
     np.testing.assert_array_almost_equal(res, [7, 0])
 
     # same test, but with 2d-data (e.g., level, ncell)
@@ -90,19 +90,19 @@ def test_nearest_neighbour_unstructured():
     for i in range(10):
         data2[i, :] = data + i
 
-    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, (11.2, 2.2), (11.2, 13.2), npoints=3, input_grid="unstructured")(data2)
+    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, (11.2, 2.2), (11.2, 13.2), npoints=3, src_grid="unstructured")(data2)
     np.testing.assert_array_almost_equal(res, np.asarray([np.arange(7, 17, 1), np.arange(0, 10, 1)]).transpose())
 
     # only one point
-    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, 11.2, 13.2, npoints=3, input_grid="unstructured")(data)
+    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, 11.2, 13.2, npoints=3, src_grid="unstructured")(data)
     np.testing.assert_almost_equal(res, 7)
-    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, 11.2, 13.2, npoints=3, input_grid="unstructured")(data2)
+    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, 11.2, 13.2, npoints=3, src_grid="unstructured")(data2)
     np.testing.assert_array_almost_equal(res, np.arange(7, 17, 1).reshape(10, 1))
 
     # same test with one one neighbour point
-    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, 11.2, 13.2, npoints=1, input_grid="unstructured")(data)
+    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, 11.2, 13.2, npoints=1, src_grid="unstructured")(data)
     np.testing.assert_almost_equal(res, 7)
-    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, 11.2, 13.2, npoints=1, input_grid="unstructured")(data2)
+    res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, 11.2, 13.2, npoints=1, src_grid="unstructured")(data2)
     np.testing.assert_almost_equal(res, np.arange(7, 17, 1).reshape(10, 1))
 
 

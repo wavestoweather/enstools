@@ -104,32 +104,36 @@ class NearestNeighbourInterpolator:
         return result
 
 
-def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regular", output_grid="unstructured", npoints=1, method="mean"):
+@check_arguments(units={"src_lon": "degrees_east",
+                        "src_lat": "degrees_north",
+                        "dst_lon": "degrees_east",
+                        "dst_lat": "degrees_north"})
+def nearest_neighbour(src_lon, src_lat, dst_lon, dst_lat, src_grid="regular", dst_grid="unstructured", npoints=1, method="mean"):
     """
     Find the coordinates of station locations within gridded model data. Supported are 1d- and 2d-coordinates of regular
     grids (e.g. rotated lat-lon) or 'unstructured' grids like the ICON grid.
 
     Parameters
     ----------
-    grid_lon : np.ndarray or xarray.DataArray
+    src_lon : np.ndarray or xarray.DataArray
             1d or 2d coordinate in x-direction of the source grid
 
-    grid_lat : np.ndarray or xarray.DataArray
+    src_lat : np.ndarray or xarray.DataArray
             1d or 2d coordinate in y-direction of the source grid
 
-    point_lon : np.ndarray or xarray.DataArray
+    dst_lon : np.ndarray or xarray.DataArray
             1d coordinate in x-direction of the station locations
 
-    point_lat : np.ndarray or xarray.DataArray
+    dst_lat : np.ndarray or xarray.DataArray
             1d coordinate in y-direction of the station locations
 
-    input_grid : string
+    src_grid : {'regular', 'unstructured'}
             Type of input grid. Possible values are:
             "regular": a regular grid with 1d or 2d coordinates. 1d-coordinates are internally converted to 2d-
             coordinates using meshgrid. This selection is the default.
             "unstructured": The grid is given as a 1d list of points (e.g., station data or ICON model output).
 
-    output_grid : string
+    dst_grid : {'regular', 'unstructured'}
             Type of output grid. Possible values are:
             "regular": a regular grid with 1d coordinates.
             "unstructured": The grid is given as a 1d list of points (e.g., station data or ICON model output). This
@@ -170,41 +174,41 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
         coordinates:  lon lat
     """
     # create an array containing all coordinates
-    if input_grid == "regular":
-        if grid_lon.ndim == 1:
-            lon_2d, lat_2d = np.meshgrid(grid_lon, grid_lat)
-        elif grid_lon.ndim == 2:
-            if grid_lon.shape != grid_lat.shape:
+    if src_grid == "regular":
+        if src_lon.ndim == 1:
+            lon_2d, lat_2d = np.meshgrid(src_lon, src_lat)
+        elif src_lon.ndim == 2:
+            if src_lon.shape != src_lat.shape:
                 raise ValueError("for 2d-coordinates, the shapes have to match!")
-            lon_2d, lat_2d = grid_lon, grid_lat
+            lon_2d, lat_2d = src_lon, src_lat
         else:
             raise ValueError("only 1d- and 2d-coordinates are supported for regular grids")
         coords = np.stack((lon_2d.flatten(), lat_2d.flatten()), axis=1)
         input_dims = lon_2d.shape
-    elif input_grid == "unstructured":
-        if grid_lon.ndim == 1:
-            coords = np.stack((grid_lon, grid_lat), axis=1)
-            input_dims = grid_lon.shape
+    elif src_grid == "unstructured":
+        if src_lon.ndim == 1:
+            coords = np.stack((src_lon, src_lat), axis=1)
+            input_dims = src_lon.shape
         else:
             raise ValueError("an unstructured grid is supposed to have 1d-coordinate arrays!")
 
     # convert point coordinates if given as scalar
-    if not hasattr(point_lon, "__len__"):
-        point_lon = np.array((point_lon,))
-        point_lat = np.array((point_lat,))
+    if not hasattr(dst_lon, "__len__"):
+        dst_lon = np.array((dst_lon,))
+        dst_lat = np.array((dst_lat,))
 
     # keep the target coordinates
-    target_lon = point_lon
-    target_lat = point_lat
+    target_lon = dst_lon
+    target_lat = dst_lat
 
     # create coordinates for regular output grid
-    if output_grid == "regular" and point_lon.ndim == 1 and point_lat.ndim == 1:
-        point_lon_2d, point_lat_2d = np.meshgrid(point_lon, point_lat)
-        point_lon = point_lon_2d.flatten()
-        point_lat = point_lat_2d.flatten()
+    if dst_grid == "regular" and dst_lon.ndim == 1 and dst_lat.ndim == 1:
+        point_lon_2d, point_lat_2d = np.meshgrid(dst_lon, dst_lat)
+        dst_lon = point_lon_2d.flatten()
+        dst_lat = point_lat_2d.flatten()
         target_shape = point_lon_2d.shape
     else:
-        target_shape = (len(point_lon),)
+        target_shape = (len(dst_lon),)
 
     # create the kd-tree and calculate the indices and the weights for the indices
     kdtree = scipy.spatial.cKDTree(coords)
@@ -214,10 +218,10 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
     mean_grid_point_distance = grid_point_distance[:, 1].mean()
 
     # calculate indices and distances for the target points
-    if len(point_lon) == 1:
-        distances, indices_flat = kdtree.query((point_lon[0], point_lat[0]), k=npoints)
+    if len(dst_lon) == 1:
+        distances, indices_flat = kdtree.query((dst_lon[0], dst_lat[0]), k=npoints)
     else:
-        distances, indices_flat = kdtree.query(np.stack((point_lon, point_lat), axis=1), k=npoints)
+        distances, indices_flat = kdtree.query(np.stack((dst_lon, dst_lat), axis=1), k=npoints)
     if npoints > 1 and len(distances.shape) == 1:
         distances = np.expand_dims(distances, 0)
         indices_flat = np.expand_dims(indices_flat, 0)
@@ -240,4 +244,4 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
         indices = np.asarray([indices])
 
     # construct and return the interpolator object
-    return NearestNeighbourInterpolator(indices, weights, distances, input_dims, len(point_lon), npoints, target_shape, target_lon, target_lat)
+    return NearestNeighbourInterpolator(indices, weights, distances, input_dims, len(dst_lon), npoints, target_shape, target_lon, target_lat)

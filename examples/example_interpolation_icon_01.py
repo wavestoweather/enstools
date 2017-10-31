@@ -43,7 +43,7 @@ if __name__ == "__main__":
     # interpolate onto a regular grid
     lon = np.arange(-180, 180, 0.25)
     lat = np.arange(-89.875, 90, 0.25)
-    interpol = nearest_neighbour(np.rad2deg(data["clon"]), np.rad2deg(data["clat"]), lon, lat, input_grid="unstructured", output_grid="regular")
+    interpol = nearest_neighbour(data["clon"], data["clat"], lon, lat, src_grid="unstructured", dst_grid="regular")
     gridded = interpol(data["FI"])
 
     fig, ax1 = enstools.plot.contour(data["FI"][0, 1, ...], gridlines=True, subplot_args=(121,), projection=ccrs.Robinson())
