@@ -90,7 +90,7 @@ class NearestNeighbourInterpolator:
             else:
                 result_dims = ()
         if len(self._target_shape) == 2:
-            result_dims += ("lon", "lat")
+            result_dims += ("lat", "lon")
             result_coords["lon"] = self._target_lon
             result_coords["lat"] = self._target_lat
             result_attrs["grid_type"] = "regular_ll"
@@ -155,8 +155,8 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
     >>> import numpy
     >>> lon = numpy.arange(10)
     >>> lat = numpy.arange(15)
-    >>> gridded_data = numpy.zeros((10, 15))
-    >>> gridded_data[4, 8] = 3
+    >>> gridded_data = numpy.zeros((15, 10))
+    >>> gridded_data[8, 4] = 3
     >>> f = nearest_neighbour(lon, lat, 4.4, 7.6)
     >>> f(gridded_data)
     <xarray.DataArray (cell: 1)>
@@ -166,12 +166,13 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
         lon      (cell) float64 4.4
     Dimensions without coordinates: cell
     Attributes:
+        grid_type:    unstructured_grid
         coordinates:  lon lat
     """
     # create an array containing all coordinates
     if input_grid == "regular":
         if grid_lon.ndim == 1:
-            lon_2d, lat_2d = np.meshgrid(grid_lon, grid_lat, indexing="ij")
+            lon_2d, lat_2d = np.meshgrid(grid_lon, grid_lat)
         elif grid_lon.ndim == 2:
             if grid_lon.shape != grid_lat.shape:
                 raise ValueError("for 2d-coordinates, the shapes have to match!")
@@ -198,7 +199,7 @@ def nearest_neighbour(grid_lon, grid_lat, point_lon, point_lat, input_grid="regu
 
     # create coordinates for regular output grid
     if output_grid == "regular" and point_lon.ndim == 1 and point_lat.ndim == 1:
-        point_lon_2d, point_lat_2d = np.meshgrid(point_lon, point_lat, indexing="ij")
+        point_lon_2d, point_lat_2d = np.meshgrid(point_lon, point_lat)
         point_lon = point_lon_2d.flatten()
         point_lat = point_lat_2d.flatten()
         target_shape = point_lon_2d.shape

@@ -42,14 +42,12 @@ if __name__ == "__main__":
 
     # interpolate onto a regular grid
     lon = np.arange(-180, 180, 0.25)
-    lat = np.arange(-89, 89.25, 0.25)
+    lat = np.arange(-89.875, 90, 0.25)
     interpol = nearest_neighbour(np.rad2deg(data["clon"]), np.rad2deg(data["clat"]), lon, lat, input_grid="unstructured", output_grid="regular")
     gridded = interpol(data["FI"])
-    gridded.to_netcdf("test.nc")
-    print(data["clon"])
 
-    fig, ax1 = enstools.plot.contour(data["FI"][0, 1, ...], gridlines=True, subplot_args=(121,))
-    fig, ax2 = enstools.plot.contour(gridded[0, 1, ...], figure=fig, subplot_args=(122,))
+    fig, ax1 = enstools.plot.contour(data["FI"][0, 1, ...], gridlines=True, subplot_args=(121,), projection=ccrs.Robinson())
+    fig, ax2 = enstools.plot.contour(gridded[0, 1, ...], figure=fig, subplot_args=(122,), projection=ccrs.Robinson())
 
     if args.save is None:
         plt.show()

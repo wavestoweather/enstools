@@ -9,22 +9,20 @@ def test_nearest_neighbour_regular_1d():
     # test with regular grid and 1d coords
     grid_lon = np.arange(100)
     grid_lat = np.arange(50)
-    data = np.zeros((100, 50))
+    data = np.zeros((50, 100))
 
     # the four nearest values for the first point
-    data[10:12, 20:22] = 7
+    data[20:22, 10:12] = 7
 
     # the four nearest values for the second point
-    data[13:15, 17:19] = 8
+    data[17:19, 13:15] = 8
 
     # the actual test
     res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, (10.2, 13.2), (20.2, 17.2), npoints=4)(data)
     np.testing.assert_array_almost_equal(res, [7, 8])
 
-    return
-
-    # same test, but with 3d-data (e.g., level, lon, lat)
-    data2 = np.zeros((10, 100, 50))
+    # same test, but with 3d-data (e.g., level, lat, lon)
+    data2 = np.zeros((10, 50, 100))
     for i in range(10):
         data2[i, :, :] = data + i
 
@@ -115,13 +113,13 @@ def test_test_nearest_neighbour_dmean():
     # test with regular grid and 1d coords
     grid_lon = np.arange(100)
     grid_lat = np.arange(50)
-    data = np.zeros((100, 50))
+    data = np.zeros((50, 100))
 
     # the four nearest values for the first point
-    data[10, 20] = 7
+    data[20, 10] = 7
 
     # the four nearest values for the second point
-    data[13, 17] = 8
+    data[17, 13] = 8
 
     # the actual test
     res = enstools.interpolation.nearest_neighbour(grid_lon, grid_lat, (10, 13), (20, 17), npoints=2, method="d-mean")(data)

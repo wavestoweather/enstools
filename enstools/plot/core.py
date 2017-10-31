@@ -461,7 +461,7 @@ def contour(variable, lon=None, lat=None, **kwargs):
         else:
             # create a contour plot
             # transpose if necessary, lat is expected to be the first dimension of the variable
-            # TODO: make that more reliable!
+            # TODO: make that more reliable! Possibly by reordering of the input variable.
             if np.all(lon.shape == np.flip(variable.shape, 0)) and not lon.shape[0] == lon.shape[1]:
                 variable = variable.transpose()
             if kwargs.get("filled", True):
