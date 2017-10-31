@@ -48,8 +48,8 @@ cache.register()
 # all units from pint
 ureg = UnitRegistry()
 # add specific units
-ureg.define("degrees_east = deg")
-ureg.define("degrees_north = deg")
+ureg.define("degrees_east = deg = degree_east = degree_E = degrees_E = degreeE = degreesE.")
+ureg.define("degrees_north = deg = degree_north = degree_N = degrees_N = degreeN = degreesN")
 
 # default settings
 __default_settings = {"check_arguments:convert": True,

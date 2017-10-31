@@ -63,7 +63,8 @@ def read(filenames, merge_same_size_dim=False, **kwargs):
     for filename in filenames:
         datasets.append(dask.delayed(read)(filename))
     # read all the files in parallel
-    datasets = dask.compute(*datasets, traverse=False, get=dask.multiprocessing.get)
+    # TODO: make that work for grib files, they also create parallel processes
+    datasets = dask.compute(*datasets, traverse=False, get=dask.get)
 
     # if dimensions have the same size but different names, then merge them by renaming
     if merge_same_size_dim:
