@@ -1,13 +1,12 @@
 #!/usr/bin/env python2
 # this example is using python 2.7 as long as eccodes is not available for python 3.x
 import os
-import numpy as np
-import enstools.io
-import enstools.plot
 import matplotlib.pyplot as plt
-from enstools.misc import download
+from enstools.misc import download, generate_coordinates
 from enstools.interpolation import nearest_neighbour
-from datetime import datetime
+from enstools.io import read
+from enstools.plot import contour
+from datetime import datetime, timedelta
 import argparse
 import cartopy.crs as ccrs
 
@@ -38,16 +37,18 @@ if __name__ == "__main__":
     data_files.append("%s/icon_grid_0026_R03B07_G.nc" % args.data)
 
     # read the grib files
-    data = enstools.io.read(data_files)
+    data = read(data_files)
+    phi = data["FI"].sel(isobaricInhPa=300, time=today + timedelta(days=1))
 
     # interpolate onto a regular grid
-    lon = np.arange(-180, 180, 0.25)
-    lat = np.arange(-89.875, 90, 0.25)
+    lon, lat = generate_coordinates(0.25)
     interpol = nearest_neighbour(data["clon"], data["clat"], lon, lat, src_grid="unstructured", dst_grid="regular")
-    gridded = interpol(data["FI"])
+    phi_rg = interpol(phi)
+    print(phi_rg)
 
-    fig, ax1 = enstools.plot.contour(data["FI"][0, 1, ...], gridlines=True, subplot_args=(121,), projection=ccrs.Robinson())
-    fig, ax2 = enstools.plot.contour(gridded[0, 1, ...], figure=fig, subplot_args=(122,), projection=ccrs.Robinson())
+    # plot both fields for comparison
+    fig, ax1 = contour(phi, gridlines=True, subplot_args=(121,), projection=ccrs.Robinson())
+    fig, ax2 = contour(phi_rg, figure=fig, subplot_args=(122,), projection=ccrs.Robinson())
 
     if args.save is None:
         plt.show()

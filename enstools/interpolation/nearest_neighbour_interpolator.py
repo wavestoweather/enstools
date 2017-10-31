@@ -2,6 +2,7 @@ from enstools.core import check_arguments
 import numpy as np
 import xarray
 import scipy.spatial
+from collections import OrderedDict
 
 
 class NearestNeighbourInterpolator:
@@ -43,9 +44,6 @@ class NearestNeighbourInterpolator:
             result = np.empty(self._n_target_points)
         else:
             result = np.empty(data.shape[:-len(self._shape)] + (self._n_target_points,))
-        #print(result.shape)
-        #print(self._indices.shape)
-        #print(data.shape)
 
         if len(self._shape) == 1:
             if self._n_source_points == 1:
@@ -75,13 +73,15 @@ class NearestNeighbourInterpolator:
             result = result.reshape(target_shape)
 
         # create xarray dataset
-        result_coords = {}
-        result_attrs = {}
+        result_coords = OrderedDict()
+        result_attrs = OrderedDict()
+        result_name = "interpolated"
         if isinstance(data, xarray.DataArray):
             result_attrs = data.attrs
             result_dims = data.dims[:data.ndim-len(self._shape)]
             for one_dim in result_dims:
                 result_coords[one_dim] = data.coords[one_dim]
+            result_name = data.name
         else:
             if len(result.shape) > 1:
                 result_dims = ("dim_0",)
@@ -91,16 +91,16 @@ class NearestNeighbourInterpolator:
                 result_dims = ()
         if len(self._target_shape) == 2:
             result_dims += ("lat", "lon")
-            result_coords["lon"] = self._target_lon
             result_coords["lat"] = self._target_lat
+            result_coords["lon"] = self._target_lon
             result_attrs["grid_type"] = "regular_ll"
         else:
             result_dims += ("cell",)
-            result_coords["lon"] = xarray.DataArray(np.asarray(self._target_lon), dims=("cell",))
             result_coords["lat"] = xarray.DataArray(np.asarray(self._target_lat), dims=("cell",))
-            result_attrs["coordinates"] = "lon lat"
+            result_coords["lon"] = xarray.DataArray(np.asarray(self._target_lon), dims=("cell",))
             result_attrs["grid_type"] = "unstructured_grid"
-        result = xarray.DataArray(result, dims=result_dims, coords=result_coords, attrs=result_attrs)
+            result_attrs["coordinates"] = "lon lat"
+        result = xarray.DataArray(result, dims=result_dims, coords=result_coords, attrs=result_attrs, name=result_name)
         return result
 
 
@@ -163,7 +163,7 @@ def nearest_neighbour(src_lon, src_lat, dst_lon, dst_lat, src_grid="regular", ds
     >>> gridded_data[8, 4] = 3
     >>> f = nearest_neighbour(lon, lat, 4.4, 7.6)
     >>> f(gridded_data)
-    <xarray.DataArray (cell: 1)>
+    <xarray.DataArray 'interpolated' (cell: 1)>
     array([ 3.])
     Coordinates:
         lat      (cell) float64 7.6

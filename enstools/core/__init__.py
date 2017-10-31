@@ -60,7 +60,7 @@ __default_settings = {"check_arguments:convert": True,
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def set_behavior(check_arguments_convert=None, check_arguments_strict=None, check_arguments_reorder=None):
+def set_behavior(check_arguments_convert=None, check_arguments_strict=None, check_arguments_reorder=None, log_level=None):
     """
     Change the default behavior of the @check_arguments decorator
 
@@ -79,6 +79,10 @@ def set_behavior(check_arguments_convert=None, check_arguments_strict=None, chec
         __default_settings["check_arguments:strict"] = check_arguments_strict
     if check_arguments_reorder is not None:
         __default_settings["check_arguments:reorder"] = check_arguments_reorder
+    if log_level is not None:
+        if log_level not in ["ERROR", "WARN", "DEBUG", "INFO"]:
+            raise ValueError("unsupported log level: '%s'" % log_level)
+        logging.getLogger().setLevel(log_level)
 
 
 def __replace_argument(args, index, new_arg):
@@ -200,15 +204,15 @@ def check_arguments(units={}, dims={}, shape={}):
 
             # check the units
             if one_arg_name in units or iarg in units:
+                # construct the unit for this argument
+                if iarg in units:
+                    target_arg_unit = ureg(units[iarg])
+                else:
+                    target_arg_unit = ureg(units[one_arg_name])
+
                 # is there a units attribute on the variable? Only xarray.DataArrays can have one
                 if isinstance(current_argument, xarray.DataArray) and "units" in current_argument.attrs:
                     actual_arg_unit = ureg(current_argument.attrs["units"])
-
-                    # construct the unit for this argument
-                    if iarg in units:
-                        target_arg_unit = ureg(units[iarg])
-                    else:
-                        target_arg_unit = ureg(units[one_arg_name])
 
                     # the units differ? try to find a conversion!
                     if target_arg_unit != actual_arg_unit:

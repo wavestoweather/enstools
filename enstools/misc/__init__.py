@@ -2,6 +2,8 @@ import os
 import logging
 import bz2
 import six
+import xarray
+import numpy as np
 from numba import jit
 
 if six.PY3:
@@ -83,3 +85,46 @@ def point_in_polygon(polyx, polyy, testx, testy):
             res = not res
         j = i
     return res
+
+
+def generate_coordinates(res, grid="regular"):
+    """
+    Generate grid coordinates for different types of grids. Currently only regular grids are implemented.
+
+    Parameters
+    ----------
+    res : float
+            resolution of the grid to generate
+
+    grid : {'regular'}
+            type of grid to generate. Currently only regular grids are supported
+
+    Returns
+    -------
+    lon, lat : xarray.DataArray
+            tuple of coordinate arrays
+
+    Examples
+    --------
+    >>> lon, lat = generate_coordinates(20.0, "regular")
+    >>> lon
+    <xarray.DataArray 'lon' (lon: 18)>
+    array([-180., -160., -140., -120., -100.,  -80.,  -60.,  -40.,  -20.,    0.,
+             20.,   40.,   60.,   80.,  100.,  120.,  140.,  160.])
+    Dimensions without coordinates: lon
+    Attributes:
+        units:    degrees_east
+    >>> lat
+    <xarray.DataArray 'lat' (lat: 9)>
+    array([-80., -60., -40., -20.,   0.,  20.,  40.,  60.,  80.])
+    Dimensions without coordinates: lat
+    Attributes:
+        units:    degrees_north
+    """
+    if grid == "regular":
+        lon = xarray.DataArray(np.arange(-180, 180, res), dims=("lon",), name="lon", attrs={"units": "degrees_east"})
+        lat = xarray.DataArray(np.arange(-90+res/2.0, 90, res), dims=("lat",), name="lat", attrs={"units": "degrees_north"})
+    else:
+        raise ValueError("unsupported grid type: '%s'" % grid)
+
+    return lon, lat

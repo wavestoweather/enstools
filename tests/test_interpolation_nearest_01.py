@@ -2,6 +2,20 @@ import enstools
 import numpy as np
 
 
+def setup():
+    """
+    suppress warnings
+    """
+    enstools.core.set_behavior(log_level="ERROR")
+
+
+def teardown():
+    """
+    show again all warnings
+    """
+    enstools.core.set_behavior(log_level="ERROR")
+
+
 def test_nearest_neighbour_regular_1d():
     """
     test of nearest_neighbour from enstools.interpolation with 1d-coordinate arrays
