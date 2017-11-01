@@ -1,5 +1,6 @@
 import enstools.interpolation.vertical_interpolation
 import numpy as np
+import xarray
 
 
 def test_get_weights():
@@ -73,6 +74,9 @@ def test_model2pressure():
     np.testing.assert_almost_equal(new_p[0, ...], np.ones((4, 6)) * 500)
     np.testing.assert_almost_equal(new_p[1, ...], np.ones((4, 6)) * 850)
     np.testing.assert_array_equal(new_p.shape, (2, 4, 6))
-    print(new_p)
 
+    # test with xarrays
+    src_p = xarray.DataArray(src_p, dims=("level", "lat", "lon"))
     intp = enstools.interpolation.model2pressure(src_p, 500)
+    new_p = intp(src_p)
+    np.testing.assert_equal(new_p.dims, ("pressure", "lat", "lon"))
