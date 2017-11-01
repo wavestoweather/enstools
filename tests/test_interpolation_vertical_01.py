@@ -80,3 +80,13 @@ def test_model2pressure():
     intp = enstools.interpolation.model2pressure(src_p, 500)
     new_p = intp(src_p)
     np.testing.assert_equal(new_p.dims, ("pressure", "lat", "lon"))
+
+    # test with additional dimension
+    src_pt = xarray.DataArray(np.empty((2, 10, 4, 6)), dims=("time", "level", "lat", "lon"))
+    src_pt[0, ...] = src_p
+    src_pt[1, ...] = src_p + 10
+    intp = enstools.interpolation.model2pressure(src_pt, 500)
+    new_p = intp(src_pt)
+    np.testing.assert_equal(new_p.dims, ("time", "pressure", "lat", "lon"))
+    np.testing.assert_almost_equal(new_p[:, 0, ...], np.ones((2, 4, 6)) * 500)
+

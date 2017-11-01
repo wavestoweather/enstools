@@ -1,12 +1,14 @@
 from numba import jit
 import numpy as np
 import xarray
+from enstools.misc import swapaxis
 from collections import OrderedDict
+import logging
 
 
 class model2pressure:
 
-    def __init__(self, src_p, dst_p):
+    def __init__(self, src_p, dst_p, vertical_dim=None):
         """
         Create an interpolator object for the interpolation from model to pressure level
 
@@ -19,13 +21,42 @@ class model2pressure:
         dst_p : xarray.DataArray or np.ndarray or float
                 pressure level(s) to interpolate to
 
+        vertical_dim : int
+                the position of the vertical axes in the input data. if not specified, it is automatically detected. In
+                this case, for numpy arrays, it has to be the first axes.
+
         Returns
         -------
         model2pressure
                 callable interpolator object.
         """
-        if src_p.ndim > 3:
-            raise ValueError("unsupported number of dimensions: %d. Try (lev, lat, lon) or (lev, cell)" % src_p.ndim)
+
+        # find the vertical dimension of the input array
+        if vertical_dim is None:
+            if isinstance(src_p, xarray.DataArray):
+                vertical_dim_names = ["pres", "p", "lev", "level", "isobaric", "layer", "hybrid"]
+                for dimi, dim in enumerate(src_p.dims):
+                    for valid_name in vertical_dim_names:
+                        if valid_name in dim.lower():
+                            vertical_dim = dimi
+                            break
+                    if vertical_dim is not None:
+                        break
+                if vertical_dim is not None:
+                    logging.info("using dimension %d (%s) as vertical dimension." % (vertical_dim, src_p.dims[vertical_dim]))
+                else:
+                    raise ValueError("unable to auto-detect vertical dimension in input data.")
+            else:
+                if src_p.ndim > 3:
+                    raise ValueError("unsupported number of dimensions for numpy array: %d. Try (lev, lat, lon) or (lev, cell) or xarray." % src_p.ndim)
+                else:
+                    vertical_dim = 0
+        self._src_vertical_dim = vertical_dim
+
+        # reorder the array if the vertical dimension is not the first dimension
+        self._src_shape_not_reordered = src_p.shape
+        if self._src_vertical_dim > 0:
+            src_p = swapaxis(src_p, self._src_vertical_dim, 0)
 
         # is the destination a single value?
         if not hasattr(dst_p, "__len__"):
@@ -51,8 +82,8 @@ class model2pressure:
         self._dst_pressure = dst_p
 
         # if the input pressure field is 3d, then flatten to two leftmost dimensions
-        if src_p.ndim == 3:
-            src_p = np.asarray(src_p).reshape((src_p.shape[0], src_p.shape[1] * src_p.shape[2]))
+        if src_p.ndim > 2:
+            src_p = np.asarray(src_p).reshape((src_p.shape[0], np.product(src_p.shape[1:])))
 
         # calculate the weights for each horizontal grid point
         self._indices, self._weights = get_weights(np.asarray(src_p), np.asarray(dst_p))
@@ -72,8 +103,8 @@ class model2pressure:
                 the interpolated array (lev, lat, lon) or (lev, cell)
         """
         # check the shape of the input array
-        if data.shape != self._src_shape:
-            raise ValueError("the shape of the data array to interpolate has to match the shape of the original pressure array: %s" % self._src_shape)
+        if data.shape != self._src_shape_not_reordered:
+            raise ValueError("the shape of the data array to interpolate has to match the shape of the original pressure array: %s" % str(self._src_shape_not_reordered))
 
         # are there attributes at the data field?
         if isinstance(data, xarray.DataArray):
@@ -83,9 +114,13 @@ class model2pressure:
             data_attrs = OrderedDict()
             data_name = "interpolated"
 
+        # reorder the dimensions if required
+        if self._src_vertical_dim > 0:
+            data = swapaxis(data, self._src_vertical_dim, 0)
+
         # if the input data field is 3d, then flatten to two leftmost dimensions
-        if data.ndim == 3:
-            data = np.asarray(data).reshape((data.shape[0], data.shape[1] * data.shape[2]))
+        if data.ndim > 2:
+            data = np.asarray(data).reshape((data.shape[0], np.product(data.shape[1:])))
 
         # perform the interpolation
         result_data = apply_weights(np.asarray(data), self._indices, self._weights)
@@ -101,6 +136,10 @@ class model2pressure:
         for dim in self._src_dims[1:]:
             if dim in self._src_coords:
                 result.coords[dim] = self._src_coords[dim]
+
+        # reorder required?
+        if self._src_vertical_dim > 0:
+            result = swapaxis(result, self._src_vertical_dim, 0)
         return result
 
 

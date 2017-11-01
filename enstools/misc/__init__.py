@@ -128,3 +128,33 @@ def generate_coordinates(res, grid="regular"):
         raise ValueError("unsupported grid type: '%s'" % grid)
 
     return lon, lat
+
+
+def swapaxis(array, a1, a2):
+    """
+    move an axis of an array from one position to another. This function belongs to the numpy library but is not
+    implemented for xarray.DataArray
+
+    Parameters
+    ----------
+    array : xarray.DataArray or np.ndarray
+            array to manipulate
+
+    a1 : int
+            first axis
+
+    a1 : int
+            second axis
+
+    Returns
+    -------
+    xarray.DataArray or np.ndarray
+            array with swap axis
+    """
+    dims = np.arange(array.ndim)
+    dims[a1] = a2
+    dims[a2] = a1
+    dims = tuple(dims)
+    if isinstance(array, xarray.DataArray):
+        dims = tuple(map(lambda x:array.dims[x], dims))
+    return array.transpose(*dims)
