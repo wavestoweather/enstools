@@ -21,7 +21,8 @@ class model2pressure:
 
         Returns
         -------
-        callable interpolator.
+        model2pressure
+                callable interpolator object.
         """
         if src_p.ndim > 3:
             raise ValueError("unsupported number of dimensions: %d. Try (lev, lat, lon) or (lev, cell)" % src_p.ndim)

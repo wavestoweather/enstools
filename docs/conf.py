@@ -55,8 +55,13 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
     'sphinx.ext.extlinks',
+    'sphinx.ext.autosummary',
+    #'sphinx.ext.napoleon',
     'numpydoc'
 ]
+
+#numpydoc_show_class_members = False
+numpydoc_class_members_toctree = False
 
 extlinks = {
     'doi': ('https://dx.doi.org/%s', 'doi:'),
