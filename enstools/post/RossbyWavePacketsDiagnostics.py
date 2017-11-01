@@ -514,11 +514,18 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
     # select the time steps for the 21-day average
     z_4mean = z.sel(time=slice(date - timedelta(days=10, hours=11), date + timedelta(days=10, hours=11)))
 
+    # is the number of time steps large enough for the calculation of mean values?
+    enough_values_for_mean = z_4mean.shape[0] >= 21
+
     # calculate 21-day mean of geopotential
-    z_mean = np.asarray(z_4mean.mean(dim="time"))
+    if enough_values_for_mean:
+        z_mean = np.asarray(z_4mean.mean(dim="time"))
 
     # for zimim2006, we also need mean wind values
     if zimim2006:
+        if not enough_values_for_mean:
+            raise ValueError("for the Zimim 2006 variant of the calculation, at least values for 21 days are required!")
+
         # select the time steps for the 21-day average
         u_4mean = u.sel(time=slice(date - timedelta(days=10, hours=11), date + timedelta(days=10, hours=11)))
         v_4mean = v.sel(time=slice(date - timedelta(days=10, hours=11), date + timedelta(days=10, hours=11)))
@@ -538,6 +545,9 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
 
     # apply semi-geostrophic transformation
     if semigeostr or zimim2006:
+        if not enough_values_for_mean:
+            raise ValueError("for the Semi-geostrophic variant of the calculation, at least values for 21 days are required!")
+
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
         data = [u_t, v_t, z_t]
         data_sg = semigeostr_ct(data, z_t, z_mean, lat_mesh, lon_mesh, kmin, kmax)
@@ -551,7 +561,8 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
     ZV = z_field(v_t, lat.size, lon.size + 1)
     ZUV = np.hypot(ZU, ZV)
     ZPHI = z_field(z_t / 9.81, lat.size, lon.size + 1)
-    ZPHI_mean = z_field(z_mean / 9.81, lat.size, lon.size + 1)
+    if enough_values_for_mean:
+        ZPHI_mean = z_field(z_mean / 9.81, lat.size, lon.size + 1)
 
     # calculation according to Zimim 2006
     if zimim2006:
@@ -596,9 +607,14 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
                              "ZV": (["lon", "lat"], ZV),
                              "ZUV": (["lon", "lat"], ZUV),
                              "ZPHI": (["lon", "lat"], ZPHI),
-                             "ZPHI_mean": (["lon", "lat"], ZPHI_mean),
                              "ZENV": (["lon", "lat"], ZENV),
                              "ZOBJ": (["lon", "lat"], ZOBJ)})
+
+    # only add mean values if calculated
+    if enough_values_for_mean:
+        result["ZPHI_mean"] = (["lon", "lat"], ZPHI_mean)
+        result["ZPHI_mean"].attrs["title"] = "Height of 300 hPa surface, 21 days average"
+        result["ZPHI_mean"].attrs["units"] = "gpm"
 
     # add description for the variables
     result["ZU"].attrs["title"] = "Zonal wind speed"
@@ -611,8 +627,6 @@ def rossby_wave_packets_diag(u, v, z, lon=None, lat=None, date=None, lat_range=(
     result["ZENV"].attrs["units"] = "m s-1"
     result["ZPHI"].attrs["title"] = "Height of 300 hPa surface"
     result["ZPHI"].attrs["units"] = "gpm"
-    result["ZPHI_mean"].attrs["title"] = "Height of 300 hPa surface, 21 days average"
-    result["ZPHI_mean"].attrs["units"] = "gpm"
     result["ZOBJ"].attrs["title"] = "RWP objects"
     result["ZOBJ"].attrs["levelu"] = tauun
     result["ZOBJ"].attrs["levelo"] = tauob
@@ -721,7 +735,7 @@ def rossby_wave_packets_plot(result, plot_numbers=None):
     # arrangement of sub-plots
     nsubplots = 0
     fig, ax = None, []
-    if 1 in plot_numbers:
+    if 1 in plot_numbers and "ZPHI_mean" in result:
         nsubplots += 1
         fig, _ax = __plot("%s (%s)" % (result["ZPHI_mean"].attrs["title"], result["ZPHI_mean"].attrs["units"]), result["ZPHI_mean"], lev_phi, 'RdYlBu_r', True, 0, 0, fig=fig, subplot_args=(nplots, 1, nsubplots))
         ax.append(_ax)
