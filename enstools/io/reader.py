@@ -30,13 +30,11 @@ def read(filename, **kwargs):
             in-memory representation of the content of the input file(s)
     """
     # is the filename a pattern?
-    if "*" in filename or "?" in filename or "[" in filename or "{" in filename:
-        files = glob.glob(filename)
-        if len(files) > 1:
-            return read(files, **kwargs)
-
-    # read the input file
-    return __open_dataset(filename)
+    files = __expand_file_pattern(filename)
+    if len(files) > 1:
+        return read(files, **kwargs)
+    else:
+        return __open_dataset(filename)
 
 
 @dispatch((list, tuple))
@@ -61,10 +59,12 @@ def read(filenames, merge_same_size_dim=False, **kwargs):
     datasets = []
     # loop over all input files and create delayed read objects
     for filename in filenames:
-        datasets.append(dask.delayed(read)(filename))
+        # is the filename a pattern?
+        files = __expand_file_pattern(filename)
+        for one_file in files:
+            datasets.append(dask.delayed(read)(one_file))
     # read all the files in parallel
-    # TODO: make that work for grib files, they also create parallel processes
-    datasets = dask.compute(*datasets, traverse=False, get=dask.get)
+    datasets = dask.compute(*datasets, traverse=False, get=dask.multiprocessing.get)
 
     # if dimensions have the same size but different names, then merge them by renaming
     if merge_same_size_dim:
@@ -146,3 +146,24 @@ def __open_dataset(filename):
         return read_grib_file(filename, debug=False)
     else:
         raise ValueError("unknown file type '%s' for file '%s'" % (file_type, filename))
+
+
+def __expand_file_pattern(pattern):
+    """
+    use glob to find all files matching the pattern
+
+    Parameters
+    ----------
+    pattern : str
+            unix bash shell like search pattern
+
+    Returns
+    -------
+    list
+            list of file names matching the pattern
+    """
+    if "*" in pattern or "?" in pattern or "[" in pattern or "{" in pattern:
+        files = glob.glob(pattern)
+        return files
+    else:
+        return [pattern]

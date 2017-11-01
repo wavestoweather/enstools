@@ -105,7 +105,7 @@ def get_nice_levels(variable, center_on_zero=False, nlevel=11, min_percentile=0.
             level-array usable in matplotlib plotting methods
     """
     # use a percentile instead of the actual maximum
-    minval, maxval = np.percentile(variable, [min_percentile, max_percentile])
+    minval, maxval = np.nanpercentile(variable, [min_percentile, max_percentile])
     perc10 = __get_order_of_magnitude(maxval - minval) / 10.0
 
     # adjust minimum, especially around zero

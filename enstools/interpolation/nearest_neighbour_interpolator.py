@@ -45,24 +45,8 @@ class NearestNeighbourInterpolator:
         else:
             result = np.empty(data.shape[:-len(self._shape)] + (self._n_target_points,))
 
-        if len(self._shape) == 1:
-            if self._n_source_points == 1:
-                result[..., :] = data[..., self._indices]
-            else:
-                for i in range(self._n_target_points):
-                    data_values = data[..., self._indices[i]]
-                    result[..., i] = np.sum(data_values * self._weights[i, ...], axis=-1)
-        elif len(self._shape) == 2:
-            if self._n_source_points == 1:
-                if self._n_target_points == 1:
-                    result[..., 0] = data[..., self._indices[0], self._indices[1]]
-                else:
-                    for i in range(self._n_target_points):
-                        result[..., i] = data[..., self._indices[0][i], self._indices[1][i]]
-            else:
-                for i in range(self._n_target_points):
-                    data_values = data[..., self._indices[0][i], self._indices[1][i]]
-                    result[..., i] = np.sum(data_values * self._weights[i, ...], axis=-1)
+        # perform the actual calculation on numpy arrays
+        self.__perform_interpolation(np.asarray(data), result)
 
         # reshape if necessary
         if data.ndim > len(self._shape):
@@ -102,6 +86,35 @@ class NearestNeighbourInterpolator:
             result_attrs["coordinates"] = "lon lat"
         result = xarray.DataArray(result, dims=result_dims, coords=result_coords, attrs=result_attrs, name=result_name)
         return result
+
+    def __perform_interpolation(self, data, result):
+        """
+        perform the actual calculation
+
+        Parameters
+        ----------
+        data : np.ndarray
+        result : np.ndarray
+        """
+        # TODO: modify for numba jit
+        if len(self._shape) == 1:
+            if self._n_source_points == 1:
+                result[..., :] = data[..., self._indices]
+            else:
+                for i in range(self._n_target_points):
+                    data_values = data[..., self._indices[i]]
+                    result[..., i] = np.sum(data_values * self._weights[i, ...], axis=-1)
+        elif len(self._shape) == 2:
+            if self._n_source_points == 1:
+                if self._n_target_points == 1:
+                    result[..., 0] = data[..., self._indices[0], self._indices[1]]
+                else:
+                    for i in range(self._n_target_points):
+                        result[..., i] = data[..., self._indices[0][i], self._indices[1][i]]
+            else:
+                for i in range(self._n_target_points):
+                    data_values = data[..., self._indices[0][i], self._indices[1][i]]
+                    result[..., i] = np.sum(data_values * self._weights[i, ...], axis=-1)
 
 
 @check_arguments(units={"src_lon": "degrees_east",

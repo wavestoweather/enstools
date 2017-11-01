@@ -78,8 +78,10 @@ class model2pressure:
         # are there attributes at the data field?
         if isinstance(data, xarray.DataArray):
             data_attrs = data.attrs
+            data_name = data.name
         else:
             data_attrs = OrderedDict()
+            data_name = "interpolated"
 
         # if the input data field is 3d, then flatten to two leftmost dimensions
         if data.ndim == 3:
@@ -93,7 +95,7 @@ class model2pressure:
             result_data = result_data.reshape(self._dst_shape)
 
         # create a xarray object
-        result = xarray.DataArray(result_data, dims=("pressure",) + self._src_dims[1:], attrs=data_attrs)
+        result = xarray.DataArray(result_data, dims=("pressure",) + self._src_dims[1:], attrs=data_attrs, name=data_name)
         result.coords["pressure"] = self._dst_pressure
         # copy coordinates for the rightmost dimensions
         for dim in self._src_dims[1:]:
