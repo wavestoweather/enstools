@@ -2,8 +2,11 @@ from collections import OrderedDict
 import xarray
 import dask
 import six
+import os
+import numpy as np
 from multipledispatch import dispatch
 import glob
+from enstools.misc import has_ensemble_dim
 from .file_type import get_file_type
 try:
     from .eccodes import read_grib_file
@@ -38,7 +41,7 @@ def read(filename, **kwargs):
 
 
 @dispatch((list, tuple))
-def read(filenames, merge_same_size_dim=False, **kwargs):
+def read(filenames, merge_same_size_dim=False, members_by_folder=False, **kwargs):
     """
     Read multiple input files
 
@@ -46,6 +49,14 @@ def read(filenames, merge_same_size_dim=False, **kwargs):
     ----------
     filename : list of str or tuple of str
             names of individual files or filename pattern
+
+    merge_same_size_dim : bool
+            dimensions of the same size but with different names are merged together. This is sometimes useful to
+            merge datasets from different file formats (e.g., grib and netcdf). Default: False.
+
+    members_by_folder : bool
+            interpret files in one subdirectory as data from the same ensemble member. This is useful if the ensemble
+            member number if not stored within the input file. Defaut: False.
 
     **kwargs
             all arguments accepted by xarray.open_dataset() of xarray.open_mfdataset()
@@ -58,13 +69,35 @@ def read(filenames, merge_same_size_dim=False, **kwargs):
     # create at first a list of all input files
     datasets = []
     # loop over all input files and create delayed read objects
+    expanded_filenames = []
+    parent_folders = []
     for filename in filenames:
         # is the filename a pattern?
         files = __expand_file_pattern(filename)
         for one_file in files:
+            one_file = os.path.abspath(one_file)
             datasets.append(dask.delayed(read)(one_file))
+            expanded_filenames.append(one_file)
+            parent = os.path.dirname(one_file)
+            if not parent in parent_folders:
+                parent_folders.append(parent)
+
     # read all the files in parallel
     datasets = dask.compute(*datasets, traverse=False, get=dask.multiprocessing.get)
+
+    # are there ensemble members in different folders?
+    if members_by_folder and len(parent_folders) > 1:
+        # sort all parent folders and assign ensemble member numbers to them
+        parent_folders = sorted(parent_folders)
+        ens_member_by_folder = __assign_ensemble_member_number_to_folders(parent_folders)
+
+        # create the ensemble dimension within the datasets
+        expanded_datasets = []
+        for ids in range(len(datasets)):
+            if not has_ensemble_dim(datasets[ids]):
+                expanded_datasets.append(datasets[ids].expand_dims("ens", 1))
+                expanded_datasets[ids].coords["ens"] = [ens_member_by_folder[parent_folders[ids]]]
+        datasets = tuple(expanded_datasets)
 
     # if dimensions have the same size but different names, then merge them by renaming
     if merge_same_size_dim:
@@ -167,3 +200,45 @@ def __expand_file_pattern(pattern):
         return files
     else:
         return [pattern]
+
+
+def __assign_ensemble_member_number_to_folders(folders):
+    """
+    used internally to extract numbers from the folders and use them as ensemble member numbers. If not all folders
+    contain numbers, or if they are not unique, then create consecutive numbers.
+
+    Parameters
+    ----------
+    folders : list
+            list of absolute paths
+
+    Returns
+    -------
+    dict :
+            dictionary where the key is the absolute path and the value if the ensemble member number
+    """
+
+    # extract all digits from the last parts of the folders
+    digits = []
+    for ifolder, folder in enumerate(folders):
+        prefix, one_path = os.path.split(folder)
+        digits_for_path = ""
+        for letter in one_path:
+            if letter.isdigit():
+                digits_for_path += letter
+        if digits_for_path == "":
+            digits_for_path = ifolder + 1
+        else:
+            digits_for_path = int(digits_for_path)
+        digits.append(digits_for_path)
+
+    # are all numbers unique?
+    digits = np.unique(digits)
+    if len(digits) < len(folders):
+        digits = np.linspace(1, len(folders), len(folders), dtype=np.int32)
+
+    # create the result dictionary
+    result = {}
+    for ifolder in range(len(folders)):
+        result[folders[ifolder]] = digits[ifolder]
+    return result

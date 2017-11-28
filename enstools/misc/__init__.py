@@ -158,3 +158,22 @@ def swapaxis(array, a1, a2):
     if isinstance(array, xarray.DataArray):
         dims = tuple(map(lambda x:array.dims[x], dims))
     return array.transpose(*dims)
+
+
+def has_ensemble_dim(ds):
+    """
+    check whether or not a dataset or xarray has already an ensemble dimension
+
+    Parameters
+    ----------
+    ds : xarray.Dataset or xarray.DataArray
+
+    Returns
+    -------
+    bool
+    """
+    ens_names = ["ens", "ensemble", "member", "members"]
+    for ens_name in ens_names:
+        if ens_name in ds.dims:
+            return True
+    return False
