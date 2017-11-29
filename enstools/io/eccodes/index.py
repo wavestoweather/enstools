@@ -4,10 +4,12 @@ except ImportError:
     pass
 import os
 import threading
+import atexit
 
 
 # cache for already available indices
 _cache = {}
+_index_files_to_delete = set()
 
 # the grib_api is not thread-safe, ensure that iterators are not interrupted
 _locks = {}
@@ -93,7 +95,7 @@ class GribIndexHelper:
                 index_with_date.sort(key=lambda x: x[0], reverse=True)
                 for ifile in range(len(index_files) - max_cache_files):
                     if index_with_date[ifile][1] != index_file:
-                        os.remove(index_with_date[ifile][1])
+                        _index_files_to_delete.add(index_with_date[ifile][1])
             except (IOError, OSError):
                 pass
 
@@ -114,3 +116,14 @@ def get_lock():
     else:
         _locks[os.getpid()] = threading.Lock()
         return _locks[os.getpid()]
+
+
+def clean_index_files():
+    """
+    remove old index files
+    """
+    for one_file in _index_files_to_delete:
+        os.remove(one_file)
+
+# cleanup at exit of the script
+atexit.register(clean_index_files)

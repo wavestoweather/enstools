@@ -1,3 +1,4 @@
+import logging
 from collections import OrderedDict
 import xarray
 import dask
@@ -15,7 +16,7 @@ except ImportError:
 
 
 @dispatch(six.string_types)
-def read(filename, **kwargs):
+def read(filename, constant=None, **kwargs):
     """
     Read one or more input files
 
@@ -23,6 +24,9 @@ def read(filename, **kwargs):
     ----------
     filename : str
             name of one individual file of unix shell-like file name pattern for multiple files
+
+    constant : str
+            name of a file containing constant variables.
 
     **kwargs
             all arguments accepted by xarray.open_dataset() of xarray.open_mfdataset()
@@ -34,14 +38,14 @@ def read(filename, **kwargs):
     """
     # is the filename a pattern?
     files = __expand_file_pattern(filename)
-    if len(files) > 1:
-        return read(files, **kwargs)
+    if len(files) > 1 or constant is not None:
+        return read(files, constant=constant, **kwargs)
     else:
         return __open_dataset(filename)
 
 
 @dispatch((list, tuple))
-def read(filenames, merge_same_size_dim=False, members_by_folder=False, **kwargs):
+def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=False, **kwargs):
     """
     Read multiple input files
 
@@ -57,6 +61,9 @@ def read(filenames, merge_same_size_dim=False, members_by_folder=False, **kwargs
     members_by_folder : bool
             interpret files in one subdirectory as data from the same ensemble member. This is useful if the ensemble
             member number if not stored within the input file. Defaut: False.
+
+    constant : str
+            name of a file containing constant variables.
 
     **kwargs
             all arguments accepted by xarray.open_dataset() of xarray.open_mfdataset()
@@ -96,7 +103,7 @@ def read(filenames, merge_same_size_dim=False, members_by_folder=False, **kwargs
         for ids in range(len(datasets)):
             if not has_ensemble_dim(datasets[ids]):
                 expanded_datasets.append(datasets[ids].expand_dims("ens", 1))
-                expanded_datasets[ids].coords["ens"] = [ens_member_by_folder[parent_folders[ids]]]
+                expanded_datasets[ids].coords["ens"] = [ens_member_by_folder[os.path.dirname(expanded_filenames[ids])]]
         datasets = tuple(expanded_datasets)
 
     # if dimensions have the same size but different names, then merge them by renaming
@@ -119,6 +126,38 @@ def read(filenames, merge_same_size_dim=False, members_by_folder=False, **kwargs
                 if len(rename_mapping_for_ds) > 0:
                     ds.rename(rename_mapping_for_ds, inplace=True)
 
+    # combine datsets from different files
+    result = __merge_datasets(datasets)
+
+    # is there a file with constant data?
+    if constant is not None:
+        # read constant data
+        constant_data = __open_dataset(constant)
+        # remove time axes if present
+        if "time" in constant_data.dims:
+            constant_data = constant_data.isel(time=0)
+        # remove variables also present in the non constant data
+        for one_var in constant_data.data_vars:
+            if one_var in result or one_var.lower() in result or one_var.upper() in result:
+                logging.warning("variable '%s' in constant and non-constant data => renamed to '%s_constant'!", one_var, one_var)
+                constant_data.rename({one_var: "%s_constant" % one_var}, inplace=True)
+        # merge constant data
+        result = xarray.auto_combine((result, constant_data))
+
+    return result
+
+
+def __merge_datasets(datasets):
+    """
+
+    Parameters
+    ----------
+    datasets
+
+    Returns
+    -------
+
+    """
     # find common coordinates and sort variables according to those coordinates
     # get all coordinates
     all_coords = set()
@@ -145,13 +184,34 @@ def read(filenames, merge_same_size_dim=False, members_by_folder=False, **kwargs
                 break
         if in_all:
             coords_in_all_files[coord] = ascending
+
+    # find coords with different values in different files
+    for coord in six.iterkeys(coords_in_all_files):
+        # loop over all files
+        datasets_with_one_coord_value = {}
+        for one_ds in datasets:
+            first_value = float(one_ds.coords[coord][0])
+            if first_value not in datasets_with_one_coord_value:
+                datasets_with_one_coord_value[first_value] = [one_ds]
+            else:
+                datasets_with_one_coord_value[first_value].append(one_ds)
+        # are there values with more than one dataset?
+        different_values = sorted(datasets_with_one_coord_value.keys())
+        if not coords_in_all_files[coord]:
+            different_values = reversed(different_values)
+        # merge files with more than one value
+        if len(different_values) > 1:
+            new_datasets = []
+            for one_value in different_values:
+                new_datasets.append(__merge_datasets(datasets_with_one_coord_value[one_value]))
+            datasets = tuple(new_datasets)
+
     # sort the dataset by all shared coordinates
     for coord, ascending in six.iteritems(coords_in_all_files):
         datasets = sorted(datasets, key=lambda x:x.coords[coord][0])
 
     # try to merge the datasets
-    result = xarray.auto_combine(datasets)
-    return result
+    return xarray.auto_combine(datasets)
 
 
 def __open_dataset(filename):

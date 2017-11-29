@@ -1,7 +1,9 @@
+import xarray
 from xarray.backends.netCDF4_ import NetCDF4DataStore
 from .file_type import get_file_type
 import dask.array
 import six
+from distutils.version import LooseVersion
 
 
 def write(ds, filename, file_format=None):
@@ -32,7 +34,7 @@ def write(ds, filename, file_format=None):
     if selected_format == "NC":
         # are there dask arrays in the dataset? if so, write the file variable by variable
         has_dask = False
-        for varname, var in six.iteritems(ds):
+        for varname, var in six.iteritems(ds.variables):
             if isinstance(var.data, dask.array.core.Array):
                 has_dask = True
 
@@ -67,7 +69,10 @@ def __to_netcdf(ds, filename):
     ds_copy.to_netcdf(filename)
 
     # open it again and add the dask arrays
-    nc = NetCDF4DataStore(filename, "a")
+    if LooseVersion(xarray.__version__) > LooseVersion('0.9.6'):
+        nc = NetCDF4DataStore.open(filename, "a")
+    else:
+        nc = NetCDF4DataStore(filename, "a")
 
     # add the variables
     for varname, var in six.iteritems(ds.data_vars):
