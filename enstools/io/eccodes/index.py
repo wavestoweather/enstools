@@ -5,6 +5,7 @@ except ImportError:
 import os
 import threading
 import atexit
+import six
 
 
 # cache for already available indices
@@ -13,6 +14,9 @@ _index_files_to_delete = set()
 
 # the grib_api is not thread-safe, ensure that iterators are not interrupted
 _locks = {}
+
+# there seems to be a bug in loading and storing index files. until this is solved, don't use them!
+_STORE_INDEX = False;
 
 
 class GribIndexHelper:
@@ -35,12 +39,16 @@ class GribIndexHelper:
             self.iid, self.index_vals = _cache[(self.filename, os.getpid())]
         else:
             # try to load the index from a index file
-            self.iid = self.load_from_file()
+            if _STORE_INDEX:
+                self.iid = self.load_from_file()
+            else:
+                self.iid = None
             # not successful? create a new index!
             if self.iid is None:
                 self.iid = eccodes.codes_index_new_from_file(self.filename, self.index_keys)
                 # write the index to a file
-                self.store_to_file()
+                if _STORE_INDEX:
+                    self.store_to_file()
 
             # get all possible index values
             self.index_vals = self.__get_index_values()
