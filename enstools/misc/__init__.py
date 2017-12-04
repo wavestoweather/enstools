@@ -177,3 +177,44 @@ def has_ensemble_dim(ds):
         if ens_name in ds.dims:
             return True
     return False
+
+
+def add_ensemble_dim(ds, member, inplace=True):
+    """
+    create an ensemble dimension with in the dataset
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+
+    member : int
+            number of the ensemble member
+
+    inplace : bool
+            modify the dataset directly?
+
+    Returns
+    -------
+    xarray.Dataset:
+            A copy of the dataset expanded by the ensemble dimension or the expanded dataset
+            if the expansion was done inplace.
+    """
+    # create a lazy copy of the dataset
+    if inplace:
+        new_ds = ds
+    else:
+        new_ds = ds.copy()
+
+    # loop over all data variables.
+    # those with time dimension are extended behind the time dimension, others at the front
+    for one_name, one_var in six.iteritems(ds.data_vars):
+        if one_var.dims[0] == "time":
+            new_ds[one_name] = one_var.expand_dims("ens", 1)
+        else:
+            new_ds[one_name] = one_var.expand_dims("ens")
+    new_ds.coords["ens"] = [member]
+
+    # remove the ensemble_member attribute if present. it if only intented for datasets without ensemble dimension
+    if "ensemble_member" in new_ds.attrs:
+        del new_ds.attrs["ensemble_member"]
+    return new_ds

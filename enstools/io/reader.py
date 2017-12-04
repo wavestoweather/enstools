@@ -7,7 +7,7 @@ import os
 import numpy as np
 from multipledispatch import dispatch
 import glob
-from enstools.misc import has_ensemble_dim
+from enstools.misc import has_ensemble_dim, add_ensemble_dim
 from .file_type import get_file_type
 try:
     from .eccodes import read_grib_file
@@ -99,12 +99,9 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         ens_member_by_folder = __assign_ensemble_member_number_to_folders(parent_folders)
 
         # create the ensemble dimension within the datasets
-        expanded_datasets = []
         for ids in range(len(datasets)):
             if not has_ensemble_dim(datasets[ids]):
-                expanded_datasets.append(datasets[ids].expand_dims("ens", 1))
-                expanded_datasets[ids].coords["ens"] = [ens_member_by_folder[os.path.dirname(expanded_filenames[ids])]]
-        datasets = tuple(expanded_datasets)
+                add_ensemble_dim(datasets[ids], ens_member_by_folder[os.path.dirname(expanded_filenames[ids])])
 
     # if dimensions have the same size but different names, then merge them by renaming
     if merge_same_size_dim:
@@ -210,8 +207,24 @@ def __merge_datasets(datasets):
     for coord, ascending in six.iteritems(coords_in_all_files):
         datasets = sorted(datasets, key=lambda x:x.coords[coord][0])
 
-    # try to merge the datasets
-    return xarray.auto_combine(datasets)
+    # are there datasets with ensemble_members attribute?
+    ensemble_members_found = []
+    for one_dataset in datasets:
+        if "ensemble_member" in one_dataset.attrs:
+            if not one_dataset.attrs["ensemble_member"] in ensemble_members_found:
+                ensemble_members_found.append(one_dataset.attrs["ensemble_member"])
+
+    # data from more than one ensemble member was found. create the ensemble dimension for all datasets
+    if len(ensemble_members_found) > 1:
+        for one_dataset in datasets:
+            if "ensemble_member" in one_dataset.attrs:
+                add_ensemble_dim(one_dataset, one_dataset.attrs["ensemble_member"], inplace=True)
+            else:
+                logging.warning("Trying to merge ensemble and non-ensemble data. That will possibly fail!")
+        return __merge_datasets(datasets)
+    else:
+        # try to merge the datasets
+        return xarray.auto_combine(datasets)
 
 
 def __open_dataset(filename):

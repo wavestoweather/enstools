@@ -340,6 +340,11 @@ def read_grib_file(filename, debug=False):
     if "lat" in dataset:
         dataset["lat"].attrs["long_name"] = "latitude"
         dataset["lat"].attrs["units"] = "degrees_north"
+
+    # data from one ensemble member? store as attribute
+    if "ens" in coordinates and len(coordinates["ens"][1]) == 1:
+        dataset.attrs["ensemble_member"] = coordinates["ens"][1][0]
+
     # add bounds attribute to coordinates
     for one_bounds in level_bounds.keys():
         coordinate_name = one_bounds.replace("_bnds", "")
