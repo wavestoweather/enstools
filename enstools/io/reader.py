@@ -7,7 +7,8 @@ import os
 import numpy as np
 from multipledispatch import dispatch
 import glob
-from enstools.misc import has_ensemble_dim, add_ensemble_dim, is_additional_coordinate_variable, first_element
+from enstools.misc import has_ensemble_dim, add_ensemble_dim, is_additional_coordinate_variable, first_element, \
+    has_dask_arrays
 from .file_type import get_file_type
 try:
     from .eccodes import read_grib_file
@@ -90,7 +91,12 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
                 parent_folders.append(parent)
 
     # read all the files in parallel
-    datasets = dask.compute(*datasets, traverse=False, get=dask.multiprocessing.get)
+    datasets = list(dask.compute(*datasets, traverse=False, get=dask.multiprocessing.get))
+
+    # ensure that datasets contain dask variables
+    for i in range(len(datasets)):
+        if not has_dask_arrays(datasets[i]):
+            datasets[i] = datasets[i].chunk()
 
     # are there ensemble members in different folders?
     if members_by_folder and len(parent_folders) > 1:
@@ -247,7 +253,7 @@ def __open_dataset(filename):
         raise ValueError("unable to guess the type of the input file '%s'" % filename)
 
     if file_type == "NC":
-        result = xarray.open_dataset(filename, chunks={})
+        result = xarray.open_dataset(filename)
     elif file_type == "GRIB":
         result = read_grib_file(filename, debug=False)
     else:

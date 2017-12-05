@@ -1,5 +1,7 @@
 import xarray
 from xarray.backends.netCDF4_ import NetCDF4DataStore
+
+from enstools.misc import has_dask_arrays
 from .file_type import get_file_type
 import dask.array
 import six
@@ -33,13 +35,7 @@ def write(ds, filename, file_format=None):
     # write a netcdf file
     if selected_format == "NC":
         # are there dask arrays in the dataset? if so, write the file variable by variable
-        has_dask = False
-        for varname, var in six.iteritems(ds.variables):
-            if isinstance(var.data, dask.array.core.Array):
-                has_dask = True
-
-        # no dask? store the whole file directly
-        if not has_dask:
+        if not has_dask_arrays(ds):
             ds.to_netcdf(filename)
         else:
             __to_netcdf(ds, filename)

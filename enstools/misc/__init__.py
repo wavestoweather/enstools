@@ -5,6 +5,7 @@ import six
 import xarray
 import numpy as np
 from numba import jit
+import dask
 
 if six.PY3:
     from urllib.request import urlretrieve
@@ -177,6 +178,27 @@ def has_ensemble_dim(ds):
         if ens_name in ds.dims:
             return True
     return False
+
+
+def has_dask_arrays(dataset):
+    """
+    check whether or not a dataset contains dask arrays
+
+    Parameters
+    ----------
+    dataset : xarray.Dataset
+
+    Returns
+    -------
+    bool :
+            True if dask arrays are found
+    """
+    has_dask = False
+    for varname, var in six.iteritems(dataset.variables):
+        if isinstance(var.data, dask.array.core.Array):
+            has_dask = True
+            break
+    return has_dask
 
 
 def add_ensemble_dim(ds, member, inplace=True):
