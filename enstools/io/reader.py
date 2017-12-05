@@ -160,7 +160,7 @@ def __merge_datasets(datasets):
     all_coords = set()
     for ds in datasets:
         for coord in ds.coords.keys():
-            if coord not in all_coords and np.issubdtype(ds.coords[coord].dtype, np.number):
+            if coord not in all_coords and (np.issubdtype(ds.coords[coord].dtype, np.number) or np.issubdtype(ds.coords[coord].dtype, np.datetime64)):
                 all_coords.add(coord)
     # filter for coordinates present in all files
     coords_in_all_files = OrderedDict()
