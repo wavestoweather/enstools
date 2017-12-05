@@ -7,7 +7,7 @@ import os
 import numpy as np
 from multipledispatch import dispatch
 import glob
-from enstools.misc import has_ensemble_dim, add_ensemble_dim
+from enstools.misc import has_ensemble_dim, add_ensemble_dim, is_additional_coordinate_variable, first_element
 from .file_type import get_file_type
 try:
     from .eccodes import read_grib_file
@@ -160,7 +160,7 @@ def __merge_datasets(datasets):
     all_coords = set()
     for ds in datasets:
         for coord in ds.coords.keys():
-            if coord not in all_coords:
+            if coord not in all_coords and np.issubdtype(ds.coords[coord].dtype, np.number):
                 all_coords.add(coord)
     # filter for coordinates present in all files
     coords_in_all_files = OrderedDict()
@@ -187,7 +187,7 @@ def __merge_datasets(datasets):
         # loop over all files
         datasets_with_one_coord_value = {}
         for one_ds in datasets:
-            first_value = float(one_ds.coords[coord][0])
+            first_value = first_element(one_ds.coords[coord])
             if first_value not in datasets_with_one_coord_value:
                 datasets_with_one_coord_value[first_value] = [one_ds]
             else:
@@ -195,7 +195,7 @@ def __merge_datasets(datasets):
         # are there values with more than one dataset?
         different_values = sorted(datasets_with_one_coord_value.keys())
         if not coords_in_all_files[coord]:
-            different_values = reversed(different_values)
+            different_values = list(reversed(different_values))
         # merge files with more than one value
         if len(different_values) > 1:
             new_datasets = []
@@ -205,7 +205,7 @@ def __merge_datasets(datasets):
 
     # sort the dataset by all shared coordinates
     for coord, ascending in six.iteritems(coords_in_all_files):
-        datasets = sorted(datasets, key=lambda x:x.coords[coord][0])
+        datasets = sorted(datasets, key=lambda x: first_element(x.coords[coord]))
 
     # are there datasets with ensemble_members attribute?
     ensemble_members_found = []
@@ -247,11 +247,17 @@ def __open_dataset(filename):
         raise ValueError("unable to guess the type of the input file '%s'" % filename)
 
     if file_type == "NC":
-        return xarray.open_dataset(filename, chunks={})
+        result = xarray.open_dataset(filename, chunks={})
     elif file_type == "GRIB":
-        return read_grib_file(filename, debug=False)
+        result = read_grib_file(filename, debug=False)
     else:
         raise ValueError("unknown file type '%s' for file '%s'" % (file_type, filename))
+
+    # check for additional coordinate variables like staggered lat/lon values
+    for one_name, one_var in six.iteritems(result.data_vars):
+        if is_additional_coordinate_variable(one_var):
+            result.set_coords(one_name, True)
+    return result
 
 
 def __expand_file_pattern(pattern):

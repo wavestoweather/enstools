@@ -208,7 +208,9 @@ def add_ensemble_dim(ds, member, inplace=True):
     # loop over all data variables.
     # those with time dimension are extended behind the time dimension, others at the front
     for one_name, one_var in six.iteritems(ds.data_vars):
-        if one_var.dims[0] == "time":
+        if is_additional_coordinate_variable(one_var):
+            continue
+        if len(one_var.dims) > 0 and one_var.dims[0] == "time":
             new_ds[one_name] = one_var.expand_dims("ens", 1)
         else:
             new_ds[one_name] = one_var.expand_dims("ens")
@@ -218,3 +220,61 @@ def add_ensemble_dim(ds, member, inplace=True):
     if "ensemble_member" in new_ds.attrs:
         del new_ds.attrs["ensemble_member"]
     return new_ds
+
+
+def is_additional_coordinate_variable(var):
+    """
+    check if a variable belongs to a list of known constant coordinate variables
+
+    Parameters
+    ----------
+    var : xarray.DataArray
+
+    Returns
+    -------
+    bool :
+           True = variable is not different for ensemble members
+    """
+
+    # list of excluded variables from different models
+    excluded = {
+        # COSMO variables
+        "time_bnds": ("time", "bnds"),
+        "slonu": ("rlat", "srlon"),
+        "slatu": ("rlat", "srlon"),
+        "slonv": ("srlat", "rlon"),
+        "slatv": ("srlat", "rlon"),
+        "vcoord": ("level1",),
+        "soil1_bnds": ("soil1", "bnds"),
+        "rotated_pole": (),
+        "height_2m": (),
+        "height_10m": (),
+        "height_toa": (),
+        "wbt_13c": (),
+    }
+
+    # variable is in excluded list?
+    if var.name in excluded and excluded[var.name] == var.dims:
+        return True
+    else:
+        return False
+
+
+def first_element(array):
+    """
+    returns the first element of an array or the value of an scalar.
+
+    Parameters
+    ----------
+    array : xarray.DataArray
+            array with 0 or more dimensions.
+
+    Returns
+    -------
+    float :
+            first value.
+    """
+    if array.size > 1:
+        return float(array[0])
+    else:
+        return float(array)
