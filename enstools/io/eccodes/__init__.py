@@ -108,7 +108,10 @@ def read_grib_file(filename, debug=False):
                 dimensions[variable_id], dimension_names[variable_id] = msg.get_dimension(dimensions, dimension_names)
 
             # record the valid time stamp
-            time_stamp = datetime.strptime("%s%04d" % (msg["validityDate"], int(msg["validityTime"])), "%Y%m%d%H%M")
+            validityDate = "%08d%04d" % (msg["validityDate"], int(msg["validityTime"]))
+            if validityDate.startswith("0000"):
+                validityDate = "2" + validityDate[1:]
+            time_stamp = datetime.strptime(validityDate, "%Y%m%d%H%M")
             if time_stamp not in times:
                 times.add(time_stamp)
 
