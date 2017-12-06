@@ -91,12 +91,12 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
                 parent_folders.append(parent)
 
     # read all the files in parallel
-    datasets = list(dask.compute(*datasets, traverse=False, get=dask.multiprocessing.get))
-
-    # ensure that datasets contain dask variables
-    for i in range(len(datasets)):
-        if not has_dask_arrays(datasets[i]):
-            datasets[i] = datasets[i].chunk()
+    # FIXME: issue #6: repairing coordinates inside of __open_dataset is causing an error in python3
+    if six.PY3:
+        get = dask.get
+    else:
+        get = dask.multiprocessing.get
+    datasets = list(dask.compute(*datasets, traverse=False, get=get))
 
     # are there ensemble members in different folders?
     if members_by_folder and len(parent_folders) > 1:
@@ -253,7 +253,7 @@ def __open_dataset(filename):
         raise ValueError("unable to guess the type of the input file '%s'" % filename)
 
     if file_type == "NC":
-        result = xarray.open_dataset(filename)
+        result = xarray.open_dataset(filename, chunks={})
     elif file_type == "GRIB":
         result = read_grib_file(filename, debug=False)
     else:
