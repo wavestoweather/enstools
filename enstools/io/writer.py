@@ -57,7 +57,7 @@ def __to_netcdf(ds, filename):
     # store the complete file without the dask arrays
     ds_copy = ds.copy(deep=False)
     dask_variables = []
-    for varname, var in six.iteritems(ds.data_vars):
+    for varname, var in six.iteritems(ds.variables):
         if isinstance(var.data, dask.array.core.Array):
             dask_variables.append(varname)
     for one_var in dask_variables:
@@ -71,7 +71,7 @@ def __to_netcdf(ds, filename):
         nc = NetCDF4DataStore(filename, "a")
 
     # add the variables
-    for varname, var in six.iteritems(ds.data_vars):
+    for varname, var in six.iteritems(ds.variables):
         if isinstance(var.data, dask.array.core.Array):
             nc.store({varname: var.compute()}, {})
 
