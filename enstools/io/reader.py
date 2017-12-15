@@ -9,6 +9,7 @@ from multipledispatch import dispatch
 import glob
 from enstools.misc import has_ensemble_dim, add_ensemble_dim, is_additional_coordinate_variable, first_element, \
     has_dask_arrays
+from .dataset import drop_unused
 from .file_type import get_file_type
 try:
     from .eccodes import read_grib_file
@@ -42,7 +43,7 @@ def read(filename, constant=None, **kwargs):
     if len(files) > 1 or constant is not None:
         return read(files, constant=constant, **kwargs)
     else:
-        return __open_dataset(filename)
+        return __open_dataset(filename, **kwargs)
 
 
 @dispatch((list, tuple))
@@ -67,7 +68,11 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
             name of a file containing constant variables.
 
     **kwargs
-            all arguments accepted by xarray.open_dataset() of xarray.open_mfdataset()
+            all arguments accepted by xarray.open_dataset() of xarray.open_mfdataset() plus some additional:
+
+            *drop_unused*: bool
+                remove unused coordinates. This improves the performance of the merge process. The merge process compares
+                the coordinates from all files with each other.
 
     Returns
     -------
@@ -84,7 +89,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         files = __expand_file_pattern(filename)
         for one_file in files:
             one_file = os.path.abspath(one_file)
-            datasets.append(dask.delayed(read)(one_file))
+            datasets.append(dask.delayed(read)(one_file, **kwargs))
             expanded_filenames.append(one_file)
             parent = os.path.dirname(one_file)
             if not parent in parent_folders:
@@ -264,7 +269,7 @@ def __merge_datasets(datasets):
         return xarray.auto_combine(datasets)
 
 
-def __open_dataset(filename):
+def __open_dataset(filename, **kwargs):
     """
     read one input file. the type is automatically determined.
 
@@ -272,6 +277,9 @@ def __open_dataset(filename):
     ----------
     filename : str
             path of the file
+
+    **kwargs:
+            additional keyword arguments for the underlying read functions
 
     Returns
     -------
@@ -294,6 +302,10 @@ def __open_dataset(filename):
     for one_name, one_var in six.iteritems(result.data_vars):
         if is_additional_coordinate_variable(one_var):
             result.set_coords(one_name, True)
+
+    # drop unused coords
+    if kwargs.get("drop_unused", False):
+        drop_unused(result, inplace=True)
     return result
 
 
