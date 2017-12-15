@@ -105,9 +105,42 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         ens_member_by_folder = __assign_ensemble_member_number_to_folders(parent_folders)
 
         # create the ensemble dimension within the datasets
+        n_files_per_folder = {}
         for ids in range(len(datasets)):
+            folder = os.path.dirname(expanded_filenames[ids])
+
+            # count the files per member and remove incomplete members
+            if folder in n_files_per_folder:
+                n_files_per_folder[folder] += 1
+            else:
+                n_files_per_folder[folder] = 1
+
+            # create missing ensemble dimension
             if not has_ensemble_dim(datasets[ids]):
-                add_ensemble_dim(datasets[ids], ens_member_by_folder[os.path.dirname(expanded_filenames[ids])])
+                add_ensemble_dim(datasets[ids], ens_member_by_folder[folder])
+
+        # check the number of files per folder
+        incomplete_folders = []
+        max_files = 0
+        for folder, n_files in six.iteritems(n_files_per_folder):
+            if n_files > max_files:
+                max_files = n_files
+        for folder, n_files in six.iteritems(n_files_per_folder):
+            if n_files < max_files:
+                incomplete_folders.append(folder)
+
+        # remove incomplete ensemble members
+        if len(incomplete_folders) > 0:
+            incomplete_folders.sort()
+            print(len(datasets))
+            for folder in incomplete_folders:
+                logging.warning("The ensemble member in folder '%s' seems to be incomplete with only %d of %d files. This member will not be part of the merged dataset.", folder, n_files_per_folder[folder], max_files)
+            new_datasets = []
+            for ids in range(len(datasets)):
+                if os.path.dirname(expanded_filenames[ids]) not in incomplete_folders:
+                    new_datasets.append(datasets[ids])
+            datasets = new_datasets
+            print(len(datasets))
 
     # if dimensions have the same size but different names, then merge them by renaming
     if merge_same_size_dim:
