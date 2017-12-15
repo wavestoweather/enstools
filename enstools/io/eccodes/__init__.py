@@ -19,7 +19,7 @@ from .metadata import GribMessageMetadata
 from .index import GribIndexHelper, get_lock
 
 
-def read_grib_file(filename, debug=False):
+def read_grib_file(filename, debug=False, in_memory=False):
     """
     Read the contents of a grib1 or grib2 file
 
@@ -27,6 +27,12 @@ def read_grib_file(filename, debug=False):
     ----------
     filename : string
             name of the file to read
+
+    debug :  bool
+            show some additional debug messages
+
+    in_memory : bool
+            load the data directly into memory
 
     Returns
     -------
@@ -165,13 +171,22 @@ def read_grib_file(filename, debug=False):
                     datatype[variable_id] = numpy.float32
 
             # store the values in a dict for later retrieval
-            msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
-                dask.array.from_delayed(dask.delayed(__get_one_message)(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], imsg),
-                                        shape=dimensions[variable_id],
-                                        dtype=datatype[variable_id])
+            if not in_memory:
+                msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
+                    dask.array.from_delayed(dask.delayed(__get_one_message)(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], imsg),
+                                            shape=dimensions[variable_id],
+                                            dtype=datatype[variable_id])
+            else:
+                msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
+                    dask.array.from_array(__get_one_message(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], imsg),
+                                          chunks=dimensions[variable_id])
 
             # free the memory used by this message
             msg.release()
+
+    # release the grib index if no longer used
+    if in_memory:
+        index.release()
 
     # create the coordinate definition for the dataset
     if len(ensemble_members) > 0:

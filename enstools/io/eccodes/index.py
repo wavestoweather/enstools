@@ -16,7 +16,7 @@ _index_files_to_delete = set()
 _locks = {}
 
 # there seems to be a bug in loading and storing index files. until this is solved, don't use them!
-_STORE_INDEX = False;
+_STORE_INDEX = False
 
 
 class GribIndexHelper:
@@ -108,6 +108,14 @@ class GribIndexHelper:
                 pass
 
         return index_file
+
+    def release(self):
+        """
+        free the memory used by the index. The object is afterwards not usable anymore.
+        """
+        if self.iid is not None:
+            eccodes.codes_index_release(self.iid)
+            self.iid = None
 
     def __get_index_values(self):
         # get all possible values for the index keys

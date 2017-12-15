@@ -74,6 +74,10 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
                 remove unused coordinates. This improves the performance of the merge process. The merge process compares
                 the coordinates from all files with each other.
 
+            *in_memory*: bool
+                store the complete arrays in memory. Data is still handled as dask arrays, but not backed by the input
+                files anymore. This works of course only for datasets which fit into memory.
+
     Returns
     -------
     xarray.Dataset
@@ -292,9 +296,15 @@ def __open_dataset(filename, **kwargs):
         raise ValueError("unable to guess the type of the input file '%s'" % filename)
 
     if file_type == "NC":
-        result = xarray.open_dataset(filename, chunks={})
+        if kwargs.get("in_memory", False):
+            result0 = xarray.open_dataset(filename)
+            result = result0.compute().chunk()
+            result0.close()
+            result.close()
+        else:
+            result = xarray.open_dataset(filename, chunks={})
     elif file_type == "GRIB":
-        result = read_grib_file(filename, debug=False)
+        result = read_grib_file(filename, debug=False, in_memory=kwargs.get("in_memory", False))
     else:
         raise ValueError("unknown file type '%s' for file '%s'" % (file_type, filename))
 
