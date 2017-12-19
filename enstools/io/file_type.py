@@ -70,6 +70,11 @@ def get_file_type(filename, only_extension=False):
                         file_type = "HDF"
                 if "Gridded binary (GRIB)" in ft:
                     file_type = "GRIB"
+                elif "data" in ft:
+                    with open(filename, "rb") as f:
+                        first_bytes = f.read(12)
+                        if first_bytes.endswith("GRIB"):
+                            file_type = "GRIB"
 
     # return the best knowledge of the file type
     if file_type is not None:
