@@ -201,6 +201,36 @@ def __merge_datasets(datasets):
     -------
 
     """
+    # anything to do?
+    if len(datasets) == 1:
+        return datasets[0]
+
+    # variables not available in all files are merged separately
+    datasets_incomplete = []
+    vars_not_in_all_files = set()
+    all_vars = set()
+    for ds in datasets:
+        for one_var in ds.data_vars.keys():
+            if one_var not in all_vars:
+                all_vars.add(one_var)
+    for one_var in all_vars:
+        for ds in datasets:
+            if one_var not in ds.data_vars:
+                vars_not_in_all_files.add(one_var)
+    for one_var in vars_not_in_all_files:
+        new_unmerged_ds = []
+        for ds in datasets:
+            new_ds = None
+            if one_var in ds.data_vars:
+                if new_ds is None:
+                    new_ds = xarray.Dataset()
+                new_ds[one_var] = ds[one_var]
+                del ds[one_var]
+            if new_ds is not None:
+                new_unmerged_ds.append(new_ds)
+        if len(new_unmerged_ds) > 0:
+            datasets_incomplete.append(__merge_datasets(new_unmerged_ds))
+
     # find common coordinates and sort variables according to those coordinates
     # get all coordinates
     all_coords = set()
@@ -247,7 +277,7 @@ def __merge_datasets(datasets):
             new_datasets = []
             for one_value in different_values:
                 new_datasets.append(__merge_datasets(datasets_with_one_coord_value[one_value]))
-            datasets = tuple(new_datasets)
+            datasets = new_datasets
 
     # sort the dataset by all shared coordinates
     for coord, ascending in six.iteritems(coords_in_all_files):
@@ -267,10 +297,17 @@ def __merge_datasets(datasets):
                 add_ensemble_dim(one_dataset, one_dataset.attrs["ensemble_member"], inplace=True)
             else:
                 logging.warning("Trying to merge ensemble and non-ensemble data. That will possibly fail!")
-        return __merge_datasets(datasets)
+        result = __merge_datasets(datasets)
     else:
         # try to merge the datasets
-        return xarray.auto_combine(datasets)
+        result = xarray.auto_combine(datasets)
+
+    # are the variables not available in all files?
+    if len(datasets_incomplete) > 0:
+        datasets_incomplete = xarray.merge(datasets_incomplete)
+        result.merge(datasets_incomplete, inplace=True)
+
+    return result
 
 
 def __open_dataset(filename, **kwargs):
