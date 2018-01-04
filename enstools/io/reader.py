@@ -219,21 +219,15 @@ def __merge_datasets(datasets):
                 vars_not_in_all_files.add(one_var)
     for one_var in vars_not_in_all_files:
         new_unmerged_ds = []
-        empty_ds = []
         for ids, ds in enumerate(datasets):
-            new_ds = None
             if one_var in ds.data_vars:
-                if new_ds is None:
+                if len(ds.data_vars) == 1:
+                    new_unmerged_ds.append(ds)
+                else:
                     new_ds = xarray.Dataset()
-                new_ds[one_var] = ds[one_var]
-                del ds[one_var]
-                if len(ds.data_vars) == 0:
-                    empty_ds.append(ids)
-            if new_ds is not None:
-                new_unmerged_ds.append(new_ds)
-        # remove empty datasets from the list of ds to merge
-        for ids in empty_ds:
-            del datasets[ids]
+                    new_ds[one_var] = ds[one_var]
+                    del ds[one_var]
+                    new_unmerged_ds.append(new_ds)
         if len(new_unmerged_ds) > 0:
             datasets_incomplete.append(__merge_datasets(new_unmerged_ds))
 
