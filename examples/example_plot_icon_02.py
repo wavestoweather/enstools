@@ -30,8 +30,8 @@ if __name__ == "__main__":
         data_files.append("%s/%s" % (args.data, file_name))
 
     # download the grid definition file
-    download("http://opendata.dwd.de/weather/lib/icon_grid_0026_R03B07_G.nc.bz2",
-             "%s/icon_grid_0026_R03B07_G.nc.bz2" % args.data)
+    download("http://icon-downloads.zmaw.de/grids/public/edzw/icon_grid_0026_R03B07_G.nc",
+             "%s/icon_grid_0026_R03B07_G.nc" % args.data)
     data_files.append("%s/icon_grid_0026_R03B07_G.nc" % args.data)
 
     # read the grib files

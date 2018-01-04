@@ -219,15 +219,21 @@ def __merge_datasets(datasets):
                 vars_not_in_all_files.add(one_var)
     for one_var in vars_not_in_all_files:
         new_unmerged_ds = []
-        for ds in datasets:
+        empty_ds = []
+        for ids, ds in enumerate(datasets):
             new_ds = None
             if one_var in ds.data_vars:
                 if new_ds is None:
                     new_ds = xarray.Dataset()
                 new_ds[one_var] = ds[one_var]
                 del ds[one_var]
+                if len(ds.data_vars) == 0:
+                    empty_ds.append(ids)
             if new_ds is not None:
                 new_unmerged_ds.append(new_ds)
+        # remove empty datasets from the list of ds to merge
+        for ids in empty_ds:
+            del datasets[ids]
         if len(new_unmerged_ds) > 0:
             datasets_incomplete.append(__merge_datasets(new_unmerged_ds))
 
@@ -300,7 +306,14 @@ def __merge_datasets(datasets):
         result = __merge_datasets(datasets)
     else:
         # try to merge the datasets
-        result = xarray.auto_combine(datasets)
+        try:
+            result = xarray.auto_combine(datasets)
+        except Exception as ex:
+            logging.error("merging the following datasets automatically failed:")
+            for one_ds in datasets:
+                logging.error("%s", one_ds)
+                logging.error("-"*80)
+            raise ex
 
     # are the variables not available in all files?
     if len(datasets_incomplete) > 0:
