@@ -73,7 +73,7 @@ def get_file_type(filename, only_extension=False):
                 elif "data" in ft:
                     with open(filename, "rb") as f:
                         first_bytes = f.read(12)
-                        if first_bytes.endswith("GRIB"):
+                        if first_bytes.endswith(b"GRIB"):
                             file_type = "GRIB"
 
     # return the best knowledge of the file type
