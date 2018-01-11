@@ -313,7 +313,8 @@ def crps_sample(y, dat, mean=False):
     Parameters
     ----------
     y : float or np.ndarray or xarray.DataArray
-            Single observation or *n*-dimensional array of observations
+            Single observation or *n*-dimensional array of observations. The observations are allowed to contain missing
+            values in form of NaNs.
 
     dat : np.ndarray or xarray.DataArray
             Ensemble forecasts *m* for a single observation or of shape (*m*, *n*),
@@ -334,9 +335,20 @@ def crps_sample(y, dat, mean=False):
     .. [1] Matheson, J.E. and Winkler, R.L. (1976). Scoring rules for
        continuous probability distributions. Management Science, 22, 1087-1096.
     """
-    if not hasattr(y, "shape"):
-        return __r_caller("crps_sample", y, dat)
+    if not hasattr(y, "shape") or len(y.shape) == 0:
+        # is the observation is nan, return nan as result
+        if np.isnan(y):
+            return np.nan
+        else:
+            return __r_caller("crps_sample", y, dat)
     else:
+        # are there any nans? if os, replace them by zeros and remember their position
+        nan_index = np.where(np.isnan(y))
+        if len(nan_index) > 0:
+            y = y.copy()
+            dat = dat.copy()
+            y[nan_index] = 0
+            dat[:, nan_index] = 0
         if len(y.shape) > 1:
             # The R-function expects one dimensional forecasts and 1d observations
             original_shape = y.shape
@@ -346,6 +358,9 @@ def crps_sample(y, dat, mean=False):
             result = result.reshape(original_shape)
         else:
             result = __r_caller("crps_sample", y, np.moveaxis(dat, 0, -1))
+        # put back the nans into the array, if any
+        if len(nan_index) > 0:
+            result[nan_index] = np.nan
         if mean:
-            result = result.mean()
+            result = np.nanmean(result)
         return result

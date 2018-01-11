@@ -144,6 +144,28 @@ def test_crps_sample_vec():
     np.testing.assert_almost_equal(res, res2)
 
 
+def test_crps_sample_nan():
+    """
+    test of crps_sample with NaNs
+    """
+    # create example data
+    obs = np.ones(1000)
+    fct = np.random.randn(20, 1000)
+
+    # test without NaNs
+    res = enstools.scores.crps_sample(obs, fct)
+
+    # set one value to nan
+    obs[0] = np.nan
+    res2 = enstools.scores.crps_sample(obs, fct)
+    np.testing.assert_array_equal(res[1:], res2[1:])
+    np.testing.assert_equal(res2[0], np.nan)
+
+    # test with one observation only
+    res3 = enstools.scores.crps_sample(obs[0], fct[:, 0])
+    np.testing.assert_equal(res3, np.nan)
+
+
 # reference implementation from Sebastian Lerch and Manuel Klar
 def __reference__es_sample(y, dat):
     try:
