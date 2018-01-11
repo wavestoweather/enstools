@@ -23,6 +23,9 @@ def write(ds, filename, file_format=None):
     file_format : {'NC'}
             string indicating the format to use. if not specified, the file extension if used.
     """
+    # if ds is a DataVariable instead of a Dataset, then convert it
+    if isinstance(ds, xarray.DataArray):
+        ds = ds.to_dataset()
     # select the type of file to create
     valid_formats = ["NC"]
     if file_format is not None:
@@ -62,7 +65,7 @@ def __to_netcdf(ds, filename):
             dask_variables.append(varname)
     for one_var in dask_variables:
         del ds_copy[one_var]
-    ds_copy.to_netcdf(filename)
+    ds_copy.to_netcdf(filename, format="NETCDF4_CLASSIC")
 
     # open it again and add the dask arrays
     if LooseVersion(xarray.__version__) > LooseVersion('0.9.6'):

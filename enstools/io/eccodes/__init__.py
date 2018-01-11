@@ -137,6 +137,13 @@ def read_grib_file(filename, debug=False, in_memory=False):
                 else:
                     ensemble_member = -1
 
+            # select a datatype based on the number of bits per value in the grib message
+            if variable_id not in datatype:
+                if msg["bitsPerValue"] > 32:
+                    datatype[variable_id] = numpy.float64
+                else:
+                    datatype[variable_id] = numpy.float32
+
             # collect attributes of this variables
             if variable_id not in attributes:
                 attrs = OrderedDict()
@@ -160,25 +167,18 @@ def read_grib_file(filename, debug=False, in_memory=False):
                 attributes[variable_id] = attrs
                 # values used for encoding during storage
                 encoding = OrderedDict()
-                encoding["_FillValue"] = msg["missingValue"]
+                encoding["_FillValue"] = datatype[variable_id](msg["missingValue"])
                 encodings[variable_id] = encoding
-
-            # select a datatype based on the number of bits per value in the grib message
-            if variable_id not in datatype:
-                if msg["bitsPerValue"] > 32:
-                    datatype[variable_id] = numpy.float64
-                else:
-                    datatype[variable_id] = numpy.float32
 
             # store the values in a dict for later retrieval
             if not in_memory:
                 msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
-                    dask.array.from_delayed(dask.delayed(__get_one_message)(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], imsg),
+                    dask.array.from_delayed(dask.delayed(__get_one_message)(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], encodings[variable_id]["_FillValue"], imsg),
                                             shape=dimensions[variable_id],
                                             dtype=datatype[variable_id])
             else:
                 msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
-                    dask.array.from_array(__get_one_message(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], imsg),
+                    dask.array.from_array(__get_one_message(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], encodings[variable_id]["_FillValue"], imsg),
                                           chunks=dimensions[variable_id])
 
             # free the memory used by this message
@@ -373,7 +373,7 @@ def read_grib_file(filename, debug=False, in_memory=False):
     return dataset
 
 
-def __get_one_message(filename, index_selection_keys, shape, dtype, imsg_selected):
+def __get_one_message(filename, index_selection_keys, shape, dtype, missing, imsg_selected):
     """
     get the values of the message at position *imsg* from a grib file
 
@@ -417,6 +417,9 @@ def __get_one_message(filename, index_selection_keys, shape, dtype, imsg_selecte
                 eccodes.codes_release(gid)
         if values is None:
             raise IOError("unable to load grib message %d from %d for index keys: %s" % (imsg_selected, imsg, index_selection_keys))
+
+        # replace fill values with nan
+        values = numpy.where(values == missing, numpy.nan, values)
         return values
 
 
