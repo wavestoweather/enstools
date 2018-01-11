@@ -177,7 +177,7 @@ def nearest_neighbour(src_lon, src_lat, dst_lon, dst_lat, src_grid="regular", ds
     >>> f = nearest_neighbour(lon, lat, 4.4, 7.6)
     >>> f(gridded_data)
     <xarray.DataArray 'interpolated' (cell: 1)>
-    array([ 3.])
+    array([3.])
     Coordinates:
         lat      (cell) float64 7.6
         lon      (cell) float64 4.4
