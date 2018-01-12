@@ -339,7 +339,7 @@ def __open_dataset(filename, **kwargs):
     if file_type is None:
         raise ValueError("unable to guess the type of the input file '%s'" % filename)
 
-    if file_type == "NC":
+    if file_type in ["NC", "HDF"]:
         if kwargs.get("in_memory", False):
             result0 = xarray.open_dataset(filename)
             result = result0.compute().chunk()
