@@ -343,10 +343,12 @@ def crps_sample(y, dat, mean=False):
             return __r_caller("crps_sample", y, dat)
     else:
         # are there any nans? if os, replace them by zeros and remember their position
-        nan_index = np.where(np.isnan(y))
-        if len(nan_index) > 0:
-            y = y.copy()
-            dat = dat.copy()
+        nan_index = np.isnan(y)
+        has_nan = False
+        if np.any(nan_index):
+            has_nan = True
+            y = np.asarray(y).copy()
+            dat = np.asarray(dat).copy()
             y[nan_index] = 0
             dat[:, nan_index] = 0
         if len(y.shape) > 1:
@@ -359,7 +361,7 @@ def crps_sample(y, dat, mean=False):
         else:
             result = __r_caller("crps_sample", y, np.moveaxis(dat, 0, -1))
         # put back the nans into the array, if any
-        if len(nan_index) > 0:
+        if has_nan:
             result[nan_index] = np.nan
         if mean:
             result = np.nanmean(result)
