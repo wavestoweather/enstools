@@ -3,6 +3,9 @@ preliminary minimal support for grib files. This module will be replaced as soon
 support is available.
 """
 import logging
+
+import six
+
 try:
     import eccodes
 except ImportError:
@@ -10,16 +13,17 @@ except ImportError:
     pass
 from collections import OrderedDict
 import os
+import re
 import xarray
 import dask.array
 import numpy
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from .metadata import GribMessageMetadata
 from .index import GribIndexHelper, get_lock
 
 
-def read_grib_file(filename, debug=False, in_memory=False):
+def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False):
     """
     Read the contents of a grib1 or grib2 file
 
@@ -33,6 +37,10 @@ def read_grib_file(filename, debug=False, in_memory=False):
 
     in_memory : bool
             load the data directly into memory
+
+    leadtime_from_filename : bool
+            COSMO-GRIB1-Files do not contain exact times. If this argument is set, then the timestamp is calculated
+            from the init time and the lead time from the file name.
 
     Returns
     -------
@@ -114,10 +122,20 @@ def read_grib_file(filename, debug=False, in_memory=False):
                 dimensions[variable_id], dimension_names[variable_id] = msg.get_dimension(dimensions, dimension_names)
 
             # record the valid time stamp
-            validityDate = "%08d%04d" % (msg["validityDate"], int(msg["validityTime"]))
-            if validityDate.startswith("0000"):
-                validityDate = "2" + validityDate[1:]
-            time_stamp = datetime.strptime(validityDate, "%Y%m%d%H%M")
+            if leadtime_from_filename:
+                leadtime = re.search("lfff(\d\d)(\d\d)(\d\d)(\d\d)", os.path.basename(filename))
+                if leadtime is None:
+                    raise IOError("unable to read leadtime from filename: %s", filename)
+                initDate = "%08d%04d" % (msg["dataDate"], int(msg["dataTime"]))
+                if initDate.startswith("0000"):
+                    initDate = "2" + initDate[1:]
+                time_stamp = datetime.strptime(initDate, "%Y%m%d%H%M")
+                time_stamp += timedelta(days=int(leadtime.group(1)), hours=int(leadtime.group(2)), minutes=int(leadtime.group(3)), seconds=int(leadtime.group(4)))
+            else:
+                validityDate = "%08d%04d" % (msg["validityDate"], int(msg["validityTime"]))
+                if validityDate.startswith("0000"):
+                    validityDate = "2" + validityDate[1:]
+                time_stamp = datetime.strptime(validityDate, "%Y%m%d%H%M")
             if time_stamp not in times:
                 times.add(time_stamp)
 

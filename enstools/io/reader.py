@@ -78,6 +78,10 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
                 store the complete arrays in memory. Data is still handled as dask arrays, but not backed by the input
                 files anymore. This works of course only for datasets which fit into memory.
 
+            *leadtime_from_filename*: bool
+                COSMO-GRIB1-Files do not contain exact times. If this argument is set, then the timestamp is calculated
+                from the init time and the lead time from the file name.
+
     Returns
     -------
     xarray.Dataset
@@ -348,7 +352,7 @@ def __open_dataset(filename, **kwargs):
         else:
             result = xarray.open_dataset(filename, chunks={})
     elif file_type == "GRIB":
-        result = read_grib_file(filename, debug=False, in_memory=kwargs.get("in_memory", False))
+        result = read_grib_file(filename, debug=kwargs.get("debug", False), in_memory=kwargs.get("in_memory", False), leadtime_from_filename=kwargs.get("leadtime_from_filename", False))
     else:
         raise ValueError("unknown file type '%s' for file '%s'" % (file_type, filename))
 
