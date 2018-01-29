@@ -4,6 +4,7 @@ import xarray
 import dask
 import six
 import os
+import re
 import numpy as np
 from multipledispatch import dispatch
 import glob
@@ -47,7 +48,7 @@ def read(filename, constant=None, **kwargs):
 
 
 @dispatch((list, tuple))
-def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=False, **kwargs):
+def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=False, member_by_filename=None, **kwargs):
     """
     Read multiple input files
 
@@ -63,6 +64,11 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     members_by_folder : bool
             interpret files in one subdirectory as data from the same ensemble member. This is useful if the ensemble
             member number if not stored within the input file. Defaut: False.
+
+    member_by_filename : str
+            string containing a regular expression to read to ensemble member from the file names. The first group
+            within this regex has to match an integer. Example: member_by_filename="_P(\d+).nc" would be able the read the
+            12 from the file name AROME-EPS_2012110500_P12.nc.
 
     constant : str
             name of a file containing constant variables.
@@ -152,6 +158,53 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
                 if os.path.dirname(expanded_filenames[ids]) not in incomplete_folders:
                     new_datasets.append(datasets[ids])
             datasets = new_datasets
+
+    # create the ensemble dimension based on integers included in the filename
+    if member_by_filename is not None:
+        if members_by_folder:
+            raise IOError("member_by_filename and members_by_folder are not allowed at the same time!")
+
+        # create the ensemble dimension for all datasets
+        n_files_per_member = {}
+        for ids in range(len(datasets)):
+            # find the member information within the filename
+            match = re.search(member_by_filename, os.path.basename(expanded_filenames[ids]))
+            if match is None:
+                raise IOError("pattern for ensemble member ('%s') information not found in filename '%s'" % (member_by_filename, os.path.basename(expanded_filenames[ids])))
+            member = int(match.group(1))
+
+            # create missing ensemble dimension
+            if not has_ensemble_dim(datasets[ids]):
+                add_ensemble_dim(datasets[ids], member)
+
+            # count the files per member and remove incomplete members
+            if member in n_files_per_member:
+                n_files_per_member[member] += 1
+            else:
+                n_files_per_member[member] = 1
+
+            # check the number of files per folder
+            incomplete_members = []
+            max_files = 0
+            for member, n_files in six.iteritems(n_files_per_member):
+                if n_files > max_files:
+                    max_files = n_files
+            for member, n_files in six.iteritems(n_files_per_member):
+                if n_files < max_files:
+                    incomplete_members.append(member)
+
+            # remove incomplete ensemble members
+            if len(incomplete_members) > 0:
+                incomplete_members.sort()
+                for member in incomplete_members:
+                    logging.warning("The ensemble member '%s' seems to be incomplete with only %d of %d files. This member will not be part of the merged dataset.", member, n_files_per_member[member], max_files)
+                new_datasets = []
+                for ids in range(len(datasets)):
+                    member = int(re.search(member_by_filename, os.path.basename(expanded_filenames[ids])).group(1))
+                    if member not in incomplete_members:
+                        new_datasets.append(datasets[ids])
+                datasets = new_datasets
+
 
     # if dimensions have the same size but different names, then merge them by renaming
     if merge_same_size_dim:
