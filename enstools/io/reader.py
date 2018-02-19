@@ -67,7 +67,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
 
     member_by_filename : str
             string containing a regular expression to read to ensemble member from the file names. The first group
-            within this regex has to match an integer. Example: member_by_filename="_P(\d+).nc" would be able the read the
+            within this regex has to match an integer. Example: member_by_filename="_P(\\\d+).nc" would be able the read the
             12 from the file name AROME-EPS_2012110500_P12.nc.
 
     constant : str
@@ -93,6 +93,8 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     xarray.Dataset
             in-memory representation of the content of the input file(s)
     """
+    # Hint: the \\\ the the docstring for member_by_filename is only included because the html-documentation is
+    # otherwise not rendered correctly.
     # create at first a list of all input files
     datasets = []
     # loop over all input files and create delayed read objects
