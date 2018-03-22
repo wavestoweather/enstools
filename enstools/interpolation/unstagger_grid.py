@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # this code calculates vertical averages of a row of patches
 #
@@ -75,6 +76,8 @@ def staggered_grid_interpolation(self, label='upper'):
                     raise ValueError('The \'label\' argument has to be either '
                                      '\'upper\' or \'lower\'')
                 if name in self.data_vars:
+                    print(kwargs_end)
+                    print(kwargs_start)
                     variables[name] = ((var.isel(**kwargs_end) + var.isel(**kwargs_start)) / 2.)
                 else:
                     variables[name] = var.isel(**kwargs_new)
@@ -125,11 +128,11 @@ def interp_velocity(self, label='upper'):
 
 if __name__ == '__main__':
 
-    ds = io.read('/project/meteo/w2w/B3/FBaur_output/2009063000/output_cosmoDE_2MOM_chess_alternate_glob_025_20_mgrid/lfff00120000z.nc')
-    pdb.set_trace()
+    ds = io.read('data/lfff00120000p.nc')
+    print(ds)
+    #pdb.set_trace()
     ds = interp_velocity(ds)
-    pdb.set_trace()
-
+    print(ds["U"][0,0,0,:].values)
 
 
 
