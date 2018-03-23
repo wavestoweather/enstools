@@ -1,40 +1,9 @@
-#!/usr/bin/env python3
-#
-# this code calculates vertical averages of a row of patches
-#
-from enstools import io
 import xarray as xr
-import numpy as np
-import sys
 from collections import OrderedDict
-import pdb
-#
-##
-PY2 = sys.version_info[0] < 3
-PY3 = sys.version_info[0] >= 3
-if PY3:  # pragma: no cover
-    def iteritems(d):
-        return iter(d.items())
-
-    def itervalues(d):
-        return iter(d.values())
-
-    range = range
-else:  # pragma: no cover
-    # Python 2
-    def iteritems(d):
-        return d.iteritems()
-
-    def itervalues(d):
-        return d.itervalues()
-
-    range = xrange
-
-# ======================================================================
-# ======================================================================
+from six import iteritems
 
 
-def swap_dimsN(self, dims_dict, inplace=False):
+def __swap_dims_n(self, dims_dict, inplace=False):
     for k, v in dims_dict.items():
         if k not in self.dims:
             raise ValueError('cannot swap from dimension %r because it is '
@@ -59,80 +28,110 @@ def swap_dimsN(self, dims_dict, inplace=False):
     return self._replace_vars_and_dims(variables, coord_names, inplace=inplace)
 
 
-def staggered_grid_interpolation(self, label='upper'):
-    if isinstance(self, xr.core.dataset.Dataset):
+def __staggered_grid_interpolation(data, src_coord, dst_coord, label='upper'):
+    """
+    perform the actual interpolation on a Dataset
+    
+    Parameters
+    ----------
+    data : xarray.Dataset
+            dataset with staggered variables
+
+    src_coord : str
+            name of staggered coordinate to unstagger
+
+    dst_coord : str
+            name of unstaggered destination variable
+
+    label : {"upper", "lower"}
+            upper: first value along the unstaggered dimension will be missing, all upper values will be present.
+            lower: last value along the unstaggered dimension will be missing, all lower values will be present.
+
+    Returns
+    -------
+    xarray.Dataset :
+            unstaggered Dataset.
+    """
+    if isinstance(data, xr.core.dataset.Dataset):
         variables = OrderedDict()
-        for name, var in iteritems(self.variables):
-            if "srlon" in var.dims:
-                # prepare slices
-                kwargs_start = {"srlon": slice(None, -1)}
-                kwargs_end = {"srlon": slice(1, None)}
-                # prepare new coordinate
-                if label == 'upper':
-                    kwargs_new = kwargs_end
-                elif label == 'lower':
-                    kwargs_new = kwargs_start
-                else:
-                    raise ValueError('The \'label\' argument has to be either '
-                                     '\'upper\' or \'lower\'')
-                if name in self.data_vars:
-                    print(kwargs_end)
-                    print(kwargs_start)
-                    variables[name] = ((var.isel(**kwargs_end) + var.isel(**kwargs_start)) / 2.)
-                else:
-                    variables[name] = var.isel(**kwargs_new)
-            elif "srlat" in var.dims:
-                # prepare slices
-                kwargs_start = {"srlat": slice(None, -1)}
-                kwargs_end = {"srlat": slice(1, None)}
-                # prepare new coordinate
-                if label == 'upper':
-                    kwargs_new = kwargs_end
-                elif label == 'lower':
-                    kwargs_new = kwargs_start
-                else:
-                    raise ValueError('The \'label\' argument has to be either '
-                                     '\'upper\' or \'lower\'')
-                if name in self.data_vars:
+        # prepare slices
+        kwargs_start = {src_coord: slice(None, -1)}
+        kwargs_end = {src_coord: slice(1, None)}
+        # prepare new coordinate
+        if label == 'upper':
+            kwargs_new = kwargs_end  # {dst_coord: slice(1, None)}
+        elif label == 'lower':
+            kwargs_new = kwargs_start  # {dst_coord: slice(None, -1)}
+        else:
+            raise ValueError('The \'label\' argument has to be either '
+                             '\'upper\' or \'lower\'')
+
+        if dst_coord not in data.variables:
+            variables[dst_coord] = ((data.variables[src_coord].isel(**kwargs_end) + data.variables[src_coord].isel(**kwargs_start)) / 2.)
+            variables[dst_coord].name = dst_coord
+            variables[dst_coord].dims = (dst_coord,)
+        for name, var in iteritems(data.variables):
+            if src_coord in var.dims:
+                if name in data.data_vars:
                     variables[name] = ((var.isel(**kwargs_end) + var.isel(**kwargs_start)) / 2.)
                 else:
                     variables[name] = var.isel(**kwargs_new)
             else:
                 variables[name] = var
-        result = self._replace_vars_and_dims(variables)
+        result = data._replace_vars_and_dims(variables)
         return result
     else:
-        raise TypeError('FileType for staggered_grid_interpolation has to be either a xarray Dataset')
+        raise TypeError('FileType for __staggered_grid_interpolation has to be either a xarray Dataset')
 
 
-def interp_velocity(self, label='upper'):
-    if isinstance(self, xr.core.dataset.Dataset):
-        for name, var in iteritems(self.data_vars):
-            if "srlon" in var.dims:
-                ds = staggered_grid_interpolation(var._to_temp_dataset(), label=label)
-                self[name] = var._from_temp_dataset(ds)
-            elif "srlat" in var.dims:
-                ds = staggered_grid_interpolation(var._to_temp_dataset(), label=label)
-                self[name] = var._from_temp_dataset(ds)
-            else:
-                pass
-        self = swap_dimsN(self, {"srlon": "rlon"})
-        self = swap_dimsN(self, {"srlat": "rlat"})
-        return self
-    elif isinstance(self, xr.core.dataarray.DataArray):
-        ds = staggered_grid_interpolation(self._to_temp_dataset(), label=label)
-        return self._from_temp_dataset(ds)
-    else:
-        raise TypeError('FileType has to be either a xarray Dataset or DataArray')
+def unstagger(data):
+    """
+    Interpolate variables on staggered grid (e.g., U and V) to grid cell centers. Every model has different names for
+    staggered coordinates and variables. Currently, only the names of the model COSMO are known and supported.
 
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.DataSet
+            Array or Dataset with staggered variables. For datasets, all staggered variables are unstaggered. The
+            staggered coordinate arrays are removed
 
-if __name__ == '__main__':
+    Returns
+    -------
+    xarray.DataArray or xarray.DataSet
+            The return type depends on the input type.
+    """
+    # check variable and select variable names
+    staggered_coords = {}
+    if "srlon" in data.coords:
+        staggered_coords["srlon"] = ("rlon", "upper", "slonu", "slatu")
+    if "srlat" in data.coords:
+        staggered_coords["srlat"] = ("rlat", "upper", "slonv", "slatv")
+    if len(staggered_coords) == 0:
+        raise ValueError("no supported staggered coordinates found in input of function unstagger!")
 
-    ds = io.read('data/lfff00120000p.nc')
-    print(ds)
-    #pdb.set_trace()
-    ds = interp_velocity(ds)
-    print(ds["U"][0,0,0,:].values)
+    # loop over all staggered coordinates.
+    for staggered_coord, unstaggered_coord in iteritems(staggered_coords):
+        if isinstance(data, xr.core.dataset.Dataset):
+            for name, var in iteritems(data.data_vars):
+                if staggered_coord in var.dims:
+                    ds = var._to_temp_dataset()
+                    ds[unstaggered_coord[0]] = data[unstaggered_coord[0]]
+                    ds = __staggered_grid_interpolation(ds, staggered_coord, unstaggered_coord[0], label=unstaggered_coord[1])
+                    data[name] = var._from_temp_dataset(ds)
+            data = __swap_dims_n(data, {staggered_coord: unstaggered_coord[0]})
+        elif isinstance(data, xr.core.dataarray.DataArray):
+            ds = __staggered_grid_interpolation(data._to_temp_dataset(), staggered_coord, unstaggered_coord[0], label=unstaggered_coord[1])
+            ds = __swap_dims_n(ds, {staggered_coord: unstaggered_coord[0]})
+            data = data._from_temp_dataset(ds)
+        else:
+            raise TypeError('Input type for unstagger has to be either a xarray.Dataset or xarray.DataArray')
 
+    # remove staggered coordinates
+    for staggered_coord, unstaggered_coord in iteritems(staggered_coords):
+        for to_remove in unstaggered_coord[2:]:
+            if to_remove in data.coords:
+                del data[to_remove]
+        if staggered_coord in data.coords:
+            del data[staggered_coord]
 
-
+    return data
