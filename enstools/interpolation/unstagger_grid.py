@@ -100,6 +100,9 @@ def unstagger(data):
     xarray.DataArray or xarray.DataSet
             The return type depends on the input type.
     """
+    # create a copy of the input to ensure that the input remains unchanged
+    data = data.copy(deep=False)
+
     # check variable and select variable names
     staggered_coords = {}
     if "srlon" in data.coords:
