@@ -3,7 +3,6 @@ Core functionality used by other components of the ensemble tools
 """
 import six
 import sys
-import os
 import re
 import logging
 import pint
@@ -13,8 +12,6 @@ import numpy
 import dask.array
 import dask.multiprocessing
 import string
-import multiprocessing
-from multiprocessing.pool import ThreadPool
 from decorator import decorator
 from pint import DimensionalityError
 if six.PY2:

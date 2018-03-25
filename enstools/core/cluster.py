@@ -1,6 +1,9 @@
 """
 functions used to create dask-clusters automatically based on the environment a script is executed in.
 """
+import os
+import dask
+import multiprocessing
 
 
 def get_num_available_procs():
