@@ -113,11 +113,11 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
 
     # read all the files in parallel
     # FIXME: issue #6: repairing coordinates inside of __open_dataset is causing an error in python3
-    if six.PY3:
-        get = dask.get
-    else:
-        get = dask.multiprocessing.get
-    datasets = list(dask.compute(*datasets, traverse=False, get=get))
+    #if six.PY3:
+    #    get = dask.get
+    #else:
+    #    get = dask.multiprocessing.get
+    datasets = list(dask.compute(*datasets, traverse=False))
 
     # are there ensemble members in different folders?
     if members_by_folder and len(parent_folders) > 1:

@@ -3,7 +3,10 @@ functions used to create dask-clusters automatically based on the environment a 
 """
 import os
 import dask
+import distributed
 import multiprocessing
+from .tempdir import TempDir
+import atexit
 
 
 def get_num_available_procs():
@@ -30,8 +33,29 @@ def get_num_available_procs():
     return multiprocessing.cpu_count()
 
 
+def client():
+    """
+    Create a Dask.distributed client cluster and return the client object.
+
+    Returns
+    -------
+    distributed.Client
+    """
+    # create a temporal directory for the work log files
+    tmpdir = TempDir(cleanup=False)
+
+    # create the client, which will create the cluster as well
+    client = distributed.Client(local_dir=tmpdir.getpath(), heartbeat_interval=10000)
+
+    # client up temporal files at exit
+    def clientup_temporal_data():
+        client.close()
+        tmpdir.cleanup()
+    atexit.register(clientup_temporal_data)
+    return client
+
 # default scheduler for dask
-dask.set_options(get=dask.multiprocessing.get)
-dask.set_options(pool=multiprocessing.Pool(get_num_available_procs()))
+#dask.set_options(get=dask.multiprocessing.get)
+#dask.set_options(pool=multiprocessing.Pool(get_num_available_procs()))
 
 

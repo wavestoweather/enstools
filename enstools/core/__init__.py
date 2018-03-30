@@ -14,6 +14,7 @@ import dask.multiprocessing
 import string
 from decorator import decorator
 from pint import DimensionalityError
+from .cluster import client
 if six.PY2:
     from commands import getstatusoutput
 else:
