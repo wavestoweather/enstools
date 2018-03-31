@@ -1,11 +1,11 @@
 #!/usr/bin/env python2
 from enstools.io import read
-from enstools.core import client
+from enstools.core import init_cluster
 from datetime import datetime, timedelta
 import numpy as np
 import os
 import logging
-cl = client()
+cl = init_cluster()
 
 # pick a random file to ensure that the cache is not involved
 input_path = "/project/meteo/w2w-db/forecasts/dwd--cosmo-de-eps--gridded--ens1-20--20140101-20161231/"

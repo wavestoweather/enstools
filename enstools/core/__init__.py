@@ -14,11 +14,8 @@ import dask.multiprocessing
 import string
 from decorator import decorator
 from pint import DimensionalityError
-from .cluster import client
-if six.PY2:
-    from commands import getstatusoutput
-else:
-    from subprocess import getstatusoutput
+from .cluster import init_cluster, get_num_available_procs
+from .os_support import getstatusoutput
 
 
 class UnitRegistry(pint.UnitRegistry):
