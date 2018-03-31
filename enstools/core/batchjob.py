@@ -10,6 +10,8 @@ import subprocess
 import atexit
 import socket
 import distributed
+import logging
+from time import sleep
 from .os_support import get_first_free_port, which, getenv
 
 
@@ -70,7 +72,15 @@ class BatchJob():
 
             # wait for the workers to exit
             for one_child in self.child_processes[1:]:
-                one_child.wait()
+                for sec in range(5):
+                    one_child.poll()
+                    if one_child.returncode is not None:
+                        break
+                    else:
+                        sleep(1)
+                if one_child.returncode is None:
+                    logging.warning("At least one dask worker didn't quit voluntarily!")
+                    # TODO: cancel all tasks still running on the cluster
 
             # close the connection to the scheduler
             self.client.close()
@@ -105,7 +115,7 @@ class SlurmJob(BatchJob):
         """
         use srun to start a worker on every allocated cpu.
         """
-        args = ["srun", sys.executable, which("dask-worker"), "tcp://%s:%d" % (self.ip_address, self.scheduler_port)]
+        args = ["srun", sys.executable, which("dask-worker"), "--nthreads", "2", "tcp://%s:%d" % (self.ip_address, self.scheduler_port)]
         if local_dir is not None:
             # TODO: remove temporal folder on all nodes
             args.insert(3, "--local-directory")

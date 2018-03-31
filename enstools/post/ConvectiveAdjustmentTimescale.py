@@ -3,6 +3,7 @@ import xarray
 from numpy.ma.core import default_fill_value
 from scipy import ndimage
 from enstools.core import check_arguments
+from enstools.core.parallelisation import chunkwise
 
 
 @check_arguments(units={"pr": "kg m-2 s-1",
@@ -47,23 +48,27 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
             predictability of convective precipitation. Q.J.R. Meteorol. Soc., 140: 480-490. doi:10.1002/qj.2143
     """
 
-    # Gaussian filtering
-    sig = 10.  # Gaussian goes to zero 3*sig grid points from centre
-    if max(pr.shape) > 3*sig:
-        cape_filtered = ndimage.filters.gaussian_filter(cape, sig, mode='reflect')
-        pr_filtered = ndimage.filters.gaussian_filter(pr, sig, mode='reflect')
-    else:
-        cape_filtered = cape
-        pr_filtered = pr
+    @chunkwise
+    def computation(pr, cape, th):
+        # Gaussian filtering
+        sig = 10.  # Gaussian goes to zero 3*sig grid points from centre
+        if max(pr.shape) > 3*sig:
+            cape_filtered = ndimage.filters.gaussian_filter(cape, sig, mode='reflect')
+            pr_filtered = ndimage.filters.gaussian_filter(pr, sig, mode='reflect')
+        else:
+            cape_filtered = cape
+            pr_filtered = pr
 
-    # create a result array filled with the default fill value for the data type of pr
-    fill_value = default_fill_value(pr)
-    result = np.full_like(pr, fill_value=fill_value)
+        # create a result array filled with the default fill value for the data type of pr
+        fill_value = default_fill_value(pr)
+        result = np.full_like(pr, fill_value=fill_value)
 
-    # perform the actual calculation
-    ind = np.where(pr_filtered > th / 3600.0)
-    result[ind] = 1.91281e-06 * cape_filtered[ind] / pr_filtered[ind]
-    result = np.ma.masked_equal(result, fill_value)
+        # perform the actual calculation
+        ind = np.where(pr_filtered > th / 3600.0)
+        result[ind] = 1.91281e-06 * cape_filtered[ind] / pr_filtered[ind]
+        result = np.ma.masked_equal(result, fill_value)
+        return result
+    result = computation(pr, cape, th)
 
     # convert the result to xarray if the input type is also xarray
     if type(pr) == xarray.DataArray:

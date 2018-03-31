@@ -3,9 +3,6 @@ preliminary minimal support for grib files. This module will be replaced as soon
 support is available.
 """
 import logging
-
-import six
-
 try:
     import eccodes
 except ImportError:
@@ -21,6 +18,7 @@ from datetime import datetime, timedelta
 import logging
 from .metadata import GribMessageMetadata
 from .index import GribIndexHelper, get_lock
+from distributed import get_client
 
 
 def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False):
@@ -195,10 +193,10 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
                                             shape=dimensions[variable_id],
                                             dtype=datatype[variable_id])
             else:
-                msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
-                    dask.array.from_array(__get_one_message(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], encodings[variable_id]["_FillValue"], imsg),
+                # persist the data into memory
+                msg_data = dask.array.from_array(__get_one_message(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], encodings[variable_id]["_FillValue"], imsg),
                                           chunks=dimensions[variable_id])
-
+                msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = get_client().persist(msg_data)
             # free the memory used by this message
             msg.release()
 

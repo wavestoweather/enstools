@@ -11,8 +11,8 @@
 
 # Library Paths
 prefix=/project/meteo/scratch/Robert.Redl/eccodes/install-2.4.1-threads
-export LD_LIBRARY_PATH=${prefix}/lib
-export PYTHONPATH=${prefix}/lib/python2.7/site-packages
+export LD_LIBRARY_PATH=${prefix}/lib:$LD_LIBRARY_PATH
+export PYTHONPATH=${prefix}/lib/python2.7/site-packages:$PYTHONPATH
 
 # DWD Grib-Definitions
 export ECCODES_DEFINITION_PATH=/software/meteo/xenial/x86_64/eccodes/2.4.1-gcc/share/eccodes/definitions.edzw:/software/meteo/xenial/x86_64/eccodes/2.4.1-gcc/share/eccodes/definitions
