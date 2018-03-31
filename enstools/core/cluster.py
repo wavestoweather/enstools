@@ -59,8 +59,6 @@ def init_cluster():
     global batchjob_object
     batchjob_object = get_batch_job()
     if batchjob_object is None:
-        # no job found. start a LocalCluster
-        logging.error("LocalCluster: not yet implemented!")
         # create the init_cluster, which will create the cluster as well
         client = distributed.Client(local_dir=tmpdir.getpath())
     else:
@@ -83,6 +81,8 @@ def init_cluster():
     # init_cluster up temporal files at exit
     def clientup_temporal_data():
         # remove temporal files
+        if batchjob_object is None:
+            client.close()
         tmpdir.cleanup()
     atexit.register(clientup_temporal_data)
     return client
