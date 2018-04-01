@@ -12,7 +12,7 @@ import socket
 import distributed
 import logging
 from time import sleep
-from .os_support import get_first_free_port, which, getenv
+from .os_support import get_first_free_port, which, getenv, ProcessObserver
 
 
 @six.add_metaclass(ABCMeta)
@@ -42,7 +42,7 @@ class BatchJob():
         if local_dir is not None:
             args.insert(2, "--local-directory")
             args.insert(3, local_dir)
-        p = subprocess.Popen(args)
+        p = ProcessObserver(args)
         self.child_processes.append(p)
 
     @abstractmethod
@@ -66,8 +66,17 @@ class BatchJob():
         """
         # shutdown all workers
         if self.client is not None:
-            # get a list of all workers and close them
+            # get a list of all workers
             workers = list(self.client.scheduler_info()['workers'])
+
+            # if there is still something running on the cluster, cancel it
+            data_refs = self.client.has_what()
+            for one_worker, keys in six.iteritems(data_refs):
+                for key in keys:
+                    f = distributed.Future(key, client=self.client)
+                    self.client.cancel(f)
+
+            # stop the workers
             self.client.sync(self.client.scheduler.retire_workers, workers=workers, close_workers=True)
 
             # wait for the workers to exit
@@ -80,7 +89,6 @@ class BatchJob():
                         sleep(1)
                 if one_child.returncode is None:
                     logging.warning("At least one dask worker didn't quit voluntarily!")
-                    # TODO: cancel all tasks still running on the cluster
 
             # close the connection to the scheduler
             self.client.close()
@@ -117,11 +125,14 @@ class SlurmJob(BatchJob):
         """
         args = ["srun", sys.executable, which("dask-worker"), "--nthreads", "1", "tcp://%s:%d" % (self.ip_address, self.scheduler_port)]
         if local_dir is not None:
-            # TODO: remove temporal folder on all nodes
             args.insert(3, "--local-directory")
             args.insert(4, local_dir)
-        p = subprocess.Popen(args)
+        p = ProcessObserver(args)  # subprocess.Popen(args)
         self.child_processes.append(p)
+
+        # specify a cleanup command to execute after the workers finished
+        if local_dir is not None:
+            p.run_on_exit(["srun", "--ntasks-per-node=1", "rm", "-rf", local_dir])
 
 
 def get_batch_job():
