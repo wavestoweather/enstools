@@ -194,9 +194,10 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
                                             dtype=datatype[variable_id])
             else:
                 # persist the data into memory
-                msg_data = dask.array.from_array(__get_one_message(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], encodings[variable_id]["_FillValue"], imsg),
-                                          chunks=dimensions[variable_id])
-                msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = get_client().persist(msg_data)
+                msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
+                                            dask.array.from_array(__read_values(msg.gid, dimensions[variable_id], encodings[variable_id]["_FillValue"], datatype[variable_id]),
+                                            chunks=dimensions[variable_id])
+
             # free the memory used by this message
             msg.release()
 
@@ -386,6 +387,10 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
             dataset[coordinate_name].attrs["bounds"] = one_bounds
     if debug:
         print("finished reading %s" % filename)
+
+    # persist the array into worker memory
+    if in_memory:
+        dataset = get_client().persist(dataset)
     return dataset
 
 
@@ -422,9 +427,7 @@ def __get_one_message(filename, index_selection_keys, shape, dtype, missing, ims
             imsg += 1
             if imsg == imsg_selected:
                 # read the values from the message
-                values = eccodes.codes_get_array(gid, "values").reshape(shape)
-                if dtype != numpy.float64:
-                    values = numpy.array(values, dtype=dtype)
+                values = __read_values(gid, shape, missing, dtype)
                 # close the message
                 eccodes.codes_release(gid)
                 break
@@ -434,9 +437,30 @@ def __get_one_message(filename, index_selection_keys, shape, dtype, missing, ims
         if values is None:
             raise IOError("unable to load grib message %d from %d for index keys: %s" % (imsg_selected, imsg, index_selection_keys))
 
-        # replace fill values with nan
-        values = numpy.where(values == missing, numpy.nan, values)
         return values
+
+
+def __read_values(gid, shape, missing, dtype):
+    """
+    read values from one grib message
+    Parameters
+    ----------
+    gid
+    shape
+    dtype
+
+    Returns
+    -------
+    ndarray:
+            values of the message with the given shape and dtype
+    """
+    # read the values from the message
+    values = eccodes.codes_get_array(gid, "values").reshape(shape)
+    if dtype != numpy.float64:
+        values = numpy.array(values, dtype=dtype)
+    # replace fill values with nan
+    values = numpy.where(values == missing, numpy.nan, values)
+    return values
 
 
 def __product(*args, **kwds):

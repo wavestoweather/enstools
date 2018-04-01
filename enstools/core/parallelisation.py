@@ -4,6 +4,7 @@ helper functions for automatic parallelization using dask
 from decorator import decorate
 import xarray
 import dask
+from distributed import wait
 import numpy as np
 
 
@@ -27,6 +28,8 @@ def args_to_dask(*args):
             new_args.append(one_arg)
         elif isinstance(one_arg, xarray.core.dataarray.DataArray):
             if isinstance(one_arg.data, dask.array.core.Array):
+                # if the data is already a dask array, wait for it to become ready
+                wait(one_arg.data)
                 new_args.append(one_arg.data)
             else:
                 new_args.append(one_arg.chunk().data)

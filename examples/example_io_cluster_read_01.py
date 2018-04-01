@@ -16,9 +16,10 @@ random_day = first_day + timedelta(days=np.random.random_integers(0, 730))
 input_files = os.path.join(input_path, random_day.strftime("%Y%m"), random_day.strftime("%Y%m%d") + "00_*.grib2")
 
 logging.info("reading: %s" % input_files)
-ds = read(input_files, in_memory=False)
+ds = read(input_files, in_memory=True)
 print(ds)
 #print(ds2)
+#time.sleep(10)
 
 # small computation
 ds["TOT_PREC"].attrs["units"] = "kg m-2 / 3600 / s"
@@ -29,3 +30,5 @@ print(tauc)
 print(tauc.compute())
 
 del ds
+del tauc
+

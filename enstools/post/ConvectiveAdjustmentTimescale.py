@@ -48,8 +48,9 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
             predictability of convective precipitation. Q.J.R. Meteorol. Soc., 140: 480-490. doi:10.1002/qj.2143
     """
 
+    # TODO: tauc calculation is not chunkwise but something like layer wise
     @chunkwise
-    def computation(pr, cape, th):
+    def tauc(pr, cape, th):
         # Gaussian filtering
         sig = 10.  # Gaussian goes to zero 3*sig grid points from centre
         if max(pr.shape) > 3*sig:
@@ -68,7 +69,7 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
         result[ind] = 1.91281e-06 * cape_filtered[ind] / pr_filtered[ind]
         result = np.ma.masked_equal(result, fill_value)
         return result
-    result = computation(pr, cape, th)
+    result = tauc(pr, cape, th)
 
     # convert the result to xarray if the input type is also xarray
     if type(pr) == xarray.DataArray:

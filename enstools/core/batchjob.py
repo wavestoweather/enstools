@@ -115,7 +115,7 @@ class SlurmJob(BatchJob):
         """
         use srun to start a worker on every allocated cpu.
         """
-        args = ["srun", sys.executable, which("dask-worker"), "--nthreads", "2", "tcp://%s:%d" % (self.ip_address, self.scheduler_port)]
+        args = ["srun", sys.executable, which("dask-worker"), "--nthreads", "1", "tcp://%s:%d" % (self.ip_address, self.scheduler_port)]
         if local_dir is not None:
             # TODO: remove temporal folder on all nodes
             args.insert(3, "--local-directory")
