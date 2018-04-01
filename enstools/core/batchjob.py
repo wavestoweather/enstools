@@ -117,6 +117,7 @@ class SlurmJob(BatchJob):
         super(SlurmJob, self).__init__()
         self.job_id = getenv("SLURM_JOBID")
         self.ntasks = int(getenv("SLURM_NTASKS"))
+        self.nnodes = int(getenv("SLURM_NNODES"))
         self.nodelist = getenv("SLURM_JOB_NODELIST")
 
     def start_dask_worker(self, local_dir=None):
@@ -132,7 +133,7 @@ class SlurmJob(BatchJob):
 
         # specify a cleanup command to execute after the workers finished
         if local_dir is not None:
-            p.run_on_exit(["srun", "--ntasks-per-node=1", "rm", "-rf", local_dir])
+            p.run_on_exit(["srun", "--ntasks=%d" % self.nnodes, "--ntasks-per-node=1", "rm", "-rf", local_dir])
 
 
 def get_batch_job():

@@ -29,6 +29,6 @@ tauc = convective_adjustment_time_scale(ds["TOT_PREC"], ds["CAPE_ML"])
 print(tauc)
 print(tauc.compute())
 
-#del ds
-#del tauc
+del ds
+del tauc
 

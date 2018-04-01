@@ -99,6 +99,7 @@ class ProcessObserver(Thread):
         self.args = args
         self.on_exit_args = None
         self.p = None
+        self.oep = None
         self.setDaemon(True)
         self.start()
 
@@ -133,11 +134,25 @@ class ProcessObserver(Thread):
 
         # if there is an command specified to be executed at the end of the thread, then do it now
         if self.on_exit_args is not None:
-            oea = Popen(self.on_exit_args)
-            oea.wait()
+            self.oep = Popen(self.on_exit_args)
+            self.oep.wait()
 
     def poll(self):
-        return self.p.poll()
+        """
+        the the process state. If an on exit process is defined, poll that as well.
+        """
+        p_poll = self.p.poll()
+        if self.oep is not None:
+            oep_poll = self.oep.poll()
+        else:
+            oep_poll = 0
+        if p_poll is None:
+            return None
+        else:
+            if oep_poll is None:
+                return None
+            else:
+                return p_poll + oep_poll
 
     def terminate(self):
         return self.p.terminate()
