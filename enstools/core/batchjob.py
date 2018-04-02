@@ -180,7 +180,6 @@ class LocalJob(BatchJob):
         self.ip_address = "127.0.0.1"
         self.nnodes = 1
         self.nodelist = socket.gethostname()
-        self.cluster = None
 
     def start_dask_worker(self):
         pass
@@ -194,24 +193,24 @@ class LocalJob(BatchJob):
         local_dir: str
                 absolute path to temporal folder
         """
+        # TODO: the start procedure is not 100% reliable, change that!
         self.scheduler_port = get_first_free_port(self.ip_address, 8786)
-        self.cluster = distributed.LocalCluster(n_workers=self.ntasks,
-                                                local_dir=self.local_dir,
-                                                scheduler_port=self.scheduler_port,
-                                                ip=self.ip_address,
-                                                silence_logs=logging.WARN,
-                                                threads_per_worker=1)
-        self.client = distributed.Client(self.cluster)
+        self.client = distributed.Client(n_workers=self.ntasks,
+                                         local_dir=self.local_dir,
+                                         scheduler_port=self.scheduler_port,
+                                         ip=self.ip_address,
+                                         silence_logs=logging.WARN,
+                                         threads_per_worker=1)
+        logging.debug("client and cluster started: %s" % str(self.client))
 
     def cleanup(self):
         self.lock.acquire()
         try:
             # close the cluster and the connection to the cluster
             if self.client is not None:
+                # close the client and the cluster itself
                 self.client.close()
                 self.client = None
-                self.cluster.close()
-                self.cluster = None
 
             # remove the temporal folder on the local host
             if self.local_dir is not None and os.path.exists(self.local_dir):
