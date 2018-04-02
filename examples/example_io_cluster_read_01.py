@@ -22,10 +22,10 @@ print(ds)
 #time.sleep(10)
 
 # small computation
-ds["TOT_PREC"].attrs["units"] = "kg m-2 / 3600 / s"
+pr = ds["TOT_PREC"][1:, ...] - ds["TOT_PREC"][:-1, ...].data
+pr.attrs["units"] = "kg m-2 / 3600 / s"
 ds["CAPE_ML"].attrs["units"] = "J kg-1"
-#tauc = convective_adjustment_time_scale(ds["TOT_PREC"][17,0,...] - ds["TOT_PREC"][16,0,...], ds["CAPE_ML"][17,0,...])
-tauc = convective_adjustment_time_scale(ds["TOT_PREC"], ds["CAPE_ML"])
+tauc = convective_adjustment_time_scale(pr, ds["CAPE_ML"][1:])
 print(tauc)
 print(tauc.compute())
 
