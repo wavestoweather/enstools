@@ -37,8 +37,8 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
     --------
     >>> cape = xarray.DataArray([500.0, 290.44], attrs={"units": "J kg-1"})
     >>> pr   = xarray.DataArray([0.0, 2.0], attrs={"units": "kg m-2 hour-1"})
-    >>> np.round(convective_adjustment_time_scale(pr, cape), 4)
-    <xarray.DataArray (dim_0: 2)>
+    >>> np.round(convective_adjustment_time_scale(pr, cape).compute(), 4)                       # doctest:+ELLIPSIS
+    <xarray.DataArray 'tauc-...' (dim_0: 2)>
     array([nan,  1.])
     Dimensions without coordinates: dim_0
 
