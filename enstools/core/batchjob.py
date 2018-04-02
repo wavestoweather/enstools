@@ -197,6 +197,7 @@ class LocalJob(BatchJob):
                 absolute path to temporal folder
         """
         # TODO: the start procedure is not 100% reliable, change that!
+        #       Possibly related: https://github.com/dask/distributed/issues/1321
         self.scheduler_port = get_first_free_port(self.ip_address, 8786)
         self.client = distributed.Client(n_workers=self.ntasks,
                                          local_dir=self.local_dir,
