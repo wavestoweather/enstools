@@ -390,7 +390,11 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
 
     # persist the array into worker memory
     if in_memory:
-        dataset = get_client().persist(dataset)
+        try:
+            client = get_client()
+            dataset = client.persist(dataset)
+        except ValueError:
+            logging.debug("Data not persisted into cluster memory. No client found!")
     return dataset
 
 

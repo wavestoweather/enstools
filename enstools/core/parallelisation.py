@@ -6,6 +6,7 @@ import xarray
 import dask
 from distributed import wait
 import numpy as np
+import logging
 
 
 def args_to_dask(*args):
@@ -29,7 +30,10 @@ def args_to_dask(*args):
         elif isinstance(one_arg, xarray.core.dataarray.DataArray):
             if isinstance(one_arg.data, dask.array.core.Array):
                 # if the data is already a dask array, wait for it to become ready
-                wait(one_arg.data)
+                try:
+                    wait(one_arg.data)
+                except ValueError:
+                    logging.debug("not client found, can not wait for computations on the cluster!")
                 new_args.append(one_arg.data)
             else:
                 new_args.append(one_arg.chunk().data)
