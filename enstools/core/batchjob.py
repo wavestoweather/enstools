@@ -118,20 +118,23 @@ class BatchJob():
                 # close the connection to the scheduler
                 self.client.close()
                 self.client = None
-
-            # terminate remaining processes (should only be the scheduler)
-            for one_child in self.child_processes:
-                if one_child.returncode is None:
-                    one_child.terminate()
-
-            # remove the temporal folder on the local host
-            if self.local_dir is not None and os.path.exists(self.local_dir):
-                shutil.rmtree(self.local_dir)
-                self.local_dir = None
         except:
             raise
         finally:
-            self.lock.release()
+            try:
+                # terminate remaining processes (should only be the scheduler)
+                for one_child in self.child_processes:
+                    if one_child.returncode is None:
+                        one_child.terminate()
+
+                # remove the temporal folder on the local host
+                if self.local_dir is not None and os.path.exists(self.local_dir):
+                    shutil.rmtree(self.local_dir)
+                    self.local_dir = None
+            except:
+                raise
+            finally:
+                self.lock.release()
 
     def __del__(self):
         """
