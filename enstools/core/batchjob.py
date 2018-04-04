@@ -156,12 +156,20 @@ class SlurmJob(BatchJob):
         self.ntasks = int(getenv("SLURM_NTASKS"))
         self.nnodes = int(getenv("SLURM_NNODES"))
         self.nodelist = getenv("SLURM_JOB_NODELIST")
+        self.memory_per_node = int(getenv("SLURM_MEM_PER_NODE"))    # unit: MB
 
     def start_dask_worker(self):
         """
         use srun to start a worker on every allocated cpu.
         """
-        args = ["srun", sys.executable, which("dask-worker"), "--nthreads", "1", "tcp://%s:%d" % (self.ip_address, self.scheduler_port)]
+        # calculate the available memory per worker
+        mem_per_worker = (self.memory_per_node * self.nnodes) // self.ntasks
+        args = ["srun",
+                sys.executable, which("dask-worker"),
+                "--nthreads", "1",
+                "--memory-limit", "%dM" % mem_per_worker,
+                "tcp://%s:%d" % (self.ip_address, self.scheduler_port)
+                ]
         if self.local_dir is not None:
             args.insert(3, "--local-directory")
             args.insert(4, self.local_dir)
@@ -198,13 +206,15 @@ class LocalJob(BatchJob):
         """
         # TODO: the start procedure is not 100% reliable, change that!
         #       Possibly related: https://github.com/dask/distributed/issues/1321
+        # TODO: set reasonable memory limit
         self.scheduler_port = get_first_free_port(self.ip_address, 8786)
         self.client = distributed.Client(n_workers=self.ntasks,
                                          local_dir=self.local_dir,
                                          scheduler_port=self.scheduler_port,
                                          ip=self.ip_address,
                                          silence_logs=logging.WARN,
-                                         threads_per_worker=1)
+                                         threads_per_worker=1,
+                                         memory_limit=0)
         logging.debug("client and cluster started: %s" % str(self.client))
 
     def cleanup(self):

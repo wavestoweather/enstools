@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 import logging
 from .metadata import GribMessageMetadata
 from .index import GribIndexHelper, get_lock
-from distributed import get_client
+import distributed
 
 
 def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False):
@@ -70,9 +70,11 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     skipped_grids = set()
 
     # create grib-index of the input file, only the name is used
+    logging.debug("indexing grib file %s ..." % filename)
     index = GribIndexHelper(filename)
 
     # loop to select all indexed messages
+    logging.debug("start reading all grib messages from %s ..." % filename)
     for prod in __product(*index.index_vals):
         index_selection_keys = OrderedDict()
         for i in range(len(index.index_keys)):
@@ -200,6 +202,8 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
 
             # free the memory used by this message
             msg.release()
+
+    logging.debug("finish reading all grib messages from %s, start construction of arrays..." % filename)
 
     # release the grib index if no longer used
     if in_memory:
@@ -368,6 +372,7 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     xarray_variables_sorted = OrderedDict(sorted(xarray_variables.items(), key=lambda i: i[0].lower()))
 
     # create the dataset object
+    logging.debug("creating xarray dataset for %s ..." % filename)
     dataset = xarray.Dataset(xarray_variables_sorted)
     if "lon" in dataset:
         dataset["lon"].attrs["long_name"] = "longitude"
@@ -385,16 +390,8 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
         coordinate_name = one_bounds.replace("_bnds", "")
         if coordinate_name in dataset:
             dataset[coordinate_name].attrs["bounds"] = one_bounds
-    if debug:
-        print("finished reading %s" % filename)
+    logging.debug("finished reading %s" % filename)
 
-    # persist the array into worker memory
-    if in_memory:
-        try:
-            client = get_client()
-            dataset = client.persist(dataset)
-        except ValueError:
-            logging.debug("Data not persisted into cluster memory. No client found!")
     return dataset
 
 

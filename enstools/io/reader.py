@@ -2,6 +2,7 @@ import logging
 from collections import OrderedDict
 import xarray
 import dask
+import distributed
 import six
 import os
 import re
@@ -117,7 +118,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     #    get = dask.get
     #else:
     #    get = dask.multiprocessing.get
-    datasets = list(dask.compute(*datasets, traverse=False))
+    datasets = dask.compute(*datasets, traverse=False)
 
     # are there ensemble members in different folders?
     if members_by_folder and len(parent_folders) > 1:
@@ -398,8 +399,18 @@ def __open_dataset(filename, **kwargs):
     if file_type is None:
         raise ValueError("unable to guess the type of the input file '%s'" % filename)
 
+    # are we inside of a worker and is a distributed client available?
+    client = None
+    if kwargs.get("in_memory", False):
+        try:
+            client = distributed.get_client()
+        except ValueError:
+            client = None
+            logging.debug("Data not persisted into cluster memory. No client found!")
+
+    # read the data
     if file_type in ["NC", "HDF"]:
-        if kwargs.get("in_memory", False):
+        if kwargs.get("in_memory", False) and client is None:
             result0 = xarray.open_dataset(filename)
             result = result0.compute().chunk()
             result0.close()
@@ -419,6 +430,15 @@ def __open_dataset(filename, **kwargs):
     # drop unused coords
     if kwargs.get("drop_unused", False):
         drop_unused(result, inplace=True)
+
+    # persist the array into worker memory
+    # TODO: make that work for GRIB files
+    if kwargs.get("in_memory", False) and client is not None and file_type != "GRIB":
+        worker = distributed.get_worker()
+        logging.debug("running on worker: %s" % worker.address)
+        distributed.secede()
+        result = result.persist(workers=worker.address)
+        distributed.rejoin()
     return result
 
 

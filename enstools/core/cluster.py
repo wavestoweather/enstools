@@ -15,6 +15,10 @@ from time import sleep
 # storage the batchjob object
 batchjob_object = None
 
+# adapt some settings for dask
+from distributed.config import config
+config["connect-timeout"] = "30"        # increase the connect-timeout from 3 to 10s
+
 
 def init_cluster():
     """

@@ -126,8 +126,9 @@ class ProcessObserver(Thread):
             line = self.p.stdout.readline()
             if len(line) == 0:
                 continue
+            line = line.rstrip()
             # INFO output from dask processes should only be shown in debug mode.
-            if "- INFO -" in line:
+            if b"- INFO -" in line:
                 logging.debug(line)
             else:
                 print(line)

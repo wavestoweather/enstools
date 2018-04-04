@@ -11,6 +11,7 @@ import xarray
 import numpy
 import dask.array
 import dask.multiprocessing
+import distributed
 import string
 from decorator import decorator
 from pint import DimensionalityError
@@ -77,7 +78,25 @@ def set_behavior(check_arguments_convert=None, check_arguments_strict=None, chec
     if log_level is not None:
         if log_level not in ["ERROR", "WARN", "DEBUG", "INFO"]:
             raise ValueError("unsupported log level: '%s'" % log_level)
-        logging.getLogger().setLevel(log_level)
+        __set_log_level(log_level)
+        # set the log level also on all workers
+        try:
+            client = distributed.get_client()
+            client.run(__set_log_level, log_level)
+        except:
+            pass
+
+
+def __set_log_level(log_level):
+    """
+    a function executable on all worker processes
+
+    Parameters
+    ----------
+    level : str
+            new log level
+    """
+    logging.getLogger().setLevel(log_level)
 
 
 def __replace_argument(args, index, new_arg):
