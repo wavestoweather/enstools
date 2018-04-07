@@ -147,13 +147,19 @@ class SlurmJob(BatchJob):
     """
     An interface to the SLURM-job inside of which we are running
     """
-    def __init__(self, local_dir=None):
+    def __init__(self, local_dir=None, ntasks=None):
         """
         read environment
         """
         super(SlurmJob, self).__init__(local_dir)
         self.job_id = getenv("SLURM_JOBID")
         self.ntasks = int(getenv("SLURM_NTASKS"))
+        if ntasks is not None:
+            if ntasks > self.ntasks:
+                logging.warning("more worker requested than the number of tasks within this SLURM job.")
+                logging.warning("number of worker automatically reduced to %d" % self.ntasks)
+            else:
+                self.ntasks = ntasks
         self.nnodes = int(getenv("SLURM_NNODES"))
         self.nodelist = getenv("SLURM_JOB_NODELIST")
         self.memory_per_node = int(getenv("SLURM_MEM_PER_NODE"))    # unit: MB
@@ -165,14 +171,15 @@ class SlurmJob(BatchJob):
         # calculate the available memory per worker
         mem_per_worker = (self.memory_per_node * self.nnodes) // self.ntasks
         args = ["srun",
+                "--ntasks=%d" % self.ntasks,
                 sys.executable, which("dask-worker"),
                 "--nthreads", "1",
                 "--memory-limit", "%dM" % mem_per_worker,
                 "tcp://%s:%d" % (self.ip_address, self.scheduler_port)
                 ]
         if self.local_dir is not None:
-            args.insert(3, "--local-directory")
-            args.insert(4, self.local_dir)
+            args.insert(4, "--local-directory")
+            args.insert(5, self.local_dir)
         p = ProcessObserver(args)  # subprocess.Popen(args)
         self.child_processes.append(p)
 
@@ -185,9 +192,14 @@ class LocalJob(BatchJob):
     """
     start a LocalCluster instead of a batch job cluster
     """
-    def __init__(self, local_dir=None):
+    def __init__(self, local_dir=None, ntasks=None):
         super(LocalJob, self).__init__(local_dir)
         self.ntasks = _get_num_available_procs()
+        if ntasks is not None:
+            if ntasks > self.ntasks:
+                logging.warning("More worker requested then CPUs available.")
+                logging.warning("Since we are running on a local computer without job scheduler, they are started anyway.")
+            self.ntasks = ntasks
         self.ip_address = "127.0.0.1"
         self.nnodes = 1
         self.nodelist = socket.gethostname()
@@ -236,7 +248,7 @@ class LocalJob(BatchJob):
             self.lock.release()
 
 
-def get_batch_job(local_dir=None):
+def get_batch_job(local_dir=None, **kwargs):
     """
     read several environment variables to figure out whether or not we are inside of a Job script or not.
 
@@ -244,6 +256,9 @@ def get_batch_job(local_dir=None):
     ----------
     local_dir : str
             absolute path of a folder used as temporal directory
+
+    **kwargs:
+            all arguments are passed on the the init function of the different job implementations
 
     Returns
     -------
@@ -253,10 +268,10 @@ def get_batch_job(local_dir=None):
     # are we inside of SLURM?
     job_id = os.getenv("SLURM_JOB_ID")
     if job_id is not None:
-        return SlurmJob(local_dir)
+        return SlurmJob(local_dir, **kwargs)
 
     # no job environment detected? create a local cluster!
-    return LocalJob(local_dir)
+    return LocalJob(local_dir, **kwargs)
 
     # no scheduler found?
     raise ValueError("unable to create a new dask cluster!")

@@ -20,11 +20,16 @@ from distributed.config import config
 config["connect-timeout"] = "30"        # increase the connect-timeout from 3 to 10s
 
 
-def init_cluster():
+def init_cluster(ntasks=None):
     """
     Create a Dask.distributed cluster and return the client object. The type of the cluster is automatically selected
     based on the environment of the script. Inside of a SLURM job, a distributed Cluster is created. All allocated
     resources are used for this purpose. Without a job scheduler like SLURM, a LocalCluster is created.
+
+    Parameters
+    ----------
+    ntasks : int
+            the number of tasks (threads or processes) to start.
 
     Returns
     -------
@@ -36,7 +41,7 @@ def init_cluster():
 
     # figure out which type of cluster to create
     global batchjob_object
-    batchjob_object = get_batch_job(local_dir=tmpdir.getpath())
+    batchjob_object = get_batch_job(local_dir=tmpdir.getpath(), ntasks=ntasks)
 
     # start the distributed cluster prepared by the command above
     batchjob_object.start()

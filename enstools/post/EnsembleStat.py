@@ -25,7 +25,7 @@ def ensemble_stat(dataset, stat=["mean", "min", "max", "std"], dim=None):
     Returns
     -------
     tuple :
-            (mean, min, max, std). Tuple with one item per item in argument stat.
+            (mean, min_, max_, std). Tuple with one item per item in argument stat.
     """
     # check the input data
     if not isinstance(dataset, xarray.core.dataarray.DataArray) and not isinstance(dataset, xarray.core.dataset.Dataset):
@@ -47,7 +47,7 @@ def ensemble_stat(dataset, stat=["mean", "min", "max", "std"], dim=None):
         if one_stat == "max":
             results.append(dataset.max(dim=dim))
         if one_stat == "std":
-            results.append(dataset.max(dim=dim))
+            results.append(dataset.std(dim=dim))
 
     # return the result
     return tuple(results)
