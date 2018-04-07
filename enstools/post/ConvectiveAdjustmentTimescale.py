@@ -3,6 +3,7 @@ import xarray
 from numpy.ma.core import default_fill_value
 from scipy import ndimage
 from enstools.core import check_arguments
+from itertools import product
 
 
 @check_arguments(units={"pr": "kg m-2 s-1",
@@ -50,8 +51,16 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
     # Gaussian filtering
     sig = 10.  # Gaussian goes to zero 3*sig grid points from centre
     if max(pr.shape) > 3*sig:
-        cape_filtered = ndimage.filters.gaussian_filter(cape, sig, mode='reflect')
-        pr_filtered = ndimage.filters.gaussian_filter(pr, sig, mode='reflect')
+        if len(pr.shape) <= 2:
+            cape_filtered = ndimage.filters.gaussian_filter(cape, sig, mode='reflect')
+            pr_filtered = ndimage.filters.gaussian_filter(pr, sig, mode='reflect')
+        else:
+            cape_filtered = np.empty_like(cape)
+            pr_filtered = np.empty_like(pr)
+            for x in product(*map(lambda x:range(x),cape.shape[:-2])):
+                idx = x+(slice(None,None),slice(None,None))
+                cape_filtered[idx] = ndimage.filters.gaussian_filter(cape[idx], sig, mode='reflect')
+                pr_filtered[idx] = ndimage.filters.gaussian_filter(pr[idx], sig, mode='reflect')
     else:
         cape_filtered = cape
         pr_filtered = pr
