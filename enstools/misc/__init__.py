@@ -80,7 +80,7 @@ def point_in_polygon(polyx, polyy, testx, testy):
     """
     res = False
     j = polyx.shape[0] - 1
-    for i in range(j):
+    for i in range(polyx.shape[0]):
         if ((polyy[i] > testy) != (polyy[j] > testy)) \
                 and (testx < (polyx[j] - polyx[i]) * (testy - polyy[i]) / (polyy[j] - polyy[i]) + polyx[i]):
             res = not res
