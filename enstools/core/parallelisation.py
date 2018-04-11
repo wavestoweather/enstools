@@ -146,7 +146,7 @@ def rechunk_arguments(dim_type=None, dim_name=None, arg_names=None):
     return function_wrapper
 
 
-def chunkwise(func):
+def apply_chunkwise(func):
     """
     Automatic parallelisation of a decorated function. All arguments have to have the same shape!
     """
@@ -157,16 +157,3 @@ def chunkwise(func):
         return result
 
     return decorate(func, function_wrapper)
-
-
-def timestepwise(rechunk_only=False):
-    """
-    Automatic parallelisation of a decorated function. All arguments have to have the same shape!
-    """
-    @decorator
-    def function_wrapper(func, *args, **kwargs):
-        dask_args = __args_to_dask(*args)
-        result = dask.array.map_blocks(func, *dask_args, dtype=args[0].dtype)
-        return result
-
-    return function_wrapper

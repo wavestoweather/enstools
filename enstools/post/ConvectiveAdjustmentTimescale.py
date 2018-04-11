@@ -3,7 +3,7 @@ import xarray
 from numpy.ma.core import default_fill_value
 from scipy import ndimage
 from enstools.core import check_arguments
-from enstools.core.parallelisation import chunkwise
+from enstools.core.parallelisation import apply_chunkwise
 
 
 @check_arguments(units={"pr": "kg m-2 s-1",
@@ -49,7 +49,7 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
     """
 
     # TODO: tauc calculation is not chunkwise but something like layer wise
-    @chunkwise
+    @apply_chunkwise
     def tauc(pr, cape, th):
         # Gaussian filtering
         sig = 10.  # Gaussian goes to zero 3*sig grid points from centre
