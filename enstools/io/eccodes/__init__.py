@@ -4,8 +4,8 @@ support is available.
 """
 import logging
 try:
-    from . import eccodes_cffi as eccodes
-except ImportError:
+    from . import eccodes_cffi
+except OSError:
     logging.warning("eccodes c-library not found, grib file support not available!")
     pass
 from collections import OrderedDict
@@ -16,9 +16,6 @@ import dask.array
 import numpy
 from datetime import datetime, timedelta
 import logging
-from .metadata import GribMessageMetadata
-from .index import GribIndexHelper, get_lock
-import distributed
 
 
 def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False):
@@ -45,7 +42,7 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     xarray.Dataset
             a netcdf-like representation of the file-content
     """
-    if "eccodes" not in globals():
+    if "eccodes_cffi" not in globals():
         raise ImportError("eccodes interface not found, grib file support not available!")
 
     # use always the absolute path, the relative path may change during the lifetime of the dataset
@@ -75,12 +72,12 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     while True:
         # read the content of the next grib message from the input file.
         offset = gfile.tell()
-        header_only_message = eccodes.read_message_header_bytes(gfile, offset, False)
+        header_only_message = eccodes_cffi.read_message_header_bytes(gfile, offset, False)
         if header_only_message is None:
             break
 
         # create an empty message from the message raw data
-        msg = eccodes.GribMessage(header_only_message)
+        msg = eccodes_cffi.GribMessage(header_only_message)
 
         # skip messages on unsupported grids
         if msg["gridType"] not in ["sh", "regular_ll", "rotated_ll", "reduced_gg", "unstructured_grid"]:
@@ -391,10 +388,10 @@ def __get_one_message(filename, offset, shape, dtype, missing):
     # open the input file, seek the message and read it
     with open(filename, "rb") as gfile:
         # read raw message
-        content = eccodes.read_message_header_bytes(gfile, offset, read_data=True)
+        content = eccodes_cffi.read_message_header_bytes(gfile, offset, read_data=True)
 
         # decode the message
-        msg = eccodes.GribMessage(content)
+        msg = eccodes_cffi.GribMessage(content)
 
         # decode the actual values
         return msg.get_values(shape, dtype, missing)

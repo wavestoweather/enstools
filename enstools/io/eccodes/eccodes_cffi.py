@@ -421,7 +421,7 @@ def read_message_header_bytes(infile, offset, read_data=False):
         length_total = struct.unpack(">I", b'\x00' + section0[4:7])[0]
 
         # create an numpy array with the total size of the message
-        bytes = np.zeros(length_total, dtype=np.uint8)  # bytearray(length_total)
+        bytes = np.zeros(length_total, dtype=np.uint8)
         bytes[0:8] = np.fromstring(section0, dtype=np.uint8)
         pos = 8
 
@@ -437,7 +437,7 @@ def read_message_header_bytes(infile, offset, read_data=False):
             length_sec = struct.unpack(">I", b'\x00' + bytes[pos:pos+3].tostring())[0]
 
             # do not read if this is the final data section
-            if pos + length_sec + 4 == length_total:
+            if pos + length_sec + 4 >= length_total:
                 # read the first bytes only
                 bytes[pos+3:pos+11] = np.fromstring(infile.read(8), dtype=np.uint8)
                 infile.seek(offset + length_total - 5)
@@ -448,13 +448,37 @@ def read_message_header_bytes(infile, offset, read_data=False):
                 bytes[pos+3:pos+length_sec] = np.fromstring(infile.read(length_sec - 3), dtype=np.uint8)
                 pos = pos + length_sec
     else:
-        raise ValueError("GRIB2 is not yet supported!")
+        # read first section
+        infile.seek(offset)
+        section0 = infile.read(16)
+        length_total = struct.unpack(">Q", section0[8:16])[0]
+
+        # create an numpy array with the total size of the message
+        bytes = np.zeros(length_total, dtype=np.uint8)
+        bytes[0:16] = np.fromstring(section0, dtype=np.uint8)
+        pos = 16
+
+        # read the complete message?
+        if read_data:
+            bytes[16:] = np.fromstring(infile.read(length_total - 16), dtype=np.uint8)
+            return bytes
+
+        # read the first sections, but not the data
+        while True:
+            # read the length of the section
+            bytes[pos:pos+4] = np.fromstring(infile.read(4), dtype=np.uint8)
+            length_sec = struct.unpack(">I", bytes[pos:pos+4].tostring())[0]
+
+            # do not read if this is the final data section
+            if pos + length_sec + 4 >= length_total:
+                # read the first bytes only
+                bytes[pos+4] = np.fromstring(infile.read(1), dtype=np.uint8)
+                infile.seek(offset + length_total - 4)
+                bytes[-4:] = np.fromstring(infile.read(4), dtype=np.uint8)
+                break
+            else:
+                # read data of this section
+                bytes[pos+4:pos+length_sec] = np.fromstring(infile.read(length_sec - 4), dtype=np.uint8)
+                pos = pos + length_sec
 
     return bytes
-
-    #length_total =
-    #edition =
-    #f.seek(istart + length_total - 4)
-    #bytes = f.read(4)
-    #print(bytes)
-    #print(istart, length_total, edition)
