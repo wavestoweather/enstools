@@ -16,6 +16,7 @@ import dask.array
 import numpy
 from datetime import datetime, timedelta
 import logging
+import threading
 
 
 def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False):
@@ -183,6 +184,9 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
             msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
                                         dask.array.from_array(msg.get_values(dimensions[variable_id], datatype[variable_id], encodings[variable_id]["_FillValue"]),
                                         chunks=dimensions[variable_id])
+
+    # close the input file again
+    gfile.close()
 
     logging.debug("finish reading all grib messages from %s, start construction of arrays..." % filename)
 
@@ -395,4 +399,3 @@ def __get_one_message(filename, offset, shape, dtype, missing):
 
         # decode the actual values
         return msg.get_values(shape, dtype, missing)
-

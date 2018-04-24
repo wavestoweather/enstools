@@ -5,6 +5,7 @@ import cffi
 import numpy as np
 import xarray
 import struct
+import threading
 
 # initialize the interface to the C-Library
 ffi = cffi.FFI()
@@ -40,6 +41,10 @@ CODES_MISSING_DOUBLE = -1e+100
 CODES_MISSING_LONG = 2147483647
 
 
+# allow only one read per time
+read_msg_lock = threading.Lock()
+
+
 # A representation of one grib message
 class GribMessage():
 
@@ -53,7 +58,8 @@ class GribMessage():
         """
         # create the grib message handle
         self.buffer = data
-        self.handle = _eccodes.codes_handle_new_from_message(ffi.NULL, ffi.from_buffer(self.buffer), len(self.buffer))
+        with read_msg_lock:
+            self.handle = _eccodes.codes_handle_new_from_message(ffi.NULL, ffi.from_buffer(self.buffer), len(self.buffer))
         if self.handle == ffi.NULL:
             raise ValueError("unable to read grib message from buffer!")
 
@@ -65,13 +71,14 @@ class GribMessage():
             return self.cache[item]
         else:
             try:
-                ckey = _cstr(item)
-                nelements = self.__codes_get_size(ckey)
-                if nelements > 1:
-                    value = self.__codes_get_array(ckey, nelements)
-                else:
-                    value = self.__codes_get(ckey)
-                self.cache[item] = value
+                with read_msg_lock:
+                    ckey = _cstr(item)
+                    nelements = self.__codes_get_size(ckey)
+                    if nelements > 1:
+                        value = self.__codes_get_array(ckey, nelements)
+                    else:
+                        value = self.__codes_get(ckey)
+                    self.cache[item] = value
             except ValueError:
                 # nothing found? Any error is interpreted as Key not found.
                 raise KeyError("key '%s' not found in grib message!" % item)
