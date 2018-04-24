@@ -4,6 +4,7 @@ A minial Interface to ecCodes based on CFFI
 import cffi
 import numpy as np
 import xarray
+import struct
 
 # initialize the interface to the C-Library
 ffi = cffi.FFI()
@@ -324,7 +325,7 @@ class GribMessage():
             err = _eccodes.codes_get_string(self.handle, key, ffi.from_buffer(value_buffer), value_buffer_length)
             if value_buffer_length[0] == 1024:
                 value_buffer_length[0] = np.where(value_buffer == 0)[0][0]
-            value = str(value_buffer[:value_buffer_length[0]-1].tostring(), "utf-8")
+            value = value_buffer[:value_buffer_length[0]-1].tostring().decode("utf-8")
         if err != 0:
             raise ValueError("unable to get value for key '%s'" % ffi.string(key))
         return value
@@ -410,14 +411,14 @@ def read_message_header_bytes(infile, offset, read_data=False):
 
     # find at first the grib edition to account for different formats
     infile.seek(offset + 7)
-    edition = int(infile.read(1)[0])
+    edition = struct.unpack(">B", infile.read(1))[0]
 
     # get the length of the total message
     if edition == 1:
         # read the first section
         infile.seek(offset)
         section0 = infile.read(8)
-        length_total = int.from_bytes(section0[4:7], byteorder='big')
+        length_total = struct.unpack(">I", b'\x00' + section0[4:7])[0]
 
         # create an numpy array with the total size of the message
         bytes = np.zeros(length_total, dtype=np.uint8)  # bytearray(length_total)
@@ -433,7 +434,7 @@ def read_message_header_bytes(infile, offset, read_data=False):
         for sec in range(1, 5):
             # read the length of the section
             bytes[pos:pos+3] = np.fromstring(infile.read(3), dtype=np.uint8)
-            length_sec = int.from_bytes(bytes[pos:pos+3], byteorder='big')
+            length_sec = struct.unpack(">I", b'\x00' + bytes[pos:pos+3].tostring())[0]
 
             # do not read if this is the final data section
             if pos + length_sec + 4 == length_total:

@@ -72,12 +72,10 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     # loop to select all messages
     logging.debug("start reading all grib messages from %s ..." % filename)
     gfile = open(filename, "rb")
-    imsg = -1  # counter for the message
-    offset = 0
     while True:
         # read the content of the next grib message from the input file.
-        header_only_message = eccodes.read_message_header_bytes(gfile, offset, False)
         offset = gfile.tell()
+        header_only_message = eccodes.read_message_header_bytes(gfile, offset, False)
         if header_only_message is None:
             break
 
@@ -190,10 +188,6 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
                                         chunks=dimensions[variable_id])
 
     logging.debug("finish reading all grib messages from %s, start construction of arrays..." % filename)
-
-    # release the grib index if no longer used
-    if in_memory:
-        index.release()
 
     # create the coordinate definition for the dataset
     if len(ensemble_members) > 0:
