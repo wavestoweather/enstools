@@ -117,6 +117,24 @@ class GribMessage():
                 return False
             return True
 
+    def keys(self):
+        """
+        returns all GRIB keys of this GRIB message
+
+        Returns
+        -------
+        list :
+                list of strings with the names of the keys
+        """
+        result = []
+        with read_msg_lock:
+            # 128 is the value of the C-constant GRIB_KEYS_ITERATOR_DUMP_ONLY and reduces the set of keys to those
+            # really available
+            kiter = _eccodes.codes_keys_iterator_new(self.handle, 128, ffi.NULL)
+            while _eccodes.codes_keys_iterator_next(kiter) == 1:
+                result.append(ffi.string(_eccodes.codes_keys_iterator_get_name(kiter)).decode("utf-8"))
+        return result
+
     def is_valid(self):
         """
         returns true if the content of a message was readable
