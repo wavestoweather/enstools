@@ -6,6 +6,7 @@ import numpy as np
 import xarray
 import struct
 import threading
+import platform
 
 # initialize the interface to the C-Library
 ffi = cffi.FFI()
@@ -34,7 +35,15 @@ ffi.cdef("const char* codes_keys_iterator_get_name(codes_keys_iterator *kiter);"
 ffi.cdef("int codes_keys_iterator_delete(codes_keys_iterator *kiter);")
 
 # load the actual c-library
-_eccodes = ffi.dlopen("libeccodes.so")
+if platform.system() == "Linux":
+    __libext = "so"
+elif platform.system() == "Darwin":
+    __libext = "dylib"
+elif platform.system() == "Windows":
+    __libext = "dll"
+else:
+    raise OSError("Unknown platform: %s" % platform.system())
+_eccodes = ffi.dlopen("libeccodes.%s" % __libext)
 
 # Constants for 'missing'
 CODES_MISSING_DOUBLE = -1e+100
