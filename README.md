@@ -1,7 +1,11 @@
 # Installation of dependencies in `conda` environment
 
-    conda create -n python2 python=2.7
-    conda install -n python2 -c conda-forge numpy numba xarray dask cloudpickle toolz pint nose scikit-learn python-eccodes cartopy decorator multipledispatch
+The `enstools` package has now full support for Python 2 and Python 3. For new developments, it is highly recommended to
+use only Python 3. Important dependencies like `numpy` will stop to support Python 2 soon.
+
+    conda create -n enstools
+    conda install -n enstools -c conda-forge numpy numba xarray dask cloudpickle toolz pint nose scikit-learn python-eccodes cartopy decorator multipledispatch cffi
+    source activate enstools
     pip install cachey
 
 # Installation in user home directory

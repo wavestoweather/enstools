@@ -55,5 +55,6 @@ setup(name="enstools",
                 "cartopy",
                 "decorator",
                 "multipledispatch",
-                "cachey"]
+                "cachey",
+                "cffi"]
       )
