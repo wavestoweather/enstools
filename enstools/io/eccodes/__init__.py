@@ -10,13 +10,13 @@ except OSError:
     pass
 from collections import OrderedDict
 import os
+import io
 import re
 import xarray
 import dask.array
 import numpy
 from datetime import datetime, timedelta
 import logging
-import threading
 
 
 def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False):
@@ -69,16 +69,15 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
 
     # loop to select all messages
     logging.debug("start reading all grib messages from %s ..." % filename)
-    gfile = open(filename, "rb")
+    gfile = io.open(filename, "rb")
     while True:
         # read the content of the next grib message from the input file.
         offset = gfile.tell()
-        header_only_message = eccodes_cffi.read_message_header_bytes(gfile, offset, False)
-        if header_only_message is None:
-            break
 
         # create an empty message from the message raw data
-        msg = eccodes_cffi.GribMessage(header_only_message)
+        msg = eccodes_cffi.GribMessage(gfile, offset, read_data=in_memory)
+        if not msg.is_valid():
+            break
 
         # skip messages on unsupported grids
         if msg["gridType"] not in ["sh", "regular_ll", "rotated_ll", "reduced_gg", "unstructured_grid"]:
@@ -390,12 +389,9 @@ def __get_one_message(filename, offset, shape, dtype, missing):
     numpy.ndarray
     """
     # open the input file, seek the message and read it
-    with open(filename, "rb") as gfile:
-        # read raw message
-        content = eccodes_cffi.read_message_header_bytes(gfile, offset, read_data=True)
-
-        # decode the message
-        msg = eccodes_cffi.GribMessage(content)
+    with io.open(filename, "rb") as gfile:
+        # read and decode the message
+        msg = eccodes_cffi.GribMessage(gfile, offset, read_data=True)
 
         # decode the actual values
         return msg.get_values(shape, dtype, missing)

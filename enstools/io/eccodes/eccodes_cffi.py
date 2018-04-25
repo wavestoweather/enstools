@@ -48,23 +48,36 @@ read_msg_lock = threading.Lock()
 # A representation of one grib message
 class GribMessage():
 
-    def __init__(self, data):
+    def __init__(self, file, offset=0, read_data=False):
         """
         create a message from the data buffer object
 
         Parameters
         ----------
-        data
+        file : file-object
+                a file object which points already to the beginning of the message
+
+        offset : int
+                position of the file where the message starts
+
+        read_data : bool
+                False: read only the header of the message.
         """
-        # create the grib message handle
-        self.buffer = data
+        # cache for all read operations of keys
+        self.cache = {}
+
+        # read the content of the message
+        self.buffer = _read_message_raw_data(file, offset, read_data=read_data)
+        # was there a message?
+        if self.buffer is None:
+            self.handle = ffi.NULL
+            return
+
+        # decode the message
         with read_msg_lock:
             self.handle = _eccodes.codes_handle_new_from_message(ffi.NULL, ffi.from_buffer(self.buffer), len(self.buffer))
         if self.handle == ffi.NULL:
             raise ValueError("unable to read grib message from buffer!")
-
-        # read all cache
-        self.cache = {}
 
     def __getitem__(self, item):
         if item in self.cache:
@@ -94,6 +107,12 @@ class GribMessage():
             except KeyError:
                 return False
             return True
+
+    def is_valid(self):
+        """
+        returns true if the content of a message was readable
+        """
+        return self.buffer is not None
 
     def get_name(self, prefer_cf=True):
         """
@@ -372,9 +391,10 @@ class GribMessage():
         """
         free up the memory
         """
-        err = _eccodes.codes_handle_delete(self.handle)
-        if err != 0:
-            raise ValueError("unable to free memory of grib message!")
+        if self.handle != ffi.NULL:
+            err = _eccodes.codes_handle_delete(self.handle)
+            if err != 0:
+                raise ValueError("unable to free memory of grib message!")
 
 
 def _cstr(pstr):
@@ -395,7 +415,7 @@ def _cstr(pstr):
     return result
 
 
-def read_message_header_bytes(infile, offset, read_data=False):
+def _read_message_raw_data(infile, offset, read_data=False):
     """
     Read the header of a grib message and return an byte array with the length of the full message, but without
     the actual data
@@ -408,9 +428,9 @@ def read_message_header_bytes(infile, offset, read_data=False):
     -------
 
     """
-    # find the start word GRIB
+    # find the start word GRIB. Allow up to 1k junk in front of the actual message
     infile.seek(offset)
-    start = infile.read(20)
+    start = infile.read(1024)
     istart = start.find(b"GRIB")
     if istart == -1:
         return None
@@ -434,25 +454,25 @@ def read_message_header_bytes(infile, offset, read_data=False):
 
         # read the complete message?
         if read_data:
-            bytes[8:] = np.fromstring(infile.read(length_total - 8), dtype=np.uint8)
+            infile.readinto(memoryview(bytes[8:]))
             return bytes
 
         # read the first sections, but not the data
         for sec in range(1, 5):
             # read the length of the section
-            bytes[pos:pos+3] = np.fromstring(infile.read(3), dtype=np.uint8)
+            infile.readinto(memoryview(bytes[pos:pos+3]))
             length_sec = struct.unpack(">I", b'\x00' + bytes[pos:pos+3].tostring())[0]
 
             # do not read if this is the final data section
             if pos + length_sec + 4 >= length_total:
                 # read the first bytes only
-                bytes[pos+3:pos+11] = np.fromstring(infile.read(8), dtype=np.uint8)
+                infile.readinto(memoryview(bytes[pos+3:pos+11]))
                 infile.seek(offset + length_total - 5)
-                bytes[-5:] = np.fromstring(infile.read(5), dtype=np.uint8)
+                infile.readinto(memoryview(bytes[-5:]))
                 break
             else:
                 # read data of this section
-                bytes[pos+3:pos+length_sec] = np.fromstring(infile.read(length_sec - 3), dtype=np.uint8)
+                infile.readinto(memoryview(bytes[pos+3:pos+length_sec]))
                 pos = pos + length_sec
     else:
         # read first section
@@ -467,25 +487,25 @@ def read_message_header_bytes(infile, offset, read_data=False):
 
         # read the complete message?
         if read_data:
-            bytes[16:] = np.fromstring(infile.read(length_total - 16), dtype=np.uint8)
+            infile.readinto(memoryview(bytes[16:]))
             return bytes
 
         # read the first sections, but not the data
         while True:
             # read the length of the section
-            bytes[pos:pos+4] = np.fromstring(infile.read(4), dtype=np.uint8)
+            infile.readinto(memoryview(bytes[pos:pos+4]))
             length_sec = struct.unpack(">I", bytes[pos:pos+4].tostring())[0]
 
             # do not read if this is the final data section
             if pos + length_sec + 4 >= length_total:
                 # read the first bytes only
-                bytes[pos+4] = np.fromstring(infile.read(1), dtype=np.uint8)
+                infile.readinto(memoryview(bytes[pos+4:pos+5]))
                 infile.seek(offset + length_total - 4)
-                bytes[-4:] = np.fromstring(infile.read(4), dtype=np.uint8)
+                infile.readinto(memoryview(bytes[-4:]))
                 break
             else:
                 # read data of this section
-                bytes[pos+4:pos+length_sec] = np.fromstring(infile.read(length_sec - 4), dtype=np.uint8)
+                infile.readinto(memoryview(bytes[pos+4:pos+length_sec]))
                 pos = pos + length_sec
 
     return bytes
