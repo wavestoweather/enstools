@@ -166,6 +166,17 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
                 attrs["grid_mapping"] = rotated_pole[variable_id][0]
             elif msg["gridType"] in ["reduced_gg", "unstructured_grid"]:
                 attrs["coordinates"] = "lon lat"
+
+            # grib edition specific attributes
+            if msg["editionNumber"] == 1:
+                attrs["code"] = msg["indicatorOfParameter"]
+                attrs["table"] = msg["table2Version"]
+            elif msg["editionNumber"] == 2:
+                attrs["discipline"] = msg["discipline"]
+                attrs["parameterCategory"] = msg["parameterCategory"]
+                attrs["parameterNumber"] = msg["parameterNumber"]
+
+            # store attributes in dictionary for all variables
             attributes[variable_id] = attrs
             # values used for encoding during storage
             encoding = OrderedDict()
