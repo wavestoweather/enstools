@@ -4,7 +4,7 @@ The `enstools` package has now full support for Python 2 and Python 3. For new d
 use only Python 3. Important dependencies like `numpy` will stop to support Python 2 soon.
 
     conda create -n enstools
-    conda install -n enstools -c conda-forge numpy numba xarray dask cloudpickle toolz pint nose scikit-learn python-eccodes cartopy decorator multipledispatch cffi
+    conda install -n enstools -c conda-forge numpy numba xarray dask distributed cloudpickle toolz pint nose scikit-learn python-eccodes cartopy decorator multipledispatch cffi
     source activate enstools
     pip install cachey
 

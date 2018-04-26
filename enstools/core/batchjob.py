@@ -15,6 +15,7 @@ from time import sleep
 import shutil
 import multiprocessing
 import threading
+import psutil
 from .os_support import get_first_free_port, which, getenv, ProcessObserver
 
 
@@ -203,6 +204,7 @@ class LocalJob(BatchJob):
         self.ip_address = "127.0.0.1"
         self.nnodes = 1
         self.nodelist = socket.gethostname()
+        self.memory_per_node = psutil.virtual_memory().total
 
     def start_dask_worker(self):
         pass
@@ -218,7 +220,12 @@ class LocalJob(BatchJob):
         """
         # TODO: the start procedure is not 100% reliable, change that!
         #       Possibly related: https://github.com/dask/distributed/issues/1321
-        # TODO: set reasonable memory limit
+
+        # set memory limit to 90% of the total system memory
+        mem_per_worker = self.memory_per_node * 0.9
+        logging.debug("memory limit per worker: %db" % mem_per_worker)
+
+        # create the cluster by starting the client
         self.scheduler_port = get_first_free_port(self.ip_address, 8786)
         self.client = distributed.Client(n_workers=self.ntasks,
                                          local_dir=self.local_dir,
@@ -226,7 +233,7 @@ class LocalJob(BatchJob):
                                          ip=self.ip_address,
                                          silence_logs=logging.WARN,
                                          threads_per_worker=1,
-                                         memory_limit=0)
+                                         memory_limit=mem_per_worker)
         logging.debug("client and cluster started: %s" % str(self.client))
 
     def cleanup(self):

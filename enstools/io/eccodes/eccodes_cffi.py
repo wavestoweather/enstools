@@ -74,6 +74,7 @@ class GribMessage():
         """
         # cache for all read operations of keys
         self.cache = {}
+        self.has_data = read_data
 
         # read the content of the message
         self.buffer = _read_message_raw_data(file, offset, read_data=read_data)
@@ -306,6 +307,9 @@ class GribMessage():
         -------
         np.ndarray
         """
+        # do we have data in this message?
+        if not self.has_data:
+            raise ValueError("this message was created from the header only. No data is available!")
         values = self["values"]
         if shape is not None:
             values = values.reshape(shape)

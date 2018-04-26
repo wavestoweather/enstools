@@ -17,9 +17,11 @@ import dask.array
 import numpy
 from datetime import datetime, timedelta
 import logging
+import distributed
+from enstools.core import all_workers_are_local
 
 
-def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False):
+def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False, client=None, worker=None):
     """
     Read the contents of a grib1 or grib2 file
 
@@ -37,6 +39,13 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     leadtime_from_filename : bool
             COSMO-GRIB1-Files do not contain exact times. If this argument is set, then the timestamp is calculated
             from the init time and the lead time from the file name.
+
+    client : distributed.client
+            dask-distributed Client object used for persisting data into cluster memory
+
+    worker : distributed.worker
+            dask-distributed Worker object. This is supposed to be not None when the routine is called inside of a
+            worker process.
 
     Returns
     -------
@@ -67,6 +76,16 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     # list of skipped grid types
     skipped_grids = set()
 
+    # The full message payload is only read if we want data in memory. In a dask cluster,
+    # workers take over the data loading. Exception: if all workers are local, load the data directly.
+    load_payload = in_memory and client is None
+    if client is not None:
+        all_local = all_workers_are_local(client)
+    else:
+        all_local = False
+    if in_memory and client is not None and all_local:
+        load_payload = True
+
     # loop to select all messages
     logging.debug("start reading all grib messages from %s ..." % filename)
     gfile = io.open(filename, "rb")
@@ -74,8 +93,8 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
         # read the content of the next grib message from the input file.
         offset = gfile.tell()
 
-        # create an empty message from the message raw data
-        msg = eccodes_cffi.GribMessage(gfile, offset, read_data=in_memory)
+        # create an empty message from the message raw data.
+        msg = eccodes_cffi.GribMessage(gfile, offset, read_data=load_payload)
         if not msg.is_valid():
             break
 
@@ -186,14 +205,44 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
         # store the values in a dict for later retrieval
         if not in_memory:
             msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
-                dask.array.from_delayed(dask.delayed(__get_one_message)(filename, offset, dimensions[variable_id], datatype[variable_id], encodings[variable_id]["_FillValue"]),
+                dask.array.from_delayed(dask.delayed(__get_one_message)
+                                                    (filename, offset, dimensions[variable_id], datatype[variable_id],
+                                                     encodings[variable_id]["_FillValue"]),
                                         shape=dimensions[variable_id],
                                         dtype=datatype[variable_id])
         else:
             # persist the data into memory
-            msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
-                                        dask.array.from_array(msg.get_values(dimensions[variable_id], datatype[variable_id], encodings[variable_id]["_FillValue"]),
-                                        chunks=dimensions[variable_id])
+            if client is None:
+                msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
+                    dask.array.from_array(msg.get_values(dimensions[variable_id], datatype[variable_id],
+                                          encodings[variable_id]["_FillValue"]),
+                                          chunks=dimensions[variable_id])
+            else:
+                if worker is not None:
+                    distributed.secede()
+                # if all workers are running on local host, load the data directly. There is no advantage of
+                # delegating the work to other workers.
+                if all_local:
+                    chunk = dask.array.from_array(msg.get_values(dimensions[variable_id], datatype[variable_id],
+                                              encodings[variable_id]["_FillValue"]),
+                                              chunks=dimensions[variable_id])
+                    chunk_uploaded = client.scatter(chunk)      # data is currently kept on local worker process.
+                    msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
+                        dask.array.from_delayed(
+                                            chunk_uploaded,
+                                            shape=dimensions[variable_id],
+                                            dtype=datatype[variable_id])
+                # we are running with workers distributed of multiple computers.
+                # Data reading is done distributed as well.
+                else:
+                    msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
+                        client.persist(dask.array.from_delayed(
+                                            dask.delayed(__get_one_message)(filename, offset, dimensions[variable_id], datatype[variable_id],
+                                                encodings[variable_id]["_FillValue"]),
+                                            shape=dimensions[variable_id],
+                                            dtype=datatype[variable_id]))
+                if worker is not None:
+                    distributed.rejoin()
 
     # close the input file again
     gfile.close()

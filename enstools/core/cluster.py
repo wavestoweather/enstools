@@ -64,3 +64,73 @@ def get_num_available_procs():
         return batchjob_object.ntasks
     else:
         return _get_num_available_procs()
+
+
+def get_client_and_worker():
+    """
+    This function can be used the get dask distributed client and worker objects.
+
+    Returns
+    -------
+    tuple :
+            (None, None): when called without dask cluster running
+            (client, None) when called on a non-worker process
+            (client, worker) when called on a worker process
+    """
+    try:
+        client = distributed.get_client()
+        logging.debug("get_client_and_worker: client object found!")
+    except ValueError:
+        client = None
+        logging.debug("get_client_and_worker: not running in a dask cluster!")
+    if client is not None:
+        try:
+            worker = distributed.get_worker()
+            logging.debug("get_client_and_worker: worker object found!")
+        except ValueError:
+            worker = None
+            logging.debug("get_client_and_worker: not running inside of a worker process!")
+    else:
+        worker = None
+    return client, worker
+
+
+def all_workers_are_local(client):
+    """
+    Use the client the get information about the workers.
+
+    Returns
+    -------
+    bool :
+            True is all workers are running on local host
+    """
+    workers = list(client.scheduler_info()['workers'])
+    for worker in workers:
+        if not worker.startswith("tcp://127.0.0.1:"):
+            return False
+    return True
+
+
+class RoundRobinWorkerIterator():
+    def __init__(self, client):
+        """
+        an iterator that iterates over and over over all workers
+
+        Parameters
+        ----------
+        client : distributed.client
+                the client object of which the worker should be utilised.
+        """
+        workers = list(client.scheduler_info()['workers'])
+        self.workers = list(map(lambda x: tuple(x.replace("tcp://", "").rsplit(":", 1)), workers))
+        self.index = 0
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        next = self.workers[self.index]  # type: tuple
+        self.index += 1
+        if self.index == len(self.workers):
+            self.index = 0
+        return next
