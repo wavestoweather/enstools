@@ -253,7 +253,7 @@ class LocalJob(BatchJob):
                 # close the client and the cluster itself
                 self.client.close()
                 self.client = None
-                workers = self.cluster.workers.copy()
+                workers = list(self.cluster.workers)
                 for one_worker in workers:
                     self.cluster.stop_worker(one_worker)
                 self.cluster.close()
