@@ -33,6 +33,7 @@ class BatchJob():
         self.child_processes = []
         self.ip_address = socket.gethostbyname(socket.gethostname())
         self.client = None
+        self.cluster = None
         self.local_dir = local_dir
         self.lock = threading.Lock()
         atexit.register(self.cleanup)
@@ -227,13 +228,14 @@ class LocalJob(BatchJob):
 
         # create the cluster by starting the client
         self.scheduler_port = get_first_free_port(self.ip_address, 8786)
-        self.client = distributed.Client(n_workers=self.ntasks,
+        self.cluster = distributed.LocalCluster(n_workers=self.ntasks,
                                          local_dir=self.local_dir,
                                          scheduler_port=self.scheduler_port,
                                          ip=self.ip_address,
                                          silence_logs=logging.WARN,
                                          threads_per_worker=1,
                                          memory_limit=mem_per_worker)
+        self.client = distributed.Client(self.cluster)
         logging.debug("client and cluster started: %s" % str(self.client))
 
     def cleanup(self):
@@ -241,9 +243,20 @@ class LocalJob(BatchJob):
         try:
             # close the cluster and the connection to the cluster
             if self.client is not None:
+                # if there is still something running on the cluster, cancel it
+                data_refs = self.client.has_what()
+                for one_worker, keys in six.iteritems(data_refs):
+                    for key in keys:
+                        f = distributed.Future(key, client=self.client)
+                        self.client.cancel(f)
+
                 # close the client and the cluster itself
                 self.client.close()
                 self.client = None
+                workers = self.cluster.workers.copy()
+                for one_worker in workers:
+                    self.cluster.stop_worker(one_worker)
+                self.cluster.close()
 
             # remove the temporal folder on the local host
             if self.local_dir is not None and os.path.exists(self.local_dir):
