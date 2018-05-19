@@ -7,6 +7,7 @@ import xarray
 import struct
 import threading
 import platform
+import logging
 
 # initialize the interface to the C-Library
 ffi = cffi.FFI()
@@ -43,7 +44,11 @@ elif platform.system() == "Windows":
     __libext = "dll"
 else:
     raise OSError("Unknown platform: %s" % platform.system())
-_eccodes = ffi.dlopen("libeccodes.%s" % __libext)
+try:
+    _eccodes = ffi.dlopen("libeccodes.%s" % __libext)
+except OSError:
+    logging.warning("eccodes c-library not found, grib file support not available!")
+
 
 # Constants for 'missing'
 CODES_MISSING_DOUBLE = -1e+100
