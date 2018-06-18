@@ -70,7 +70,7 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
     result = np.full_like(pr, fill_value=fill_value)
 
     # perform the actual calculation
-    ind = np.where(pr_filtered > th / 3600.0)
+    ind = np.where(pr > th / 3600.0)
     result[ind] = 1.91281e-06 * cape_filtered[ind] / pr_filtered[ind]
     result = np.ma.masked_equal(result, fill_value)
 
