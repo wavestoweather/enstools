@@ -37,10 +37,11 @@ class UnitRegistry(pint.UnitRegistry):
         return super(UnitRegistry, self).__call__(re.sub("([a-zA-Z]+)(-[0-9]+)", "\g<1>**\g<2>", args[0]))
 
 
-# test of cache
-from dask.cache import Cache
-cache = Cache(2e9)
-cache.register()
+# do not use the cache with dask 0.18.0: https://github.com/dask/dask/pull/3632
+if dask.__version__ != "0.18.0":
+    from dask.cache import Cache
+    cache = Cache(2e9)
+    cache.register()
 
 # all units from pint
 ureg = UnitRegistry()
