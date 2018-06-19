@@ -2,6 +2,7 @@ import logging
 from collections import OrderedDict
 import xarray
 import dask
+import distributed
 import six
 import os
 import re
@@ -10,6 +11,7 @@ from multipledispatch import dispatch
 import glob
 from enstools.misc import has_ensemble_dim, add_ensemble_dim, is_additional_coordinate_variable, first_element, \
     has_dask_arrays
+from enstools.core import get_client_and_worker
 from .dataset import drop_unused
 from .file_type import get_file_type
 try:
@@ -44,7 +46,12 @@ def read(filename, constant=None, **kwargs):
     if len(files) > 1 or constant is not None:
         return read(files, constant=constant, **kwargs)
     else:
-        return __open_dataset(filename, **kwargs)
+        # are we inside of a worker and is a distributed client available?
+        client, worker = get_client_and_worker()
+        # do we have a client, but we are not running inside of a worker?
+        if client is not None and worker is None:
+            return dask.compute(dask.delayed(read)(filename, **kwargs))[0]
+        return __open_dataset(filename, client, worker, **kwargs)
 
 
 @dispatch((list, tuple))
@@ -113,11 +120,11 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
 
     # read all the files in parallel
     # FIXME: issue #6: repairing coordinates inside of __open_dataset is causing an error in python3
-    if six.PY3:
-        get = dask.get
-    else:
-        get = dask.multiprocessing.get
-    datasets = list(dask.compute(*datasets, traverse=False, get=get))
+    #if six.PY3:
+    #    get = dask.get
+    #else:
+    #    get = dask.multiprocessing.get
+    datasets = dask.compute(*datasets, traverse=False)
 
     # are there ensemble members in different folders?
     if members_by_folder and len(parent_folders) > 1:
@@ -376,7 +383,7 @@ def __merge_datasets(datasets):
     return result
 
 
-def __open_dataset(filename, **kwargs):
+def __open_dataset(filename, client, worker, **kwargs):
     """
     read one input file. the type is automatically determined.
 
@@ -384,6 +391,12 @@ def __open_dataset(filename, **kwargs):
     ----------
     filename : str
             path of the file
+
+    client: dask.distributed.Client
+            client object in distributed computation
+
+    worker: dask.distributed.Worker
+            worker object when running inside of a dask cluster
 
     **kwargs:
             additional keyword arguments for the underlying read functions
@@ -398,16 +411,30 @@ def __open_dataset(filename, **kwargs):
     if file_type is None:
         raise ValueError("unable to guess the type of the input file '%s'" % filename)
 
+    # read the data
     if file_type in ["NC", "HDF"]:
-        if kwargs.get("in_memory", False):
+        if kwargs.get("in_memory", False) and client is None:
             result0 = xarray.open_dataset(filename)
             result = result0.compute().chunk()
             result0.close()
             result.close()
         else:
             result = xarray.open_dataset(filename, chunks={})
+            if client is not None:
+                if worker is not None:
+                    logging.debug("running on worker: %s" % worker.address)
+                    distributed.secede()
+                    result = result.persist()
+                    distributed.rejoin()
+                else:
+                    result = result.persist()
     elif file_type == "GRIB":
-        result = read_grib_file(filename, debug=kwargs.get("debug", False), in_memory=kwargs.get("in_memory", False), leadtime_from_filename=kwargs.get("leadtime_from_filename", False))
+        result = read_grib_file(filename,
+                                debug=kwargs.get("debug", False),
+                                in_memory=kwargs.get("in_memory", False),
+                                leadtime_from_filename=kwargs.get("leadtime_from_filename", False),
+                                client=client,
+                                worker=worker)
     else:
         raise ValueError("unknown file type '%s' for file '%s'" % (file_type, filename))
 

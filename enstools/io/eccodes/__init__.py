@@ -3,27 +3,25 @@ preliminary minimal support for grib files. This module will be replaced as soon
 support is available.
 """
 import logging
-
-import six
-
 try:
-    import eccodes
-except ImportError:
-    logging.warning("eccodes python interface not found, grib file support not available!")
+    from . import eccodes_cffi
+except OSError:
+    logging.warning("eccodes c-library not found, grib file support not available!")
     pass
 from collections import OrderedDict
 import os
+import io
 import re
 import xarray
 import dask.array
 import numpy
 from datetime import datetime, timedelta
 import logging
-from .metadata import GribMessageMetadata
-from .index import GribIndexHelper, get_lock
+import distributed
+from enstools.core import all_workers_are_local
 
 
-def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False):
+def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False, client=None, worker=None):
     """
     Read the contents of a grib1 or grib2 file
 
@@ -42,13 +40,20 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
             COSMO-GRIB1-Files do not contain exact times. If this argument is set, then the timestamp is calculated
             from the init time and the lead time from the file name.
 
+    client : distributed.client
+            dask-distributed Client object used for persisting data into cluster memory
+
+    worker : distributed.worker
+            dask-distributed Worker object. This is supposed to be not None when the routine is called inside of a
+            worker process.
+
     Returns
     -------
     xarray.Dataset
             a netcdf-like representation of the file-content
     """
-    if "eccodes" not in globals():
-        raise ImportError("eccodes python interface not found, grib file support not available!")
+    if "eccodes_cffi" not in globals():
+        raise ImportError("eccodes interface not found, grib file support not available!")
 
     # use always the absolute path, the relative path may change during the lifetime of the dataset
     filename = os.path.abspath(filename)
@@ -71,140 +76,178 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     # list of skipped grid types
     skipped_grids = set()
 
-    # create grib-index of the input file, only the name is used
-    index = GribIndexHelper(filename)
+    # The full message payload is only read if we want data in memory. In a dask cluster,
+    # workers take over the data loading. Exception: if all workers are local, load the data directly.
+    load_payload = in_memory and client is None
+    if client is not None:
+        all_local = all_workers_are_local(client)
+    else:
+        all_local = False
+    if in_memory and client is not None and all_local:
+        load_payload = True
 
-    # loop to select all indexed messages
-    for prod in __product(*index.index_vals):
-        index_selection_keys = OrderedDict()
-        for i in range(len(index.index_keys)):
-            eccodes.codes_index_select(index.iid, index.index_keys[i], prod[i])
-            index_selection_keys[index.index_keys[i]] = prod[i]
+    # loop to select all messages
+    logging.debug("start reading all grib messages from %s ..." % filename)
+    gfile = io.open(filename, "rb")
+    while True:
+        # read the content of the next grib message from the input file.
+        offset = gfile.tell()
 
-        # loop over all messages with key and values from index
-        imsg = -1  # counter for the message
-        while True:
-            # get a handle to the next message, leave the loop, if this was the last massage
-            msg = GribMessageMetadata(index.iid)
-            if not msg.isvalid():
+        # create an empty message from the message raw data.
+        msg = eccodes_cffi.GribMessage(gfile, offset, read_data=load_payload)
+        if not msg.is_valid():
+            break
+
+        # skip messages on unsupported grids
+        if msg["gridType"] not in ["sh", "regular_ll", "rotated_ll", "reduced_gg", "unstructured_grid"]:
+            if msg["gridDefinitionDescription"] not in skipped_grids:
+                skipped_grids.add(msg["gridDefinitionDescription"])
+                logging.warning("skipping grib message due to unsupported grid: %s" % msg["gridDefinitionDescription"])
+            continue
+
+        # record the name
+        variable_id = (msg.get_name(prefer_cf=False), msg["typeOfLevel"])
+        if variable_id not in variables:
+            variables.add(variable_id)
+
+        # make a list of all levels
+        if variable_id not in levels:
+            levels[variable_id] = [msg["level"]]
+            level_values[variable_id] = {}
+        else:
+            if msg["level"] not in levels[variable_id]:
+                levels[variable_id].append(msg["level"])
+        if msg["level"] not in level_values[variable_id]:
+            level_values[variable_id][msg["level"]] = msg.get_level()
+
+        # record the horizontal dimensions
+        if variable_id not in dimensions:
+            dimensions[variable_id], dimension_names[variable_id] = msg.get_dimension(dimensions, dimension_names)
+
+        # record the valid time stamp
+        if leadtime_from_filename:
+            leadtime = re.search("lfff(\d\d)(\d\d)(\d\d)(\d\d)", os.path.basename(filename))
+            if leadtime is None:
+                raise IOError("unable to read leadtime from filename: %s", filename)
+            initDate = "%08d%04d" % (msg["dataDate"], int(msg["dataTime"]))
+            if initDate.startswith("0000"):
+                initDate = "2" + initDate[1:]
+            time_stamp = datetime.strptime(initDate, "%Y%m%d%H%M")
+            time_stamp += timedelta(days=int(leadtime.group(1)), hours=int(leadtime.group(2)), minutes=int(leadtime.group(3)), seconds=int(leadtime.group(4)))
+        else:
+            validityDate = "%08d%04d" % (msg["validityDate"], int(msg["validityTime"]))
+            if validityDate.startswith("0000"):
+                validityDate = "2" + validityDate[1:]
+            time_stamp = datetime.strptime(validityDate, "%Y%m%d%H%M")
+        if time_stamp not in times:
+            times.add(time_stamp)
+
+        # horizontal coordinates
+        if "lon" not in coordinates:
+            coord_lon, coord_lat = msg.get_coordinates(dimension_names[variable_id])
+            if coord_lon is not None and coord_lat is not None:
+                coordinates["lon"], coordinates["lat"] = coord_lon, coord_lat
+
+        # create a list of all ensemble members
+        for ensemble_member_key in ["localActualNumberOfEnsembleNumber", "perturbationNumber"]:
+            if ensemble_member_key in msg:
+                ensemble_member = msg[ensemble_member_key]
+                if msg[ensemble_member_key] not in ensemble_members:
+                    ensemble_members.add(msg[ensemble_member_key])
                 break
-            # count this message
-            imsg += 1
-
-            # print debug information
-            if imsg == 0 and debug:
-                msg.print_all_keys()
-
-            # skip messages on unsupported grids
-            if msg["gridType"] not in ["sh", "regular_ll", "rotated_ll", "reduced_gg", "unstructured_grid"]:
-                if msg["gridDefinitionDescription"] not in skipped_grids:
-                    skipped_grids.add(msg["gridDefinitionDescription"])
-                    logging.warning("skipping grib message due to unsupported grid: %s" % msg["gridDefinitionDescription"])
-                continue
-
-            # record the name
-            variable_id = (msg.get_name(prefer_cf=False), msg["typeOfLevel"])
-            if variable_id not in variables:
-                variables.add(variable_id)
-
-            # make a list of all levels
-            if variable_id not in levels:
-                levels[variable_id] = [msg["level"]]
-                level_values[variable_id] = {}
             else:
-                if msg["level"] not in levels[variable_id]:
-                    levels[variable_id].append(msg["level"])
-            if msg["level"] not in level_values[variable_id]:
-                level_values[variable_id][msg["level"]] = msg.get_level()
+                ensemble_member = -1
 
-            # record the horizontal dimensions
-            if variable_id not in dimensions:
-                dimensions[variable_id], dimension_names[variable_id] = msg.get_dimension(dimensions, dimension_names)
-
-            # record the valid time stamp
-            if leadtime_from_filename:
-                leadtime = re.search("lfff(\d\d)(\d\d)(\d\d)(\d\d)", os.path.basename(filename))
-                if leadtime is None:
-                    raise IOError("unable to read leadtime from filename: %s", filename)
-                initDate = "%08d%04d" % (msg["dataDate"], int(msg["dataTime"]))
-                if initDate.startswith("0000"):
-                    initDate = "2" + initDate[1:]
-                time_stamp = datetime.strptime(initDate, "%Y%m%d%H%M")
-                time_stamp += timedelta(days=int(leadtime.group(1)), hours=int(leadtime.group(2)), minutes=int(leadtime.group(3)), seconds=int(leadtime.group(4)))
+        # select a datatype based on the number of bits per value in the grib message
+        if variable_id not in datatype:
+            if msg["bitsPerValue"] > 32:
+                datatype[variable_id] = numpy.float64
             else:
-                validityDate = "%08d%04d" % (msg["validityDate"], int(msg["validityTime"]))
-                if validityDate.startswith("0000"):
-                    validityDate = "2" + validityDate[1:]
-                time_stamp = datetime.strptime(validityDate, "%Y%m%d%H%M")
-            if time_stamp not in times:
-                times.add(time_stamp)
+                datatype[variable_id] = numpy.float32
 
-            # horizontal coordinates
-            if "lon" not in coordinates:
-                coord_lon, coord_lat = msg.get_coordinates(dimension_names[variable_id])
-                if coord_lon is not None and coord_lat is not None:
-                    coordinates["lon"], coordinates["lat"] = coord_lon, coord_lat
+        # collect attributes of this variables
+        if variable_id not in attributes:
+            attrs = OrderedDict()
+            attrs["units"] = msg["parameterUnits"]
+            attrs["long_name"] = msg["parameterName"]
+            # add alternative names
+            if "cfName" in msg and msg["cfName"] != "unknown":
+                attrs["standard_name"] = msg["cfName"]
+            if "cfVarName" in msg and msg["cfVarName"] != "unknown":
+                attrs["cf_short_name"] = msg["cfVarName"]
+            if "shortName" in msg and msg["shortName"] != "unknown":
+                attrs["short_name"] = msg["shortName"]
 
-            # create a list of all ensemble members
-            for ensemble_member_key in ["localActualNumberOfEnsembleNumber", "perturbationNumber"]:
-                if ensemble_member_key in msg:
-                    ensemble_member = msg[ensemble_member_key]
-                    if msg[ensemble_member_key] not in ensemble_members:
-                        ensemble_members.add(msg[ensemble_member_key])
-                    break
-                else:
-                    ensemble_member = -1
+            attrs["grid_type"] = msg["gridType"]
+            # information about the rotated pole?
+            if msg["gridType"] == "rotated_ll":
+                rotated_pole[variable_id] = msg.get_rotated_ll_info(dimension_names[variable_id])
+                attrs["grid_mapping"] = rotated_pole[variable_id][0]
+            elif msg["gridType"] in ["reduced_gg", "unstructured_grid"]:
+                attrs["coordinates"] = "lon lat"
 
-            # select a datatype based on the number of bits per value in the grib message
-            if variable_id not in datatype:
-                if msg["bitsPerValue"] > 32:
-                    datatype[variable_id] = numpy.float64
-                else:
-                    datatype[variable_id] = numpy.float32
+            # grib edition specific attributes
+            if msg["editionNumber"] == 1:
+                attrs["code"] = msg["indicatorOfParameter"]
+                attrs["table"] = msg["table2Version"]
+            elif msg["editionNumber"] == 2:
+                attrs["discipline"] = msg["discipline"]
+                attrs["parameterCategory"] = msg["parameterCategory"]
+                attrs["parameterNumber"] = msg["parameterNumber"]
 
-            # collect attributes of this variables
-            if variable_id not in attributes:
-                attrs = OrderedDict()
-                attrs["units"] = msg["parameterUnits"]
-                attrs["long_name"] = msg["parameterName"]
-                # add alternative names
-                if "cfName" in msg and msg["cfName"] != "unknown":
-                    attrs["standard_name"] = msg["cfName"]
-                if "cfVarName" in msg and msg["cfVarName"] != "unknown":
-                    attrs["cf_short_name"] = msg["cfVarName"]
-                if "shortName" in msg and msg["shortName"] != "unknown":
-                    attrs["short_name"] = msg["shortName"]
+            # store attributes in dictionary for all variables
+            attributes[variable_id] = attrs
+            # values used for encoding during storage
+            encoding = OrderedDict()
+            encoding["_FillValue"] = datatype[variable_id](msg["missingValue"])
+            encodings[variable_id] = encoding
 
-                attrs["grid_type"] = msg["gridType"]
-                # information about the rotated pole?
-                if msg["gridType"] == "rotated_ll":
-                    rotated_pole[variable_id] = msg.get_rotated_ll_info(dimension_names[variable_id])
-                    attrs["grid_mapping"] = rotated_pole[variable_id][0]
-                elif msg["gridType"] in ["reduced_gg", "unstructured_grid"]:
-                    attrs["coordinates"] = "lon lat"
-                attributes[variable_id] = attrs
-                # values used for encoding during storage
-                encoding = OrderedDict()
-                encoding["_FillValue"] = datatype[variable_id](msg["missingValue"])
-                encodings[variable_id] = encoding
-
-            # store the values in a dict for later retrieval
-            if not in_memory:
+        # store the values in a dict for later retrieval
+        if not in_memory:
+            msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
+                dask.array.from_delayed(dask.delayed(__get_one_message)
+                                                    (filename, offset, dimensions[variable_id], datatype[variable_id],
+                                                     encodings[variable_id]["_FillValue"]),
+                                        shape=dimensions[variable_id],
+                                        dtype=datatype[variable_id])
+        else:
+            # persist the data into memory
+            if client is None:
                 msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
-                    dask.array.from_delayed(dask.delayed(__get_one_message)(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], encodings[variable_id]["_FillValue"], imsg),
+                    dask.array.from_array(msg.get_values(dimensions[variable_id], datatype[variable_id],
+                                          encodings[variable_id]["_FillValue"]),
+                                          chunks=dimensions[variable_id])
+            else:
+                if worker is not None:
+                    distributed.secede()
+                # if all workers are running on local host, load the data directly. There is no advantage of
+                # delegating the work to other workers.
+                if all_local:
+                    chunk = dask.array.from_array(msg.get_values(dimensions[variable_id], datatype[variable_id],
+                                              encodings[variable_id]["_FillValue"]),
+                                              chunks=dimensions[variable_id])
+                    chunk_uploaded = client.scatter(chunk)      # data is currently kept on local worker process.
+                    msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
+                        dask.array.from_delayed(
+                                            chunk_uploaded,
                                             shape=dimensions[variable_id],
                                             dtype=datatype[variable_id])
-            else:
-                msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
-                    dask.array.from_array(__get_one_message(filename, index_selection_keys, dimensions[variable_id], datatype[variable_id], encodings[variable_id]["_FillValue"], imsg),
-                                          chunks=dimensions[variable_id])
+                # we are running with workers distributed of multiple computers.
+                # Data reading is done distributed as well.
+                else:
+                    msg_by_var_level_ens[(variable_id, msg["level"], ensemble_member, time_stamp)] = \
+                        client.persist(dask.array.from_delayed(
+                                            dask.delayed(__get_one_message)(filename, offset, dimensions[variable_id], datatype[variable_id],
+                                                encodings[variable_id]["_FillValue"]),
+                                            shape=dimensions[variable_id],
+                                            dtype=datatype[variable_id]))
+                if worker is not None:
+                    distributed.rejoin()
 
-            # free the memory used by this message
-            msg.release()
+    # close the input file again
+    gfile.close()
 
-    # release the grib index if no longer used
-    if in_memory:
-        index.release()
+    logging.debug("finish reading all grib messages from %s, start construction of arrays..." % filename)
 
     # create the coordinate definition for the dataset
     if len(ensemble_members) > 0:
@@ -369,6 +412,7 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     xarray_variables_sorted = OrderedDict(sorted(xarray_variables.items(), key=lambda i: i[0].lower()))
 
     # create the dataset object
+    logging.debug("creating xarray dataset for %s ..." % filename)
     dataset = xarray.Dataset(xarray_variables_sorted)
     if "lon" in dataset:
         dataset["lon"].attrs["long_name"] = "longitude"
@@ -386,12 +430,12 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
         coordinate_name = one_bounds.replace("_bnds", "")
         if coordinate_name in dataset:
             dataset[coordinate_name].attrs["bounds"] = one_bounds
-    if debug:
-        print("finished reading %s" % filename)
+    logging.debug("finished reading %s" % filename)
+
     return dataset
 
 
-def __get_one_message(filename, index_selection_keys, shape, dtype, missing, imsg_selected):
+def __get_one_message(filename, offset, shape, dtype, missing):
     """
     get the values of the message at position *imsg* from a grib file
 
@@ -404,51 +448,10 @@ def __get_one_message(filename, index_selection_keys, shape, dtype, missing, ims
     -------
     numpy.ndarray
     """
-    with get_lock():
-        # create grib-index of the input file, only the name is used
-        index = GribIndexHelper(filename)
+    # open the input file, seek the message and read it
+    with io.open(filename, "rb") as gfile:
+        # read and decode the message
+        msg = eccodes_cffi.GribMessage(gfile, offset, read_data=True)
 
-        # select messages from the index based on the index_selection_keys
-        for one_key in index_selection_keys.keys():
-            eccodes.codes_index_select(index.iid, one_key, index_selection_keys[one_key])
-
-        # loop over all messages with key and values from index
-        imsg = -1  # counter for the message
-        values = None
-        while True:
-            # get a handle to the next message, leave the loop, if this was the last massage
-            gid = eccodes.codes_new_from_index(index.iid)
-            if gid is None:
-                break
-            # count this message
-            imsg += 1
-            if imsg == imsg_selected:
-                # read the values from the message
-                values = eccodes.codes_get_array(gid, "values").reshape(shape)
-                if dtype != numpy.float64:
-                    values = numpy.array(values, dtype=dtype)
-                # close the message
-                eccodes.codes_release(gid)
-                break
-            else:
-                # close the message
-                eccodes.codes_release(gid)
-        if values is None:
-            raise IOError("unable to load grib message %d from %d for index keys: %s" % (imsg_selected, imsg, index_selection_keys))
-
-        # replace fill values with nan
-        values = numpy.where(values == missing, numpy.nan, values)
-        return values
-
-
-def __product(*args, **kwds):
-    # __product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
-    # __product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
-    pools = map(tuple, args) * kwds.get('repeat', 1)
-    result = [[]]
-    for pool in pools:
-        result = [x + [y] for x in result for y in pool]
-    for prod in result:
-        yield tuple(prod)
-
-
+        # decode the actual values
+        return msg.get_values(shape, dtype, missing)

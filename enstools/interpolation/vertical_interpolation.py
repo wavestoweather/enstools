@@ -34,7 +34,7 @@ class model2pressure:
         # find the vertical dimension of the input array
         if vertical_dim is None:
             if isinstance(src_p, xarray.DataArray):
-                vertical_dim_names = ["pres", "p", "lev", "level", "isobaric", "layer", "hybrid"]
+                vertical_dim_names = ["pres", "p", "lev", "level", "isobaric", "layer", "hybrid", "height", "height_2"]
                 for dimi, dim in enumerate(src_p.dims):
                     for valid_name in vertical_dim_names:
                         if valid_name in dim.lower():

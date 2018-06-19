@@ -46,6 +46,7 @@ setup(name="enstools",
       requires=["numpy",
                 "xarray",
                 "dask",
+                "distributed",
                 "cloudpickle",
                 "numba",
                 "toolz",
@@ -55,5 +56,6 @@ setup(name="enstools",
                 "cartopy",
                 "decorator",
                 "multipledispatch",
-                "cachey"]
+                "cachey",
+                "cffi"]
       )

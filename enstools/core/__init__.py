@@ -3,7 +3,6 @@ Core functionality used by other components of the ensemble tools
 """
 import six
 import sys
-import os
 import re
 import logging
 import pint
@@ -12,15 +11,13 @@ import xarray
 import numpy
 import dask.array
 import dask.multiprocessing
+import distributed
 import string
-import multiprocessing
-from multiprocessing.pool import ThreadPool
 from decorator import decorator
 from pint import DimensionalityError
-if six.PY2:
-    from commands import getstatusoutput
-else:
-    from subprocess import getstatusoutput
+from .cluster import init_cluster, get_num_available_procs, get_client_and_worker, all_workers_are_local, \
+    RoundRobinWorkerIterator
+from .os_support import getstatusoutput
 
 
 class UnitRegistry(pint.UnitRegistry):
@@ -83,7 +80,25 @@ def set_behavior(check_arguments_convert=None, check_arguments_strict=None, chec
     if log_level is not None:
         if log_level not in ["ERROR", "WARN", "DEBUG", "INFO"]:
             raise ValueError("unsupported log level: '%s'" % log_level)
-        logging.getLogger().setLevel(log_level)
+        __set_log_level(log_level)
+        # set the log level also on all workers
+        try:
+            client = distributed.get_client()
+            client.run(__set_log_level, log_level)
+        except:
+            pass
+
+
+def __set_log_level(log_level):
+    """
+    a function executable on all worker processes
+
+    Parameters
+    ----------
+    level : str
+            new log level
+    """
+    logging.getLogger().setLevel(log_level)
 
 
 def __replace_argument(args, index, new_arg):
@@ -409,35 +424,6 @@ def check_arguments(units={}, dims={}, shape={}):
         return return_value
 
     return check_arguments_decorator
-
-
-def get_num_available_procs():
-    """
-    Find the number of processors available for computations. The function will look for environment variables from
-    SLURM and openMP (in that order). If no environment variables are defined, the number of cpus will be returned.
-
-    Returns
-    -------
-    int
-            Number of processes available for parallel computations.
-    """
-    # running inside a slurm job?
-    SLURM_NTASKS = os.getenv("SLURM_NTASKS")
-    if SLURM_NTASKS is not None:
-        return int(SLURM_NTASKS)
-
-    # openmp number of threads?
-    OMP_NUM_THREADS = os.getenv("OMP_NUM_THREADS")
-    if OMP_NUM_THREADS is not None:
-        return int(OMP_NUM_THREADS)
-
-    # no hints from environment variables, the number of hardware cpus is returned
-    return multiprocessing.cpu_count()
-
-
-# default scheduler for dask
-dask.set_options(get=dask.multiprocessing.get)
-dask.set_options(pool=multiprocessing.Pool(get_num_available_procs()))
 
 
 def get_chunk_size_for_n_procs(shape, nproc):

@@ -173,11 +173,49 @@ def has_ensemble_dim(ds):
     -------
     bool
     """
+    return get_ensemble_dim(ds) is not None
+
+
+def get_ensemble_dim(ds):
+    """
+    get the name of the ensemble dimension from a dataset or array
+
+    Parameters
+    ----------
+    ds : xarray.Dataset or xarray.DataArray
+
+    Returns
+    -------
+    str or None :
+            if no ensemble dimension was found, None is returned.
+    """
     ens_names = ["ens", "ensemble", "member", "members"]
     for ens_name in ens_names:
         if ens_name in ds.dims:
-            return True
-    return False
+            logging.debug("get_ensemble_dim: found name '%s'" % ens_name)
+            return ens_name
+    return None
+
+
+def get_time_dim(ds):
+    """
+    get the name of the time dimension from a dataset or array
+
+    Parameters
+    ----------
+    ds : xarray.Dataset or xarray.DataArray
+
+    Returns
+    -------
+    str or None :
+            if no ensemble dimension was found, None is returned.
+    """
+    time_names = ["time", "Time", "times", "Times"]
+    for time_name in time_names:
+        if time_name in ds.dims:
+            logging.debug("get_time_dim: found name '%s'" % time_name)
+            return time_name
+    return None
 
 
 def has_dask_arrays(dataset):
