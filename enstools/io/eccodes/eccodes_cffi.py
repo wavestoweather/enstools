@@ -483,6 +483,22 @@ def _read_message_raw_data(infile, offset, read_data=False):
         section0 = infile.read(8)
         length_total = struct.unpack(">I", b'\x00' + section0[4:7])[0]
 
+        # check if the length is correct, the message is supposed to end with 7777
+        # this is a workaround, apparently, the length of grib1 messages is sometimes wrong.
+        infile.seek(offset + length_total - 4)
+        section5 = infile.read(4)
+        if section5 != b"7777":
+            # the maximal length of a grib1 message is 16MB. Read this amount of data and search for the end
+            infile.seek(offset)
+            maxdata = infile.read(16777216)
+            endpos = maxdata.find(b"7777")
+            if endpos == -1:
+                return None
+            else:
+                length_total = endpos + 4
+                read_data = True
+        infile.seek(offset + 8)
+
         # create an numpy array with the total size of the message
         bytes = np.zeros(length_total, dtype=np.uint8)
         bytes[0:8] = np.fromstring(section0, dtype=np.uint8)
