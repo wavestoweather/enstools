@@ -4,7 +4,7 @@ import tempfile
 import numpy
 import os
 import shutil
-import enstools
+import enstools.io
 
 # name of the test file
 test_dir = tempfile.mkdtemp()
