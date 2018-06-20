@@ -413,10 +413,10 @@ class GribMessage():
         length[0] = nelements
         if key_type == int:
             values = np.empty(nelements, dtype=np.int64)
-            err = _eccodes.codes_get_long_array(self.handle, key, ffi.from_buffer(values), length)
+            err = _eccodes.codes_get_long_array(self.handle, key, ffi.cast("long*", ffi.from_buffer(values)), length)
         elif key_type == float:
             values = np.empty(nelements, dtype=np.float64)
-            err = _eccodes.codes_get_double_array(self.handle, key, ffi.from_buffer(values), length)
+            err = _eccodes.codes_get_double_array(self.handle, key, ffi.cast("double*", ffi.from_buffer(values)), length)
         else:
             raise ValueError("string arrays are not yet supported!")
         if err != 0:
@@ -542,22 +542,31 @@ def _read_message_raw_data(infile, offset, read_data=False):
             infile.readinto(memoryview(bytes[16:]))
             return bytes
 
-        # read the first sections, but not the data
+        # read the first sections, but not the data.
+        # For some data representation it is neccessary to read a larger part of the data section.
+        data_representation = 0
+        data_section_read = 1024
         while True:
             # read the length of the section
-            infile.readinto(memoryview(bytes[pos:pos+4]))
+            infile.readinto(memoryview(bytes[pos:pos+5]))
             length_sec = struct.unpack(">I", bytes[pos:pos+4].tostring())[0]
+            section = bytes[pos+4]
 
-            # do not read if this is the final data section
+            # do not read completely if this is the final data section
             if pos + length_sec + 4 >= length_total:
-                # read the first bytes only
-                infile.readinto(memoryview(bytes[pos+4:pos+5]))
+                # read the first bytes only (max 1k). For second order packing we read half of the data section
+                if data_representation == 50002:
+                    data_section_read = length_sec // 2
+                infile.readinto(memoryview(bytes[pos+5:pos+5+min(data_section_read, length_sec)]))
                 infile.seek(offset + length_total - 4)
                 infile.readinto(memoryview(bytes[-4:]))
                 break
             else:
                 # read data of this section
-                infile.readinto(memoryview(bytes[pos+4:pos+length_sec]))
+                infile.readinto(memoryview(bytes[pos+5:pos+length_sec]))
+                # if this is section 5, get the data representation type
+                if section == 5:
+                    data_representation = struct.unpack(">H", bytes[pos+9:pos+11].tostring())[0]
                 pos = pos + length_sec
 
     return bytes

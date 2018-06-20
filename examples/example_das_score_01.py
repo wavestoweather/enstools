@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import enstools
+import enstools.scores
+import enstools.interpolation
 import numpy
 import matplotlib.pyplot as plt
 

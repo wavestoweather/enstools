@@ -281,7 +281,7 @@ def get_coordinates_from_xarray(variable, lon_name=None, lat_name=None, create_m
                 raise ValueError("the variable has more dimensions (%s) then the horizontal coordinates (%s). Please call this function with a slice of the variable!" % (", ".join(variable.dims), ", ".join(coord_dim_names)))
 
     # do we need a mesh grid?
-    if create_mesh and lon.ndim == 1 and variable.ndim == 2:
+    if create_mesh and lon.ndim == 1 and variable.ndim == 2 and lon_name != "rlon" and lat_name != "rlat":
         lon, lat = np.meshgrid(lon, lat)
     return lon, lat
 
@@ -448,6 +448,7 @@ def contour(variable, lon=None, lat=None, **kwargs):
     # FIXME: suppress a specific warning about MaskedArrays
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', lineno=6385)  # suppress a specific warning about MaskedArrays
+        warnings.filterwarnings('ignore', lineno=6442)  # suppress a specific warning about MaskedArrays
 
         if variable.ndim == 1 and lon.ndim == 1 and lat.ndim == 1:
             # calculate the triangulation
