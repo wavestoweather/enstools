@@ -543,21 +543,21 @@ def _read_message_raw_data(infile, offset, read_data=False):
             return bytes
 
         # read the first sections, but not the data.
-        # For some data representation it is neccessary to read a larger part of the data section.
+        # For standard binary data, we don't read the data section. For other formats we do to avoid decoding errors.
+        # TODO: replace any complex data representation with standard binary data to avoid reading!
         data_representation = 0
-        data_section_read = 1024
         while True:
-            # read the length of the section
+            # read the length of the section and the section number
             infile.readinto(memoryview(bytes[pos:pos+5]))
             length_sec = struct.unpack(">I", bytes[pos:pos+4].tostring())[0]
             section = bytes[pos+4]
 
             # do not read completely if this is the final data section
             if pos + length_sec + 4 >= length_total:
-                # read the first bytes only (max 1k). For second order packing we read half of the data section
-                if data_representation == 50002:
-                    data_section_read = length_sec // 2
-                infile.readinto(memoryview(bytes[pos+5:pos+5+min(data_section_read, length_sec)]))
+                # read the first bytes only (max 1k). For any complex packing, read the complete data section.
+                if data_representation != 0:
+                    infile.readinto(memoryview(bytes[pos+5:pos+length_sec]))
+                # read the final 7777
                 infile.seek(offset + length_total - 4)
                 infile.readinto(memoryview(bytes[-4:]))
                 break
