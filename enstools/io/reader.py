@@ -202,17 +202,17 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
                 if n_files < max_files:
                     incomplete_members.append(member)
 
-            # remove incomplete ensemble members
-            if len(incomplete_members) > 0:
-                incomplete_members.sort()
-                for member in incomplete_members:
-                    logging.warning("The ensemble member '%s' seems to be incomplete with only %d of %d files. This member will not be part of the merged dataset.", member, n_files_per_member[member], max_files)
-                new_datasets = []
-                for ids in range(len(datasets)):
-                    member = int(re.search(member_by_filename, os.path.basename(expanded_filenames[ids])).group(1))
-                    if member not in incomplete_members:
-                        new_datasets.append(datasets[ids])
-                datasets = new_datasets
+        # remove incomplete ensemble members
+        if len(incomplete_members) > 0:
+            incomplete_members.sort()
+            for member in incomplete_members:
+                logging.warning("The ensemble member '%s' seems to be incomplete with only %d of %d files. This member will not be part of the merged dataset.", member, n_files_per_member[member], max_files)
+            new_datasets = []
+            for ids in range(len(datasets)):
+                member = int(re.search(member_by_filename, os.path.basename(expanded_filenames[ids])).group(1))
+                if member not in incomplete_members:
+                    new_datasets.append(datasets[ids])
+            datasets = new_datasets
 
 
     # if dimensions have the same size but different names, then merge them by renaming
