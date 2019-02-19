@@ -367,7 +367,7 @@ def __merge_datasets(datasets):
     else:
         # try to merge the datasets
         try:
-            result = xarray.auto_combine(datasets)
+            result = xarray.auto_combine(list(datasets))
         except Exception as ex:
             logging.error("merging the following datasets automatically failed:")
             for one_ds in datasets:
