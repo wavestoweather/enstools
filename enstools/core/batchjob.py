@@ -49,12 +49,14 @@ class BatchJob():
 
         # 2nd step: wait until all workers are started and connected to the scheduler
         while len(self.client.scheduler_info()["workers"]) < self.ntasks:
+            logging.debug("waiting for workers... (%d/%d)" % (len(self.client.scheduler_info()["workers"]), self.ntasks))
             sleep(1)
 
         # 3rd step: make sure that all workers have the same PYTHONPATH
         def set_python_path(first_element):
             sys.path.insert(0, first_element)
         self.client.run(set_python_path, sys.path[0])
+        self.client.run_on_scheduler(set_python_path, sys.path[0])
 
     def start_dask_scheduler(self):
         """
@@ -63,7 +65,7 @@ class BatchJob():
         # get a free port for the new scheduler
         self.scheduler_port = get_first_free_port(self.ip_address, 8786)
         # TODO: check if successful!
-        args = [sys.executable, which("dask-scheduler"), "--port", "%d" % self.scheduler_port, "--host", self.ip_address]
+        args = [which(sys.executable), which("dask-scheduler"), "--port", "%d" % self.scheduler_port, "--host", self.ip_address]
         if self.local_dir is not None:
             args.insert(2, "--local-directory")
             args.insert(3, self.local_dir)
@@ -108,7 +110,7 @@ class BatchJob():
 
                 # wait for the workers to exit
                 for one_child in self.child_processes[1:]:
-                    for sec in range(5):
+                    for sec in range(15):
                         one_child.poll()
                         if one_child.returncode is not None:
                             break
@@ -172,13 +174,14 @@ class SlurmJob(BatchJob):
         """
         # calculate the available memory per worker
         mem_per_worker = (self.memory_per_node * self.nnodes) // self.ntasks
-        args = ["srun",
+        args = [which("srun"),
                 "--ntasks=%d" % self.ntasks,
                 sys.executable, which("dask-worker"),
                 "--nthreads", "1",
                 "--memory-limit", "%dM" % mem_per_worker,
                 "tcp://%s:%d" % (self.ip_address, self.scheduler_port)
                 ]
+        logging.debug(" ".join(args))
         if self.local_dir is not None:
             args.insert(4, "--local-directory")
             args.insert(5, self.local_dir)
@@ -187,7 +190,7 @@ class SlurmJob(BatchJob):
 
         # specify a cleanup command to execute after the workers finished
         if self.local_dir is not None:
-            p.run_on_exit(["srun", "--ntasks=%d" % self.nnodes, "--ntasks-per-node=1", "rm", "-rf", self.local_dir])
+            p.run_on_exit([which("srun"), "--ntasks=%d" % self.nnodes, "--ntasks-per-node=1", which("rm"), "-rf", self.local_dir])
 
 
 class LocalJob(BatchJob):

@@ -427,10 +427,12 @@ class GribMessage():
         """
         free up the memory
         """
-        if self.handle != ffi.NULL:
-            err = _eccodes.codes_handle_delete(self.handle)
-            if err != 0:
-                raise ValueError("unable to free memory of grib message!")
+        with read_msg_lock:
+            if self.handle != ffi.NULL:
+                err = _eccodes.codes_handle_delete(self.handle)
+                self.handle = ffi.NULL
+                if err != 0:
+                    raise ValueError("unable to free memory of grib message!")
 
 
 def _cstr(pstr):

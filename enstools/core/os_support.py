@@ -132,6 +132,9 @@ class ProcessObserver(Thread):
                 logging.debug(line)
             else:
                 print(line)
+        logging.debug("%s exited with exit code %d" % (self.args[0], self.p.returncode))
+        if self.p.returncode != 0:
+            logging.debug(self.p.stdout.read())
 
         # if there is an command specified to be executed at the end of the thread, then do it now
         if self.on_exit_args is not None:
