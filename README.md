@@ -16,3 +16,7 @@ or
 
     python3 setup.py install --user
 
+If you want to use the crps function you have to install it in R once manually:
+
+1.) open R
+2.) install.packages("scoringRules")
