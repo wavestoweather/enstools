@@ -40,6 +40,7 @@ def download(url, destination, uncompress=True):
 
     # download
     logging.info("downloading %s ..." % os.path.basename(destination))
+    logging.debug("from: %s" % url)
     fn, hd = urlretrieve(url, destination)
 
     # uncompress
