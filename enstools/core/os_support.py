@@ -3,11 +3,13 @@ some service functions for interaction with OS environments
 """
 import six
 import os
+import re
 import socket
 from contextlib import closing
 from threading import Thread
 from subprocess import Popen, PIPE, STDOUT
 import logging
+
 if six.PY2:
     from commands import getstatusoutput
 else:
@@ -36,6 +38,87 @@ def getenv(name):
     if value is None:
         raise KeyError("Environment Variable not found: %s" % name)
     return value
+
+
+def get_ip_address(interface=None):
+    """
+    Get an IP-Address to be used for dask communication. If an interface is given, the IP of this interface is used.
+    Otherwise the fastest interface will be used.
+
+    Parameters
+    ----------
+    interface : str
+            Name of the interface to be used.
+
+    Returns
+    -------
+    str:
+            IP-Address to be used for communication.
+    """
+    # use socket module to get the IP associated with the hostname
+    ip_hostname = socket.gethostbyname(socket.gethostname())
+
+    # get a list of all interfaces if none was specified. The list is stored in a dictionary which will transport
+    # all information about one interface
+    interfaces = {}
+    if interface is None:
+        sts, out = getstatusoutput("ip link show up")
+        if sts != 0:
+            raise OSError("unable to get list of interfaces: %s" % out)
+        # extract a list of all interfaces from the output
+        interface_lines = re.split("^\d+: ", out, flags=re.MULTILINE)
+        for line in interface_lines[1:]:
+            iface = line.split(":", 1)[0]
+            interfaces[iface] = {}
+    else:
+        interfaces[interface] = {}
+    logging.debug("get_ip_address: list of interfaces: %s" % ", ".join(interfaces.keys()))
+
+    # get the IPs for all interfaces
+    for one_interface in interfaces.keys():
+        sts, out = getstatusoutput("ip addr show %s" % one_interface)
+        if sts != 0:
+            raise OSError("unable to the ip address for interface %s" % one_interface)
+        addr_match = re.search("inet (\d+.\d+.\d+.\d+)", out)
+        if addr_match is None:
+            logging.debug("get_ip_address: no IP address found for interface %s" % one_interface)
+            interfaces[one_interface]["ip"] = None
+        else:
+            interfaces[one_interface]["ip"] = addr_match.group(1)
+        logging.debug("get_ip_address: IP for interface %s: %s" % (one_interface, interfaces[one_interface]["ip"]))
+
+    # find the fastest interface
+    fastest_speed = -9999
+    fastest_interfaces = None
+    logging.debug("get_ip_address: speed of interfaces:")
+    for one_interface in interfaces.keys():
+        try:
+            with open("/sys/class/net/%s/speed" % one_interface, "r") as f:
+                interfaces[one_interface]["speed"] = int(f.read())
+        except IOError:
+            interfaces[one_interface]["speed"] = 0
+        if interfaces[one_interface]["speed"] == fastest_speed:
+            fastest_interfaces.append(one_interface)
+        if interfaces[one_interface]["speed"] > fastest_speed:
+            fastest_speed = interfaces[one_interface]["speed"]
+            fastest_interfaces = [one_interface]
+        logging.debug("get_ip_address: interfaces %s: %d" % (one_interface, interfaces[one_interface]["speed"]))
+
+    # if there are more interfaces with the same speed, check if one has the IP associated with the hostname
+    fastest_interface = fastest_interfaces[0]
+    if len(fastest_interfaces) > 1:
+        logging.debug("get_ip_address: found %d interfaces with same speed:" % len(fastest_interfaces))
+        for iface in fastest_interfaces:
+            logging.debug("get_ip_address: %s, IP: %s" % (iface, interfaces[iface]["ip"]))
+            if interfaces[iface]["ip"] is not None and ip_hostname == interfaces[iface]["ip"]:
+                logging.debug("get_ip_address: %s is associated with the hostname, selecting this interface!" % (iface))
+                fastest_interface = iface
+                break
+
+    # log selection
+    logging.debug("get_ip_address: selected interface:  %s" % fastest_interface)
+    logging.debug("get_ip_address: selected IP-address: %s" % interfaces[fastest_interface]["ip"])
+    return interfaces[fastest_interface]["ip"]
 
 
 def get_first_free_port(host, start_port):

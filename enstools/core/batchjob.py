@@ -6,7 +6,7 @@ import os
 import sys
 from abc import ABCMeta, abstractmethod
 import six
-import subprocess
+import traceback
 import atexit
 import socket
 import distributed
@@ -16,7 +16,7 @@ import shutil
 import multiprocessing
 import threading
 import psutil
-from .os_support import get_first_free_port, which, getenv, ProcessObserver
+from .os_support import get_first_free_port, which, getenv, ProcessObserver, get_ip_address
 
 
 @six.add_metaclass(ABCMeta)
@@ -30,12 +30,12 @@ class BatchJob():
         """
         read the environment in initialize some variables.
         """
+        self.lock = threading.Lock()
         self.child_processes = []
-        self.ip_address = socket.gethostbyname(socket.gethostname())
         self.client = None
         self.cluster = None
         self.local_dir = local_dir
-        self.lock = threading.Lock()
+        self.ip_address = get_ip_address()
         atexit.register(self.cleanup)
 
     def start(self):
@@ -58,6 +58,29 @@ class BatchJob():
         self.client.run(set_python_path, sys.path[0])
         self.client.run_on_scheduler(set_python_path, sys.path[0])
 
+    def start_local(self):
+        """
+        start a local cluster. This can be used by different implementation as fallback
+        """
+        # TODO: the start procedure is not 100% reliable, change that!
+        #       Possibly related: https://github.com/dask/distributed/issues/1321
+
+        # set memory limit to 90% of the total system memory
+        mem_per_worker = int(self.memory_per_node * 0.9)
+        logging.debug("memory limit per worker: %db" % mem_per_worker)
+
+        # create the cluster by starting the client
+        self.scheduler_port = get_first_free_port(self.ip_address, 8786)
+        self.cluster = distributed.LocalCluster(n_workers=self.ntasks,
+                                         local_dir=self.local_dir,
+                                         scheduler_port=self.scheduler_port,
+                                         ip=self.ip_address,
+                                         silence_logs=logging.WARN,
+                                         threads_per_worker=1,
+                                         memory_limit=mem_per_worker)
+        self.client = distributed.Client(self.cluster)
+        logging.debug("client and cluster started: %s" % str(self.client))
+
     def start_dask_scheduler(self):
         """
         the scheduler is started as child of this process
@@ -75,7 +98,7 @@ class BatchJob():
     @abstractmethod
     def start_dask_worker(self):
         """
-        Start a worker for ever SLURM-Task
+        Start a worker for every SLURM-Task
         """
         pass
 
@@ -123,7 +146,7 @@ class BatchJob():
                 self.client.close()
                 self.client = None
         except:
-            raise
+            pass
         finally:
             try:
                 # terminate remaining processes (should only be the scheduler)
@@ -136,7 +159,7 @@ class BatchJob():
                     shutil.rmtree(self.local_dir)
                     self.local_dir = None
             except:
-                raise
+                pass
             finally:
                 self.lock.release()
 
@@ -157,6 +180,7 @@ class SlurmJob(BatchJob):
         """
         super(SlurmJob, self).__init__(local_dir)
         self.job_id = getenv("SLURM_JOBID")
+        self.step_id = os.getenv("SLURM_STEP_ID")
         self.ntasks = int(getenv("SLURM_NTASKS"))
         if ntasks is not None:
             if ntasks > self.ntasks:
@@ -164,9 +188,25 @@ class SlurmJob(BatchJob):
                 logging.warning("number of worker automatically reduced to %d" % self.ntasks)
             else:
                 self.ntasks = ntasks
-        self.nnodes = int(getenv("SLURM_NNODES"))
-        self.nodelist = getenv("SLURM_JOB_NODELIST")
-        self.memory_per_node = int(getenv("SLURM_MEM_PER_NODE"))    # unit: MB
+        # if we are already inside of a slurm step, we can not start more steps. In this case,
+        # do not use srun, but start a local cluster
+        if self.step_id is not None:
+            self.ip_address = "127.0.0.1"
+            self.nnodes = 1
+            self.nodelist = socket.gethostname()
+        else:
+            self.nnodes = int(getenv("SLURM_NNODES"))
+            self.nodelist = getenv("SLURM_JOB_NODELIST")
+        self.memory_per_node = int(getenv("SLURM_MEM_PER_NODE")) * 1048576    # unit: Byte
+
+    def start(self):
+        """
+        Start a cluster using srun, but only if we are not inside of a slurm step
+        """
+        if self.step_id is not None:
+            self.start_local()
+        else:
+            super(SlurmJob, self).start()
 
     def start_dask_worker(self):
         """
@@ -178,7 +218,7 @@ class SlurmJob(BatchJob):
                 "--ntasks=%d" % self.ntasks,
                 sys.executable, which("dask-worker"),
                 "--nthreads", "1",
-                "--memory-limit", "%dM" % mem_per_worker,
+                "--memory-limit", "%d" % mem_per_worker,
                 "tcp://%s:%d" % (self.ip_address, self.scheduler_port)
                 ]
         logging.debug(" ".join(args))
@@ -215,31 +255,9 @@ class LocalJob(BatchJob):
 
     def start(self):
         """
-        start a local cluster
-
-        Parameters
-        ----------
-        local_dir: str
-                absolute path to temporal folder
+        Start a local cluster
         """
-        # TODO: the start procedure is not 100% reliable, change that!
-        #       Possibly related: https://github.com/dask/distributed/issues/1321
-
-        # set memory limit to 90% of the total system memory
-        mem_per_worker = self.memory_per_node * 0.9
-        logging.debug("memory limit per worker: %db" % mem_per_worker)
-
-        # create the cluster by starting the client
-        self.scheduler_port = get_first_free_port(self.ip_address, 8786)
-        self.cluster = distributed.LocalCluster(n_workers=self.ntasks,
-                                         local_dir=self.local_dir,
-                                         scheduler_port=self.scheduler_port,
-                                         ip=self.ip_address,
-                                         silence_logs=logging.WARN,
-                                         threads_per_worker=1,
-                                         memory_limit=mem_per_worker)
-        self.client = distributed.Client(self.cluster)
-        logging.debug("client and cluster started: %s" % str(self.client))
+        self.start_local()
 
     def cleanup(self):
         self.lock.acquire()
