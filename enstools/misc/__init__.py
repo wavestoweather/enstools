@@ -198,6 +198,28 @@ def get_ensemble_dim(ds):
     return None
 
 
+def set_ensemble_member(ds, member):
+    """
+    set the number of the ensemble member. The Dataset is modified inplace.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset or xarray.DataArray
+            Array or Dataset with ensemble dimension and only one member
+    """
+    # get the name of the ensemble dimension
+    ens_dim = get_ensemble_dim(ds)
+
+    # if we dont have one, add one
+    if ens_dim is None:
+        add_ensemble_dim(ds, member)
+    else:
+        if ds.coords[ens_dim].size == 1:
+            ds.coords[ens_dim] = [member]
+        else:
+            logging.debug("set_ensemble_member: ds has more than one member. Doing nothing!")
+
+
 def get_time_dim(ds):
     """
     get the name of the time dimension from a dataset or array

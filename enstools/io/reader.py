@@ -10,7 +10,7 @@ import numpy as np
 from multipledispatch import dispatch
 import glob
 from enstools.misc import has_ensemble_dim, add_ensemble_dim, is_additional_coordinate_variable, first_element, \
-    has_dask_arrays
+    has_dask_arrays, set_ensemble_member
 from enstools.core import get_client_and_worker
 from .dataset import drop_unused
 from .file_type import get_file_type
@@ -107,6 +107,9 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     # loop over all input files and create delayed read objects
     expanded_filenames = []
     parent_folders = []
+    # do we want to create an ensemble dimension?
+    if member_by_filename is not None or members_by_folder is not None:
+        kwargs["create_ens_dim"] = True
     for filename in filenames:
         # is the filename a pattern?
         files = __expand_file_pattern(filename)
@@ -144,8 +147,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
                 n_files_per_folder[folder] = 1
 
             # create missing ensemble dimension
-            if not has_ensemble_dim(datasets[ids]):
-                add_ensemble_dim(datasets[ids], ens_member_by_folder[folder])
+            set_ensemble_member(datasets[ids], ens_member_by_folder[folder])
 
         # check the number of files per folder
         incomplete_folders = []
@@ -183,8 +185,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
             member = int(match.group(1))
 
             # create missing ensemble dimension
-            if not has_ensemble_dim(datasets[ids]):
-                add_ensemble_dim(datasets[ids], member)
+            set_ensemble_member(datasets[ids], member)
 
             # count the files per member and remove incomplete members
             if member in n_files_per_member:
@@ -213,7 +214,6 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
                 if member not in incomplete_members:
                     new_datasets.append(datasets[ids])
             datasets = new_datasets
-
 
     # if dimensions have the same size but different names, then merge them by renaming
     if merge_same_size_dim:
@@ -309,15 +309,18 @@ def __merge_datasets(datasets):
     for coord in all_coords:
         in_all = True
         ascending = True
+        order_checked = False
         for ds in datasets:
             if coord in ds.coords:
                 # multi-dim coords are not sortable
                 if ds.coords[coord].ndim > 1:
                     in_all = False
                     break
-                if ds.coords[coord].size > 1:
+                # the order is only checked once
+                if not order_checked and ds.coords[coord].size > 1:
                     if ds.coords[coord][0] > ds.coords[coord][1]:
                         ascending = False
+                    order_checked = True
             else:
                 in_all = False
                 break
@@ -446,6 +449,10 @@ def __open_dataset(filename, client, worker, **kwargs):
     # drop unused coords
     if kwargs.get("drop_unused", False):
         drop_unused(result, inplace=True)
+
+    # add an ensemble dimension if we want to create one by folder or filename
+    if kwargs.get("create_ens_dim", False):
+        add_ensemble_dim(result, -99)
     return result
 
 
