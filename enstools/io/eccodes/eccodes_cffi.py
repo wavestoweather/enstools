@@ -54,6 +54,10 @@ except OSError:
 CODES_MISSING_DOUBLE = -1e+100
 CODES_MISSING_LONG = 2147483647
 
+# list of staggered variables in U-direction
+# FIXME: this is COSMO-specific and related to issue #39
+staggered_u = ["u", "aumfl_s"]  #, "u_10m", "umfl_s"]
+staggered_v = ["v", "avmfl_s"]  #, "v_10m", "vmfl_s"]
 
 # allow only one read per time
 read_msg_lock = threading.Lock()
@@ -183,7 +187,14 @@ class GribMessage():
         """
         if self["gridType"] == "rotated_ll":
             shape = (self["Nj"], self["Ni"])
-            dim_names = ["rlat", "rlon"]
+            # the dimension names differ for staggered variables like u and v
+            var_name = self["shortName"].lower()
+            if var_name in staggered_u:
+                dim_names = ["rlat", "srlon"]
+            elif var_name in staggered_v:
+                dim_names = ["srlat", "rlon"]
+            else:
+                dim_names = ["rlat", "rlon"]
         elif self["gridType"] == "regular_ll":
             shape = (self["Nj"], self["Ni"])
             dim_names = ["lat", "lon"]
@@ -212,6 +223,10 @@ class GribMessage():
         """
         # are coordinates available?
         if "longitudes" not in self or "latitudes" not in self:
+            return None, None
+
+        # is it a staggered variable?
+        if "srlon" in dimension_names or "srlat" in dimension_names:
             return None, None
 
         if self["gridType"] == "rotated_ll":

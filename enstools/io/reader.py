@@ -324,6 +324,10 @@ def __merge_datasets(datasets):
         if in_all:
             coords_in_all_files[coord] = ascending
 
+    # sort the dataset by all shared coordinates
+    for coord, ascending in six.iteritems(coords_in_all_files):
+        datasets = sorted(datasets, key=lambda x: first_element(x.coords[coord]), reverse=not ascending)
+
     # find coords with different values in different files
     for coord in six.iterkeys(coords_in_all_files):
         # loop over all files
@@ -344,10 +348,6 @@ def __merge_datasets(datasets):
             for one_value in different_values:
                 new_datasets.append(__merge_datasets(datasets_with_one_coord_value[one_value]))
             datasets = new_datasets
-
-    # sort the dataset by all shared coordinates
-    for coord, ascending in six.iteritems(coords_in_all_files):
-        datasets = sorted(datasets, key=lambda x: first_element(x.coords[coord]))
 
     # are there datasets with ensemble_members attribute?
     ensemble_members_found = []

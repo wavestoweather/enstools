@@ -377,7 +377,10 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
         # time, ens, and horizontal coordinates
         var_coords = OrderedDict()
         for coord in coordinates:
-            if coord in var_dim_names or "n%s" % coord in var_dim_names or "r%s" % coord in var_dim_names:
+            coord_dims = coordinates[coord][0]
+            if not type(coord_dims) == list:
+                coord_dims = [coord_dims]
+            if all(one_dim in var_dim_names for one_dim in coord_dims):
                 var_coords[coord] = coordinates[coord]
 
         # vertical coordinate
@@ -398,10 +401,13 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
             xarray_variables["lat"] = coordinates["lat"]
 
         # is there a rotated pole for this variable?
-        if one_var in rotated_pole and rotated_pole[one_var][0] not in xarray_variables:
-            xarray_variables[rotated_pole[one_var][0]] = rotated_pole[one_var][1]
-            xarray_variables[var_dim_names[-2]] = rotated_pole[one_var][2]
-            xarray_variables[var_dim_names[-1]] = rotated_pole[one_var][3]
+        if one_var in rotated_pole:
+            if rotated_pole[one_var][0] not in xarray_variables:
+                xarray_variables[rotated_pole[one_var][0]] = rotated_pole[one_var][1]
+            if var_dim_names[-2] not in xarray_variables:
+                xarray_variables[var_dim_names[-2]] = rotated_pole[one_var][2]
+            if var_dim_names[-1] not in xarray_variables:
+                xarray_variables[var_dim_names[-1]] = rotated_pole[one_var][3]
 
     # add all bounds arrays to the dataset
     for one_bounds in level_bounds.keys():
