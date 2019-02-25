@@ -59,6 +59,44 @@ CODES_MISSING_LONG = 2147483647
 staggered_u = ["u", "aumfl_s"]  #, "u_10m", "umfl_s"]
 staggered_v = ["v", "avmfl_s"]  #, "v_10m", "vmfl_s"]
 
+# standard keys required by read_grib_file
+standard_keys = ['bitsPerValue',
+                 'cfName',
+                 'cfVarName',
+                 'dataDate',
+                 'dataTime',
+                 'discipline',
+                 'editionNumber',
+                 'gridDefinitionDescription',
+                 'gridType',
+                 'iDirectionIncrementInDegrees',
+                 'indicatorOfParameter',
+                 'jDirectionIncrementInDegrees',
+                 'latitudeOfFirstGridPointInDegrees',
+                 'latitudeOfLastGridPointInDegrees',
+                 'latitudeOfSouthernPoleInDegrees',
+                 'level',
+                 'localActualNumberOfEnsembleNumber',
+                 'longitudeOfFirstGridPointInDegrees',
+                 'longitudeOfLastGridPointInDegrees',
+                 'longitudeOfSouthernPoleInDegrees',
+                 'missingValue',
+                 'Ni',
+                 'Nj',
+                 'numberOfValues',
+                 'parameterCategory',
+                 'parameterName',
+                 'parameterNumber',
+                 'parameterUnits',
+                 'perturbationNumber',
+                 'scaledValueOfFirstFixedSurface',
+                 'scaledValueOfSecondFixedSurface',
+                 'shortName',
+                 'table2Version',
+                 'typeOfLevel',
+                 'validityDate',
+                 'validityTime']
+
 # allow only one read per time
 read_msg_lock = threading.Lock()
 
@@ -94,35 +132,65 @@ class GribMessage():
 
         # decode the message
         with read_msg_lock:
+            # read the message itself
             self.handle = _eccodes.codes_handle_new_from_message(ffi.NULL, ffi.from_buffer(self.buffer), len(self.buffer))
+
+            # pre-read common keys and don't care for errors
+            for one_key in standard_keys:
+                try:
+                    self.__getitem__(one_key, use_lock=False)
+                except:
+                    pass
+
+            # pre-read the values also if we read the data in memory
+            if read_data:
+                self.__getitem__("values", use_lock=False)
+
+        # was the reading successful?
         if self.handle == ffi.NULL:
             raise ValueError("unable to read grib message from buffer!")
 
-    def __getitem__(self, item):
+    def __getitem__(self, item, use_lock=True):
         if item in self.cache:
-            return self.cache[item]
+            result = self.cache[item]
+            if result is None:
+                raise KeyError("key '%s' not found in grib message!" % item)
+            return result
         else:
             try:
-                with read_msg_lock:
-                    ckey = _cstr(item)
-                    nelements = self.__codes_get_size(ckey)
-                    if nelements > 1:
-                        value = self.__codes_get_array(ckey, nelements)
-                    else:
-                        value = self.__codes_get(ckey)
-                    self.cache[item] = value
+                # lock if we do not yet have a lock from a calling function
+                if use_lock:
+                    read_msg_lock.acquire()
+
+                # read the key
+                ckey = _cstr(item)
+                nelements = self.__codes_get_size(ckey)
+                if nelements > 1:
+                    value = self.__codes_get_array(ckey, nelements)
+                else:
+                    value = self.__codes_get(ckey)
+                self.cache[item] = value
             except ValueError:
+                # store the error
+                self.cache[item] = None
                 # nothing found? Any error is interpreted as Key not found.
                 raise KeyError("key '%s' not found in grib message!" % item)
+            finally:
+                # unlock if locked
+                if use_lock:
+                    read_msg_lock.release()
             return value
 
     def __contains__(self, item):
+        # is the value already in cache?
         if item in self.cache:
+            if self.cache[item] is None:
+                return False
             return True
         else:
+            # The value is not cached, try to read it from the grib message
             try:
-                value = self.__getitem__(item)
-                self.cache[item] = value
+                self.__getitem__(item)
             except KeyError:
                 return False
             return True
@@ -223,10 +291,6 @@ class GribMessage():
         """
         # are coordinates available?
         if "longitudes" not in self or "latitudes" not in self:
-            return None, None
-
-        # is it a staggered variable?
-        if "srlon" in dimension_names or "srlat" in dimension_names:
             return None, None
 
         if self["gridType"] == "rotated_ll":

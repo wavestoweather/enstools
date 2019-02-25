@@ -142,11 +142,21 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
         if time_stamp not in times:
             times.add(time_stamp)
 
-        # horizontal coordinates
-        if "lon" not in coordinates:
+        # horizontal coordinates for unstaggered variables
+        if "lon" not in coordinates and not "srlon" in dimension_names[variable_id] and not "srlat" in dimension_names[variable_id]:
             coord_lon, coord_lat = msg.get_coordinates(dimension_names[variable_id])
             if coord_lon is not None and coord_lat is not None:
                 coordinates["lon"], coordinates["lat"] = coord_lon, coord_lat
+
+        # for staggered vartiable add slonu/v and slatu/v
+        if dimension_names[variable_id][0] == "rlat" and dimension_names[variable_id][1] == "srlon" and "slonu" not in coordinates:
+            coord_lon, coord_lat = msg.get_coordinates(dimension_names[variable_id])
+            if coord_lon is not None and coord_lat is not None:
+                coordinates["slonu"], coordinates["slatu"] = coord_lon, coord_lat
+        if dimension_names[variable_id][0] == "srlat" and dimension_names[variable_id][1] == "rlon" and "slonv" not in coordinates:
+            coord_lon, coord_lat = msg.get_coordinates(dimension_names[variable_id])
+            if coord_lon is not None and coord_lat is not None:
+                coordinates["slonv"], coordinates["slatv"] = coord_lon, coord_lat
 
         # create a list of all ensemble members
         for ensemble_member_key in ["localActualNumberOfEnsembleNumber", "perturbationNumber"]:
