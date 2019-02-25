@@ -257,9 +257,9 @@ class GribMessage():
             shape = (self["Nj"], self["Ni"])
             # the dimension names differ for staggered variables like u and v
             var_name = self["shortName"].lower()
-            if var_name in staggered_u:
+            if var_name in staggered_u and self["typeOfLevel"] not in ["heightAboveSea", "isobaricInhPa"]:
                 dim_names = ["rlat", "srlon"]
-            elif var_name in staggered_v:
+            elif var_name in staggered_v and self["typeOfLevel"] not in ["heightAboveSea", "isobaricInhPa"]:
                 dim_names = ["srlat", "rlon"]
             else:
                 dim_names = ["rlat", "rlon"]
