@@ -108,7 +108,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     expanded_filenames = []
     parent_folders = []
     # do we want to create an ensemble dimension?
-    if member_by_filename is not None or members_by_folder is not None:
+    if member_by_filename is not None or members_by_folder is True:
         kwargs["create_ens_dim"] = True
     for filename in filenames:
         # is the filename a pattern?
