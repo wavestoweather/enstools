@@ -1,5 +1,4 @@
-#!/usr/bin/env python2
-# this example is using python 2.7 as long as eccodes is not available for python 3.x
+#!/usr/bin/env python3
 import os
 import matplotlib.pyplot as plt
 from enstools.misc import download, generate_coordinates

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 from enstools.io import read
 from enstools.core import init_cluster, set_behavior
 from time import sleep

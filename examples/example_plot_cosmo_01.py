@@ -1,5 +1,4 @@
-#!/usr/bin/env python2
-# this example is using python 2.7 as long as eccodes is not available for python 3.x
+#!/usr/bin/env python3
 import os
 import enstools.io
 import enstools.plot

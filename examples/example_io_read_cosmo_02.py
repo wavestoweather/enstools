@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 from enstools.io import read, write
 
 if __name__ == "__main__":

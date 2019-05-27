@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 from enstools.io import read
 from enstools.core import init_cluster
 from enstools.post import convective_adjustment_time_scale
