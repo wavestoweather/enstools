@@ -3,6 +3,7 @@ import xarray
 from numpy.ma.core import default_fill_value
 from scipy import ndimage
 from enstools.core import check_arguments
+from enstools.misc import count_ge
 from enstools.core.parallelisation import apply_chunkwise
 
 
@@ -10,7 +11,7 @@ from enstools.core.parallelisation import apply_chunkwise
                         "cape": "J kg-1",
                         "return_value": "hour"},
                  shape={"pr": "cape"})
-def convective_adjustment_time_scale(pr, cape, th=1.0):
+def convective_adjustment_time_scale(pr, cape, th=1.0, fraction_above_th=0.0015):
     """
     Calculate the convective adjustment time scale from precipitation and CAPE as described in [1]_. A gaussian filter
     is applied to the input data if at least one dimension has more then 30 grid points.
@@ -24,9 +25,13 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
             The CAPE of mean surface layer parcel [J kg-1].
             For example, mean of start and end value of the period of the accumulation.
 
-    th:     scalar
+    th:     float
             threshold for the precipitation rate above which the calculation should be performed [kg m-2 h-1]. Grid
             points with smaller precipitation values will contain missing values. Default: 1
+
+    fraction_above_th: float
+            fraction of grid points that must exceed the threshold defined in `th`. Default: 0.0015 (e.g. 15 of 10.000
+            grid points).
 
     Returns
     -------
@@ -42,6 +47,12 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
     array([ nan,   1.])
     Dimensions without coordinates: dim_0
 
+    with not enough values above the defined threshold:
+    >>> np.round(convective_adjustment_time_scale(pr, cape, fraction_above_th=0.6).compute(), 4)                       # doctest:+ELLIPSIS
+    <xarray.DataArray 'tauc-...' (dim_0: 2)>
+    array([ nan,  nan])
+    Dimensions without coordinates: dim_0
+
     References
     ----------
     .. [1]  Keil, C., Heinlein, F. and Craig, G. C. (2014), The convective adjustment time-scale as indicator of
@@ -51,6 +62,16 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
     # TODO: tauc calculation is not chunkwise but something like layer wise
     @apply_chunkwise
     def tauc(pr, cape, th):
+        # create a result array filled with the default fill value for the data type of pr
+        fill_value = default_fill_value(pr)
+        result = np.full_like(pr, fill_value=fill_value)
+
+        # count values above threshold
+        n_above_th = count_ge(pr, th / 3600.0)
+        if n_above_th < pr.size * fraction_above_th:
+            result = np.ma.masked_equal(result, fill_value)
+            return result
+
         # Gaussian filtering
         sig = 10.  # Gaussian goes to zero 3*sig grid points from centre
         if max(pr.shape) > 3*sig:
@@ -59,10 +80,6 @@ def convective_adjustment_time_scale(pr, cape, th=1.0):
         else:
             cape_filtered = cape
             pr_filtered = pr
-
-        # create a result array filled with the default fill value for the data type of pr
-        fill_value = default_fill_value(pr)
-        result = np.full_like(pr, fill_value=fill_value)
 
         # perform the actual calculation
         ind = np.where(pr > th / 3600.0)

@@ -361,3 +361,37 @@ def first_element(array):
         return float(array[0])
     else:
         return float(array)
+
+
+def count_ge(array, th=0):
+    """
+    count the number of values above a given threshold (>=)
+    Parameters
+    ----------
+    array : xarray.DataArray and numpy.ndarray
+            an array with arbitrary number of dimensions
+
+    th : float
+            threshold to test the array for.
+
+    Returns
+    -------
+    int :
+            number of values greater then or equal the threshold.
+    """
+    if type(array) == xarray.DataArray:
+        return __count_ge(array.data, th)
+    else:
+        return __count_ge(array, th)
+
+
+@jit(nopython=True)
+def __count_ge(array, th):
+    """
+    numba implementation of count_ge
+    """
+    result = 0
+    for i in range(array.size):
+        if array.flat[i] >= th:
+            result += 1
+    return result
