@@ -48,6 +48,7 @@ def convective_adjustment_time_scale(pr, cape, th=1.0, fraction_above_th=0.0015)
     Dimensions without coordinates: dim_0
 
     with not enough values above the defined threshold:
+    
     >>> np.round(convective_adjustment_time_scale(pr, cape, fraction_above_th=0.6).compute(), 4)                       # doctest:+ELLIPSIS
     <xarray.DataArray 'tauc-...' (dim_0: 2)>
     array([ nan,  nan])

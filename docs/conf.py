@@ -341,7 +341,7 @@ class DispatcherDocumenter(autodoc.FunctionDocumenter):
 
     @classmethod
     def can_document_member(cls, member, membername, isattr, parent):
-        return isinstance(member, (multipledispatch.Dispatcher))
+        return isinstance(member, (autodoc.FunctionType, multipledispatch.Dispatcher))
 
     def get_doc(self, encoding=None, ignore=1):
         if not isinstance(self.object, multipledispatch.Dispatcher):
@@ -367,9 +367,6 @@ class DispatcherDocumenter(autodoc.FunctionDocumenter):
                     lines.extend([autodoc.prepare_docstring(docstring, ignore)])
                 elif isinstance(docstring, str):  # this will not trigger on Py3
                     lines.extend([autodoc.prepare_docstring(autodoc.force_decode(docstring, encoding), ignore)])
-        for one_lines in lines:
-            print("\n".join(one_lines))
-        self._new_docstrings = lines
         return lines
 
     def format_args(self):
@@ -395,7 +392,9 @@ class DispatcherDocumenter(autodoc.FunctionDocumenter):
         Returns
         -------
         """
-        return None
+        if not isinstance(self.object, multipledispatch.Dispatcher):
+            return super(DispatcherDocumenter, self).format_signature()
+        return ''
 
     @staticmethod
     def format_args_one_func(func):
