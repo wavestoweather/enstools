@@ -15,6 +15,8 @@
 import sys
 import re
 import os
+import random
+import string
 
 
 def get_version(short=False):
@@ -339,7 +341,7 @@ class DispatcherDocumenter(autodoc.FunctionDocumenter):
 
     @classmethod
     def can_document_member(cls, member, membername, isattr, parent):
-        return isinstance(member, (autodoc.FunctionType, autodoc.BuiltinFunctionType, multipledispatch.Dispatcher))
+        return isinstance(member, (multipledispatch.Dispatcher))
 
     def get_doc(self, encoding=None, ignore=1):
         if not isinstance(self.object, multipledispatch.Dispatcher):
@@ -365,6 +367,9 @@ class DispatcherDocumenter(autodoc.FunctionDocumenter):
                     lines.extend([autodoc.prepare_docstring(docstring, ignore)])
                 elif isinstance(docstring, str):  # this will not trigger on Py3
                     lines.extend([autodoc.prepare_docstring(autodoc.force_decode(docstring, encoding), ignore)])
+        for one_lines in lines:
+            print("\n".join(one_lines))
+        self._new_docstrings = lines
         return lines
 
     def format_args(self):
@@ -382,6 +387,15 @@ class DispatcherDocumenter(autodoc.FunctionDocumenter):
                 implementations.add(func)
                 arg_list.append(self.format_args_one_func(func))
         return " or ".join(arg_list)
+
+    def format_signature(self):
+        """
+        format the signatures of this multiple dispatcher function
+
+        Returns
+        -------
+        """
+        return None
 
     @staticmethod
     def format_args_one_func(func):
@@ -413,7 +427,9 @@ class DispatcherDocumenter(autodoc.FunctionDocumenter):
                 argspec = getargspec(func.__init__)
                 if argspec[0]:
                     del argspec[0][0]
-        args = autodoc.formatargspec(*argspec)
+        args = autodoc.formatargspec(function=func, args=argspec.args, varargs=argspec.varargs, varkw=argspec.varkw,
+                                     defaults=argspec.defaults, kwonlyargs=argspec.kwonlyargs,
+                                     kwonlydefaults=argspec.kwonlydefaults, annotations=argspec.annotations)
         # escape backslashes for reST
         args = args.replace('\\', '\\\\')
         return args

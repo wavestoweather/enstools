@@ -20,8 +20,7 @@ except ImportError:
     pass
 
 
-@dispatch(six.string_types)
-def read(filename, constant=None, **kwargs):
+def __read_one_file(filename, constant=None, **kwargs):
     """
     Read one or more input files
 
@@ -54,14 +53,13 @@ def read(filename, constant=None, **kwargs):
         return __open_dataset(filename, client, worker, **kwargs)
 
 
-@dispatch((list, tuple))
 def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=False, member_by_filename=None, **kwargs):
     """
     Read multiple input files
 
     Parameters
     ----------
-    filename : list of str or tuple of str
+    filenames : list of str or tuple of str
             names of individual files or filename pattern
 
     merge_same_size_dim : bool
@@ -100,6 +98,12 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     xarray.Dataset
             in-memory representation of the content of the input file(s)
     """
+    # open one file, or multiple files?
+    if not isinstance(filenames, (list, tuple)):
+        if isinstance(filenames, six.string_types):
+            filenames = [filenames]
+        else:
+            raise NotImplementedError("unsupported type of argument: %s" % type(filenames))
     # Hint: the \\\ the the docstring for member_by_filename is only included because the html-documentation is
     # otherwise not rendered correctly.
     # create at first a list of all input files
@@ -115,7 +119,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         files = __expand_file_pattern(filename)
         for one_file in files:
             one_file = os.path.abspath(one_file)
-            datasets.append(dask.delayed(read)(one_file, **kwargs))
+            datasets.append(dask.delayed(__read_one_file)(one_file, **kwargs))
             expanded_filenames.append(one_file)
             parent = os.path.dirname(one_file)
             if not parent in parent_folders:
@@ -470,6 +474,7 @@ def __expand_file_pattern(pattern):
     list
             list of file names matching the pattern
     """
+    assert pattern is not None
     if "*" in pattern or "?" in pattern or "[" in pattern or "{" in pattern:
         files = glob.glob(pattern)
         return files
