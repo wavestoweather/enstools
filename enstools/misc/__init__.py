@@ -12,6 +12,61 @@ if six.PY3:
 else:
     from urllib import urlretrieve
 
+def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, level_type=None, levels=None,
+                      init_date=None, forecast_hour=None, merge_files=False):
+    """
+    Parameters
+    ----------
+    service : str
+            name of weather service. Default="DWD".
+
+    model : str
+            name of the model. Default="ICON".
+
+    eps : bool
+            if True, download ensemble forecast, otherwise download deterministic forecast.
+
+    variable : list
+            list of variables to download. Multiple values are allowed.
+
+    level_type : str
+            one of "model", "pressure", or "sfc"
+
+    levels : list or range
+            levels to download. Unit depends on `level_type`.
+
+    init_data : str or datetime
+            Initialization date of forecast. Can be an string like "2019-07-10 00:00" or a `datetime` object.
+
+    forecast_hour : float, list or range
+            hours since the initialization of forecast. Multiple values are allowed.
+
+    merge_files : bool
+            if true, GRIB files are concatenated to create one file.
+
+    dest : str
+            Destination folder for downloaded data. If the files are already available, they are not downloaded again.
+
+    Returns
+    -------
+    list :
+            names of downloaded files.
+    """
+    if service == "DWD":
+        url = "http://opendata.dwd.de/weather/nwp/"
+        if model == "icon":
+            sfc_vars = {"t": "t_2m", "td": "td_2m", "u": "u_10m", "v": "v_10m", "relhum": "relhum_2m", "qv": "qv_s"}
+            if eps is False:
+                fc_times = {0: "00", 6: "06", 12: "12", 18: "18"}
+                for hour in forecast_hour:
+                    if hour in fc_times:
+                        url_path = url + "icon/grib/" + fc_times[hour] + "/"
+
+                        for var in variable:
+                            for ti
+
+
+
 
 def download(url, destination, uncompress=True):
     """
