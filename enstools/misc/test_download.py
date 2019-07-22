@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta
 import urllib.request
+import os
+from enstools.misc import download
+from enstools.io import read
 
 
 def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, level_type=None, levels=None,
-                      init_date=None, forecast_hour=None, merge_files=False):
+                      init_date=None, forecast_hour=None, merge_files=False, dest=None):
     """
     Parameters
     ----------
@@ -20,16 +23,15 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
             list of variables to download. Multiple values are allowed.
 
     level_type : str
-            one of "model", "pressure", or "sfc"
+            one of "model", "pressure", or "single"
 
     levels : list or range
             levels to download. Unit depends on `level_type`.
 
-    init_date : int or datetime
-            Initialization date of forecast. Can be an string like "2019-07-10 00:00" or a `datetime` object.
-            WIP: for icon init_date can only be a list of 0, 6, 12, 18
+    init_date : list or str
+            WIP: for icon init_date can only be a list of "00", "06", "12", "18".
 
-    forecast_hour : float, list or range
+    forecast_hour : list or string
             hours since the initialization of forecast. Multiple values are allowed.
             WIP: For icon only from "000" to "180" with step 3 allowed
 
@@ -53,10 +55,15 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
     if not isinstance(levels, (list, tuple)):
         levels = [levels]
 
+    if  not os.path.exists(dest):
+        os.mkdir(dest)
+
+    downloaded_files = []
+
     if service == "DWD":
-        url = "http://opendata.dwd.de/weather/nwp/"
+        root_url = "http://opendata.dwd.de/weather/nwp/"
         if model == "ICON":
-            fc_times = {0: "00", 6: "06", 12: "12", 18: "18"}
+            fc_times = ["00", "06", "12", "18"]
 
             vars = ["alb_rad", "alhfl_s", "asob_s", "asob_t", "aswdifd_s", "aswdifu_s", "aswdir_s", "cape_con",
                     "cape_ml", "clat", "clc", "clch", "clcl", "clcm", "clct", "clct_mod", "cldepth", "clon", "elat",
@@ -82,7 +89,8 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
                     else:
                         daystr = datetime.now().date().strftime("%Y%m%d")
                 else:
-                    raise KeyError
+                    raise KeyError("Choose the initial date of the forecast between {} or a list of them"
+                                   .format(fc_times))
 
                 for hour in forecast_hour:
 
@@ -99,7 +107,8 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
                             if (var in pressure_vars) or (var in model_vars):
                                 raise KeyError("The variable {} is not a single level variable.".format(var))
 
-                            files = ["icon_global_icosahedral_single-level_" + daystr + fc_times[init_date] + "_" + hour]
+                            files = ["icon_global_icosahedral_single-level_" + daystr + init_date
+                                     + "_" + hour + "_" + var.upper() + ".grib2"]
 
                         elif level_type == "pressure":
                             if var not in pressure_vars:
@@ -109,25 +118,53 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
                             # icon_dbbeschr_aktuell.pdf?view=nasPublication&nn=13934
                             # page 31
                             pressure_levels = [1000, 950, 925, 900, 850, 800, 700, 600, 500,
-                                               400, 300 , 250, 200, 150, 100 , 70, 50, 30]
+                                               400, 300, 250, 200, 150, 100, 70, 50, 30]
                             for level in levels:
                                 if level not in pressure_levels:
-                                    raise KeyError("The level {} is not available. Possible Values: {}"
+                                    raise KeyError("The pressure level {} is not available. Possible Values: {}"
                                                    .format(level, pressure_levels))
 
-                            files = ["icon_global_icosahedral_pressure-level_" + daystr + fc_times[init_date] + "_"
-                                    + hour + "_" + str(level) for level in levels]
+                            files = ["icon_global_icosahedral_pressure-level_" + daystr + init_date + "_"
+                                     + hour + "_" + str(level) + "_" + var.upper() + ".grib2" for level in levels]
 
                         elif level_type == "model":
-                            raise NotImplemented
+                            if var not in model_vars:
+                                raise KeyError("The variable {} is not a model level variable.".format(var))
+
+                            model_levels = list(range(1, 91))
+
+                            for level in levels:
+                                if level not in model_levels:
+                                    raise KeyError("The model level {} is not available. Possible Values: {}"
+                                                   .format(level, model_levels))
+
+                            files = ["icon_global_icosahedral_model-level_" + daystr + init_date + "_"
+                                     + hour + "_" + str(level) + "_" + var.upper() + ".grib2" for level in levels]
+
                         else:
-                            raise KeyError
+                            raise KeyError("Choose between 'model', 'pressure' or 'single'.")
 
-                        url_path = url + "icon/grib/" + fc_times[init_date] + "/" + var + "/"
-                        for file in files:
-                            file_url = url_path + file + "_" + var.upper() + ".grib2.bz2"
-                            print(file_url)
-                            print(urllib.request.urlopen(file_url).getcode())
+                        url_path = root_url + "icon/grib/" + init_date + "/" + var + "/"
+
+                        file_urls = [url_path + file + ".bz2" for file in files]
+
+                        for url in file_urls:
+                            if urllib.request.urlopen(url).getcode() != 200:
+                                raise Exception
+
+                        for i in range(len(file_urls)):
+                            download(file_urls[i], dest + "/" + files[i] + ".bz2", uncompress=True)
+                            downloaded_files.append(dest + "/" + files[i])
+
+    if merge_files:
+        merge_dataset = read([file for file in downloaded_files])
+        merge_dataset_name = dest + "/" + service + "_" + model + "_" \
+                             + datetime.now().strftime("%d-%m-%Y_%Hh%Mm%S%fs") + ".nc"
+        merge_dataset.to_netcdf(merge_dataset_name)
+        for file in downloaded_files:
+            os.remove(file)
+
+    return downloaded_files
 
 
 
@@ -136,13 +173,11 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
 
 
 
-retrieve_opendata(variable=["t_2m"],
-                  level_type="single",
-                  init_date=0,
-                  forecast_hour = ["000", "123"])
-
-retrieve_opendata(variable=["t", "relhum"],
+retrieve_opendata(variable=["t"],
                   level_type="pressure",
-                  init_date=0,
-                  forecast_hour=["000"],
-                  levels=1000)
+                  init_date="00",
+                  levels=[1000,950,900],
+                  forecast_hour = ["000", "123"],
+                  dest = "dl",
+                  merge_files = True)
+
