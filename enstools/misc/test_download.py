@@ -2,6 +2,7 @@ import os
 from urllib.request import urlopen
 from datetime import datetime, timedelta
 from enstools.misc import download
+from enstools.io import read
 
 def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, level_type=None, levels=None,
                       init_date=None, forecast_hour=None, merge_files=False, dest=None):
@@ -52,6 +53,9 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
         forecast_hour = [forecast_hour]
     if not isinstance(levels, (list, tuple)):
         levels = [levels]
+
+    if not os.path.exists(dest):
+        os.mkdir(dest)
 
     downloaded_files = []
 
@@ -161,6 +165,7 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
             os.remove(file)
 
     return downloaded_files
+
 
 retrieve_opendata(variable=["t"],
                   level_type="pressure",
