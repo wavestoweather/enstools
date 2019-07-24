@@ -83,6 +83,7 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
             soil_vars = ["t_so", "w_so"]
 
         elif model == "ICON-EU":
+            # Also available 3 9 15 21
             fc_times = ["00", "06", "12", "18"]
 
             variables = ["alb_rad", "alhfl_s", "ashfl_s", "asob_s", "asob_t", "aswdifd_s", "aswdifu_s", "aswdir_s",
