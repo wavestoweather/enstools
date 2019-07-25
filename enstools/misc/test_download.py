@@ -5,6 +5,107 @@ from enstools.misc import download
 from enstools.io import read
 
 
+class DWD_Content():
+    def __init__(self):
+
+        download("https://opendata.dwd.de/weather/nwp/content.log.bz2",destination=".", uncompress=True)
+        content = pandas.read_csv("content.log", delimiter="|", header=None, names=["file", "size", "time"])
+        content = content[~content.file.str.contains("snow4")]
+        content = content[~content.file.str.contains("content.log")]
+
+        content["model"] = content["file"].apply(lambda x: x.split("/")[1])
+        content["file_type"] = content["file"].apply(lambda x: x.split("/")[2])
+        content["init_time"] = content["file"].apply(lambda x: x.split("/")[3])
+        content["init_time"] = content["init_time"].astype(int)
+        content["variable"] = content["file"].apply(lambda x: x.split("/")[4])
+        content["filename"] = content["file"].apply(lambda x: x.split("/")[5])
+        content["file"] = content["file"].apply(lambda x: "https://opendata.dwd.de/weather/nwp" + x[1:])
+
+        content["level_type"] = content["filename"].apply(lambda x: x.split("_")[3])
+        content["level_type"] = content["level_type"].apply(lambda x: x[:-6])
+
+        content["forecast_hour"] = content["filename"].apply(lambda x: x.split("_")[5])
+        content.loc[content["level_type"] == "time-inv", ["forecast_hour"]] = "0"
+        content["forecast_hour"] = content["forecast_hour"].astype(int)
+
+        content["level"] = "0"
+        content.loc[content["level_type"] == "single", ["level"]] = "0"
+        content.loc[content["level_type"] == "pressure", ["level"]] = content[content.level_type == "pressure"]["filename"].apply(
+            lambda x: x.split("_")[6])
+        content.loc[content["level_type"] == "model", ["level"]] = content[content.level_type == "model"]["filename"].apply(
+            lambda x: x.split("_")[6])
+        content["level"] = content["level"].astype(int)
+
+        self.content = content
+
+    def get_models(self):
+        content = self.content
+        avail_models = content["models"].drop_duplicates().values.tolist()
+        avail_models.sort()
+        return avail_models
+
+    def get_avail_init_times(self, model=None):
+        content = self.content
+        avail_init_times = content[content["model"] == model]["init_time"].drop_duplicates().values.tolist()
+        avail_init_times.sort()
+        return avail_init_times
+
+    def get_avail_vars(self, model=None, init_time=None):
+        content = self.content
+        avail_vars = content[(content["model"] == model)
+                              & (content["init_time"] == init_time)]["variable"].drop_duplicates().values.tolist()
+        avail_vars.sort()
+        return avail_vars
+
+    def get_avail_level_types(self, model=None, init_time=None, variable=None):
+        content = self.content
+        avail_level_types = content[(content["model"] == model)
+                                    & (content["init_time"] ==init_time)
+                                    & (content["variable"] == variable)]["level_type"].drop_duplicates().values.tolist()
+        avail_level_types.sort()
+        return avail_level_types
+
+    def get_avail_forecast_hours(self, model=None, init_time=None, variable=None, level_type=None):
+        content = self.content
+        avail_forecast_times = content[(content["model"] == model)
+                                       & (content["init_time"] == init_time)
+                                       & (content["variable"] == variable)
+                                       & (content["level_type"] == level_type)]["forecast_hour"]\
+            .drop_duplicates().values.tolist()
+        avail_forecast_times.sort()
+        return avail_forecast_times
+
+    def get_avail_levels(self, model=None, init_time=None, variable=None, level_type=None):
+        content = self.content
+        avail_levels = content[(content["model"] == model)
+                               & (content["init_time"] == init_time)
+                               & (content["variable"] == variable)
+                               & (content["level_type"] == level_type)]["level"].drop_duplicates().values.tolist()
+        avail_levels.sort()
+        return avail_levels
+
+    def get_url(self, model=None, init_time=None, variable=None, level_type=None, forecast_hour=None, level=None):
+        content = self.content
+
+        url = content[(content["model"] == model)
+                      & (content["init_time"] == init_time)
+                      & (content["variable"] == variable)
+                      & (content["level_type"] == level_type)
+                      & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["file"].values[0]
+
+        return url
+
+    def get_filename(self, model=None, init_time=None, variable=None, level_type=None, forecast_hour=None, level=None):
+        content = self.content
+        filename = content[(content["model"] == model)
+                      & (content["init_time"] == init_time)
+                      & (content["variable"] == variable)
+                      & (content["level_type"] == level_type)
+                      & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["filename"].values[0]
+
+        return filename
+
+
 def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, level_type=None, levels=None,
                       init_date=None, forecast_hour=None, merge_files=False, dest=None):
     """
@@ -58,149 +159,56 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
     if not os.path.exists(dest):
         os.mkdir(dest)
 
-    downloaded_files = []
+    download_files = []
+    download_urls = []
 
-    if service == "DWD":
-        root_url = "https://opendata.dwd.de/weather/nwp/"
-        if model == "ICON":
-            fc_times = ["00", "06", "12", "18"]
+    content = DWD_Content()
 
-            variables = ["alb_rad", "alhfl_s", "asob_s", "asob_t", "aswdifd_s", "aswdifu_s", "aswdir_s", "cape_con",
-                         "cape_ml", "clat", "clc", "clch", "clcl", "clcm", "clct", "clct_mod", "cldepth", "clon",
-                         "elat",
-                         "elon", "fi", "fr_ice", "fr_lake", "fr_land", "hbas_con", "hhl", "h_snow", "hsurf", "htop_con",
-                         "htop_dc", "hzerocl", "p", "plcov, pmsl", "ps", "qv", "qv_s", "rain_con", "rain_gsp",
-                         "relhum", "relhum_2m", "rho_snow", "snow_con", "snow_gsp", "soiltyp", "t", "t_2m", "td_2m",
-                         "t_g", "tke", "tmax_2m", "tmin_2m", "tot_prec", "t_snow", "t_so", "u", "u_10m", "v", "v_10m",
-                         "vmax_10m", "w", "w_snow", "w_so", "ww", "z0"]
+    if model.lower() not in content.get_models():
+        raise KeyError("The model {} is not available. Possible Values: {}".format(model, content.get_models()))
 
-            model_vars = ["clc", "p", "qv", "t", "tke", "u", "v", "w"]
-            pressure_vars = ["fi", "relhum", "t", "u", "v"]
+    if init_date not in content.get_avail_init_times(model=model):
+        raise KeyError("The initial time {} is not available. Possible Values: {}"
+                       .format(init_date, content.get_avail_init_times(model=model)))
 
-            # No support:
-            time_invariant_vars = ["clat", "clon", "elat", "elon", "fr_lake", "fr_land", "hhl", "hsurf", "plcov",
-                                   "soiltyp"]
-            soil_vars = ["t_so", "w_so"]
+    for var in variable:
+        if var not in content.get_avail_vars(model=model, init_time=init_date):
+            raise KeyError("The variable is not available for the {} model and the init_time {}. Available variables:{}"
+                           .format(model, init_date, content.get_avail_vars(model=model, init_time=init_date)))
+    for var in variable:
+        avail_level_types = content.get_avail_level_types(model=model, init_time=init_date, variable=var)
+        if level_type not in avail_level_types:
+            raise KeyError("The level type {} is not available for the variable {}. Available types: {}"
+                           .format(level_type, var, avail_level_types))
 
-        elif model == "ICON-EU":
-            # Also available 3 9 15 21
-            fc_times = ["00", "06", "12", "18"]
+        for hour in forecast_hour:
+            if hour not in content.get_avail_forecast_hours(model=model, init_time=init_date,
+                                                            variable=var, level_type=level_type):
+                raise KeyError("The forecast hour {} is not available for the variable {}. Possible values:{}"
+                               .format(hour, var, content.get_avail_forecast_hours(model=model,
+                                                                                   init_time=init_date,
+                                                                                   variable=var,
+                                                                                   level_type=level_type)))
+            for lev in levels:
+                avail_levels = content.get_avail_levels(model=model, init_time=init_date,
+                                                       variable=var, level_type=level_type)
+                if lev not in avail_levels:
+                    raise KeyError("The level {} is not available for the variable {} and the level type {}."
+                                   .format(lev, var, level_type)
+                                   + " Possible Values: {}".format(avail_levels))
 
-            variables = ["alb_rad", "alhfl_s", "ashfl_s", "asob_s", "asob_t", "aswdifd_s", "aswdifu_s", "aswdir_s",
-                         "athb_s", "cape_con", "cape_ml", "clc", "clch", "clcl", "clcm", "clct", "clct_mod", "cldepth",
-                         "fi", "fr_lake", "fr_land", "hbas_con", "hhl", "h_snow", "hsurf", "htop_con", "htop_dc",
-                         "hzerocl", "mh", "omega", "p", "plcov", "pmsl", "ps", "qv", "qv_2m", "qv_s", "rain_con",
-                         "rain_gsp", "relhum", "relhum_2m", "rho_snow", "rlat", "rlon", "rootdp", "runoff_g",
-                         "runoff_s", "snow_con", "snow_gsp", "snowlmt", "soiltyp", "t", "t_2m", "tch", "tcm", "td_2m",
-                         "t_g", "tke", "tmax_2m", "tmin_2m", "tot_prec", "t_snow", "t_so", "u", "u_10m", "v", "v_10m",
-                         "vmax_10m", "w", "w_snow", "w_so", "ww", "z0"]
+                download_urls.append(content.get_url(model=model, init_time=init_date, variable=var,
+                                                     level_type=level_type, forecast_hour=forecast_hour, level=lev))
+                download_files.append(content.get_filename(model=model, init_time=init_date, variable=var,
+                                                     level_type=level_type, forecast_hour=forecast_hour, level=lev))
 
-            model_vars = ["clc", "p", "qv", "t", "tke", "u", "v", "w"]
-            pressure_vars = ["clc", "fi", "omega", "relhum", "t", "u", "v"]
-
-            # No support:
-            time_invariant_vars = ["fr_lake", "fr_land", "hsurf", "plcov", "rlat", "rlon", "rootdp", "soiltyp"]
-            soil_vars = ["t_so", "w_so"]
-
-        if eps is False:
-            if init_date in fc_times:
-                if int(init_date) > datetime.now().hour:
-                    yesterday = datetime.now().date() - timedelta(days=1)
-                    daystr = yesterday.strftime("%Y%m%d")
-                else:
-                    daystr = datetime.now().date().strftime("%Y%m%d")
-            else:
-                raise KeyError("Choose the initial date of the forecast between {} or a list of them"
-                               .format(fc_times))
-
-            for hour in forecast_hour:
-
-                for var in variable:
-
-                    if var not in variables:
-                        raise KeyError("The variable {} is not available.".format(var))
-                    if var in time_invariant_vars:
-                        raise KeyError("The variable {} is not supported.".format(var))
-                    if var in soil_vars:
-                        raise KeyError("The variable {} is not supported.".format(var))
-
-                    if level_type == "single":
-                        if (var in pressure_vars) or (var in model_vars):
-                            raise KeyError("The variable {} is not a single level variable.".format(var))
-
-                        if model == "ICON":
-                            files = ["icon_global_icosahedral_single-level_" + daystr + init_date
-                                     + "_" + hour + "_" + var.upper() + ".grib2"]
-                        elif model == "ICON-EU":
-                            files = ["icon-eu_europe_regular-lat-lon_single-level_" + daystr + init_date
-                                     + "_" + hour + "_" + var.upper() + ".grib2"]
-
-                    elif level_type == "pressure":
-                        if var not in pressure_vars:
-                            raise KeyError("The variable {} is not a pressure level variable.".format(var))
-                        # Source for pressure levels
-                        # https://www.dwd.de/SharedDocs/downloads/DE/modelldokumentationen/nwv/icon/
-                        # icon_dbbeschr_aktuell.pdf?view=nasPublication&nn=13934
-                        # page 31
-                        if model == "ICON":
-                            pressure_levels = [1000, 950, 925, 900, 850, 800, 700, 600, 500,
-                                               400, 300, 250, 200, 150, 100, 70, 50, 30]
-                        elif model == "ICON-EU":
-                            pressure_levels = [1000, 975, 950, 925, 900, 875, 850, 825, 800, 775, 750, 700, 650, 600,
-                                               550, 500, 450, 400, 350, 300, 275, 250, 225, 200, 175, 150, 125, 100, 70,
-                                               50]
-
-                        for level in levels:
-                            if level not in pressure_levels:
-                                raise KeyError("The pressure level {} is not available. Possible Values: {}"
-                                               .format(level, pressure_levels))
-                        if model == "ICON":
-                            files = ["icon_global_icosahedral_pressure-level_" + daystr + init_date + "_"
-                                     + hour + "_" + str(level) + "_" + var.upper() + ".grib2" for level in levels]
-
-                        elif model == "ICON-EU":
-                            files = ["icon-eu_europe_regular-lat-lon_pressure-level_" + daystr + init_date + "_"
-                                     + hour + "_" + str(level) + "_" + var.upper() + ".grib2" for level in levels]
+    for url in download_urls:
+        download(url, dest + "/" + )
 
 
-                    elif level_type == "model":
-                        if var not in model_vars:
-                            raise KeyError("The variable {} is not a model level variable.".format(var))
 
-                        if model == "ICON":
-                            model_levels = list(range(1, 91))
-                        elif model == "ICON-EU":
-                            model_levels = list(range(1,61))
 
-                        for level in levels:
-                            if level not in model_levels:
-                                raise KeyError("The model level {} is not available. Possible Values: {}"
-                                               .format(level, model_levels))
-                        if model == "ICON":
-                            files = ["icon_global_icosahedral_model-level_" + daystr + init_date + "_"
-                                     + hour + "_" + str(level) + "_" + var.upper() + ".grib2" for level in levels]
-                        elif model == "ICON-EU":
-                            files = ["icon-eu_europe_regular-lat-lon_model-level_" + daystr + init_date + "_"
-                                     + hour + "_" + str(level) + "_" + var.upper() + ".grib2" for level in levels]
 
-                    else:
-                        raise KeyError("Choose between 'model', 'pressure' or 'single'.")
-
-                    if model == "ICON":
-                        url_path = root_url + "icon/grib/" + init_date + "/" + var + "/"
-                    elif model == "ICON-EU":
-                        url_path = root_url + "icon-eu/grib/" + init_date + "/" + var + "/"
-
-                    file_urls = [url_path + file + ".bz2" for file in files]
-
-                    # Check if all files exist, before starting to download:
-                    for url in file_urls:
-                        if urlopen(url).getcode() != 200:
-                            raise Exception("internal Error")
-
-                    for i in range(len(file_urls)):
-                        download(file_urls[i], dest + "/" + files[i] + ".bz2", uncompress=True)
-                        downloaded_files.append(dest + "/" + files[i])
 
     if merge_files:
         merge_dataset = read([file for file in downloaded_files])
