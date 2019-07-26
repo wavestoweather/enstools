@@ -48,7 +48,7 @@ class DWD_Content():
 
     def get_avail_vars(self, model=None, init_time=None):
         content = self.content
-        avail_vars =  content[(content["model"] == model)
+        avail_vars = content[(content["model"] == model)
                               & (content["init_time"] == init_time)]["variable"].drop_duplicates().values.tolist()
         avail_vars.sort()
         return avail_vars

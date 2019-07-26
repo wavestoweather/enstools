@@ -3,44 +3,65 @@ from urllib.request import urlopen
 from datetime import datetime, timedelta
 from enstools.misc import download
 from enstools.io import read
-
+import pandas
+import filecmp
 
 class DWD_Content():
-    def __init__(self):
+    def __init__(self, destination):
 
-        download("https://opendata.dwd.de/weather/nwp/content.log.bz2",destination=".", uncompress=True)
-        content = pandas.read_csv("content.log", delimiter="|", header=None, names=["file", "size", "time"])
-        content = content[~content.file.str.contains("snow4")]
-        content = content[~content.file.str.contains("content.log")]
+        def create_dataframe(logdata):
+            content = pandas.read_csv(logdata, delimiter="|", header=None, names=["file", "size", "time"])
+            content = content[~content.file.str.contains("snow4")]
+            content = content[~content.file.str.contains("content.log")]
 
-        content["model"] = content["file"].apply(lambda x: x.split("/")[1])
-        content["file_type"] = content["file"].apply(lambda x: x.split("/")[2])
-        content["init_time"] = content["file"].apply(lambda x: x.split("/")[3])
-        content["init_time"] = content["init_time"].astype(int)
-        content["variable"] = content["file"].apply(lambda x: x.split("/")[4])
-        content["filename"] = content["file"].apply(lambda x: x.split("/")[5])
-        content["file"] = content["file"].apply(lambda x: "https://opendata.dwd.de/weather/nwp" + x[1:])
+            content["model"] = content["file"].apply(lambda x: x.split("/")[1])
+            content["file_type"] = content["file"].apply(lambda x: x.split("/")[2])
+            content["init_time"] = content["file"].apply(lambda x: x.split("/")[3])
+            content["init_time"] = content["init_time"].astype(int)
+            content["variable"] = content["file"].apply(lambda x: x.split("/")[4])
+            content["filename"] = content["file"].apply(lambda x: x.split("/")[5])
+            content["file"] = content["file"].apply(lambda x: "https://opendata.dwd.de/weather/nwp" + x[1:])
 
-        content["level_type"] = content["filename"].apply(lambda x: x.split("_")[3])
-        content["level_type"] = content["level_type"].apply(lambda x: x[:-6])
+            content["level_type"] = content["filename"].apply(lambda x: x.split("_")[3])
+            content["level_type"] = content["level_type"].apply(lambda x: x[:-6])
 
-        content["forecast_hour"] = content["filename"].apply(lambda x: x.split("_")[5])
-        content.loc[content["level_type"] == "time-inv", ["forecast_hour"]] = "0"
-        content["forecast_hour"] = content["forecast_hour"].astype(int)
+            content["forecast_hour"] = content["filename"].apply(lambda x: x.split("_")[5])
+            content.loc[content["level_type"] == "time-inv", ["forecast_hour"]] = "0"
+            content["forecast_hour"] = content["forecast_hour"].astype(int)
 
-        content["level"] = "0"
-        content.loc[content["level_type"] == "single", ["level"]] = "0"
-        content.loc[content["level_type"] == "pressure", ["level"]] = content[content.level_type == "pressure"]["filename"].apply(
-            lambda x: x.split("_")[6])
-        content.loc[content["level_type"] == "model", ["level"]] = content[content.level_type == "model"]["filename"].apply(
-            lambda x: x.split("_")[6])
-        content["level"] = content["level"].astype(int)
+            content["level"] = "0"
+            content.loc[content["level_type"] == "single", ["level"]] = "0"
+            content.loc[content["level_type"] == "pressure", ["level"]] = content[content.level_type == "pressure"][
+                "filename"].apply(
+                lambda x: x.split("_")[6])
+            content.loc[content["level_type"] == "model", ["level"]] = content[content.level_type == "model"][
+                "filename"].apply(
+                lambda x: x.split("_")[6])
+            content["level"] = content["level"].astype(int)
+            content.to_pickle("content.pkl")
 
-        self.content = content
+            return content
+
+        if os.path.exists("content.log"):
+            os.rename("content.log", "content_old.log")
+            download("https://opendata.dwd.de/weather/nwp/content.log.bz2", destination="content.log.bz2",
+                     uncompress=True)
+            if filecmp.cmp("content.log", "content_old.log"):
+                self.content = pandas.read_picke("content.pkl")
+            else:
+                self.content = create_dataframe("content.log")
+
+        else:
+            download("https://opendata.dwd.de/weather/nwp/content.log.bz2",destination="content.log.bz2", uncompress=True)
+            self.content = create_dataframe("content.log")
+
+
+
+
 
     def get_models(self):
         content = self.content
-        avail_models = content["models"].drop_duplicates().values.tolist()
+        avail_models = content["model"].drop_duplicates().values.tolist()
         avail_models.sort()
         return avail_models
 
@@ -91,17 +112,17 @@ class DWD_Content():
                       & (content["init_time"] == init_time)
                       & (content["variable"] == variable)
                       & (content["level_type"] == level_type)
-                      & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["file"].values[0]
+                      & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["file"].values
 
-        return url
+        return url[0]
 
     def get_filename(self, model=None, init_time=None, variable=None, level_type=None, forecast_hour=None, level=None):
         content = self.content
         filename = content[(content["model"] == model)
-                      & (content["init_time"] == init_time)
-                      & (content["variable"] == variable)
-                      & (content["level_type"] == level_type)
-                      & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["filename"].values[0]
+                           & (content["init_time"] == init_time)
+                           & (content["variable"] == variable)
+                           & (content["level_type"] == level_type)
+                           & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["filename"].values[0]
 
         return filename
 
@@ -113,7 +134,6 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
     ----------
     service : str
             name of weather service. Default="DWD".
-
     model : str
             name of the model. Default="ICON".
 
@@ -161,10 +181,11 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
 
     download_files = []
     download_urls = []
+    model = model.lower()
+    content = DWD_Content(dest)
 
-    content = DWD_Content()
 
-    if model.lower() not in content.get_models():
+    if model not in content.get_models():
         raise KeyError("The model {} is not available. Possible Values: {}".format(model, content.get_models()))
 
     if init_date not in content.get_avail_init_times(model=model):
@@ -196,44 +217,43 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
                     raise KeyError("The level {} is not available for the variable {} and the level type {}."
                                    .format(lev, var, level_type)
                                    + " Possible Values: {}".format(avail_levels))
-
+                print(model, init_date, var, level_type, forecast_hour, lev)
+                print(content.get_url(model=model, init_time=init_date, variable=var,
+                                      level_type=level_type, forecast_hour=hour, level=lev))
                 download_urls.append(content.get_url(model=model, init_time=init_date, variable=var,
-                                                     level_type=level_type, forecast_hour=forecast_hour, level=lev))
+                                                     level_type=level_type, forecast_hour=hour, level=lev))
                 download_files.append(content.get_filename(model=model, init_time=init_date, variable=var,
-                                                     level_type=level_type, forecast_hour=forecast_hour, level=lev))
+                                                     level_type=level_type, forecast_hour=hour, level=lev))
 
-    for url in download_urls:
-        download(url, dest + "/" + )
+    download_files = [dest + "/" + file[:-4] for file in download_files]
 
-
-
-
-
+    for i in range(len(download_urls)):
+        download(download_urls[i], download_files[i], uncompress=True)
 
     if merge_files:
-        merge_dataset = read([file for file in downloaded_files])
+        merge_dataset = read([file for file in download_files])
         merge_dataset_name = dest + "/" + service + "_" + model + "_" \
                              + datetime.now().strftime("%d-%m-%Y_%Hh%Mm%S%fs") + ".nc"
         merge_dataset.to_netcdf(merge_dataset_name)
-        for file in downloaded_files:
+        for file in download_files:
             os.remove(file)
 
-    return downloaded_files
+    return download_files
 
 
 retrieve_opendata(variable=["t"],
                   level_type="pressure",
-                  init_date="00",
+                  init_date=0,
                   levels=[1000, 950, 900],
-                  forecast_hour=["000", "123"],
+                  forecast_hour=[0, 123],
                   dest="dl",
                   merge_files=True)
 
 retrieve_opendata(variable=["t"],
                   model = "ICON-EU",
                   level_type="pressure",
-                  init_date="00",
+                  init_date=0,
                   levels=[1000, 950, 900],
-                  forecast_hour=["000", "120"],
+                  forecast_hour=[0],
                   dest="dl",
                   merge_files=True)
