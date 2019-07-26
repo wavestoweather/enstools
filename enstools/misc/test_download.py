@@ -42,21 +42,30 @@ class DWD_Content():
 
             return content
 
-        if os.path.exists("content.log"):
-            os.rename("content.log", "content_old.log")
-            download("https://opendata.dwd.de/weather/nwp/content.log.bz2", destination="content.log.bz2",
-                     uncompress=True)
-            if filecmp.cmp("content.log", "content_old.log"):
-                self.content = pandas.read_picke("content.pkl")
+        def get_content_creation_time():
+            site = urlopen("https://opendata.dwd.de/weather/nwp/").read().split()
+            time, date = site[-5:-3]
+            tdstring = str(time, "utf-8") + "-" + str(date, "utf-8")
+            td = datetime.datetime.strptime(tdstring, "%d-%b-%Y-%H:%M")
+
+            return td
+
+
+        if os.path.exists("content.pkl"):
+            content_old = pandas.read_pickle("content.pkl")
+            actual_creation_time = get_content_creation_time()
+            if content_old.creation_time == actual_creation_time:
+                self.content = content_old
+                self.creation_time
+
             else:
+                download("https://opendata.dwd.de/weather/nwp/content.log.bz2", destination="content.log.bz2",
+                         uncompress=True)
                 self.content = create_dataframe("content.log")
 
         else:
             download("https://opendata.dwd.de/weather/nwp/content.log.bz2",destination="content.log.bz2", uncompress=True)
             self.content = create_dataframe("content.log")
-
-
-
 
 
     def get_models(self):
@@ -217,9 +226,7 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
                     raise KeyError("The level {} is not available for the variable {} and the level type {}."
                                    .format(lev, var, level_type)
                                    + " Possible Values: {}".format(avail_levels))
-                print(model, init_date, var, level_type, forecast_hour, lev)
-                print(content.get_url(model=model, init_time=init_date, variable=var,
-                                      level_type=level_type, forecast_hour=hour, level=lev))
+
                 download_urls.append(content.get_url(model=model, init_time=init_date, variable=var,
                                                      level_type=level_type, forecast_hour=hour, level=lev))
                 download_files.append(content.get_filename(model=model, init_time=init_date, variable=var,
@@ -228,7 +235,7 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
     download_files = [dest + "/" + file[:-4] for file in download_files]
 
     for i in range(len(download_urls)):
-        download(download_urls[i], download_files[i], uncompress=True)
+        download(download_urls[i], download_files[i] + ".bz2", uncompress=True)
 
     if merge_files:
         merge_dataset = read([file for file in download_files])
