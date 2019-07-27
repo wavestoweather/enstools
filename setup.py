@@ -57,5 +57,6 @@ setup(name="enstools",
                 "decorator",
                 "multipledispatch",
                 "cachey",
-                "cffi"]
+                "cffi",
+                "pandas"]
       )

@@ -1,12 +1,11 @@
-from retrieve_opendata import retrieve_opendata, DWDContent
+#!/usr/bin/env python3
+
+from enstools.misc import retrieve_opendata, DWDContent
 
 content = DWDContent()
 print("Available Models:", content.get_models())
 print("Available init times:", content.get_avail_init_times(model="icon"))
 print("Available variables for icon and init_time 00:", content.get_avail_vars(model="icon", init_time=0))
-
-
-
 
 
 retrieve_opendata(variable=["t_2m"],
