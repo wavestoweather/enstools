@@ -398,11 +398,47 @@ def __count_ge(array, th):
             result += 1
     return result
 
+
 class DWDContent:
 
     def __init__(self, refresh_content=False):
 
         def create_dataframe(logdata):
+            """
+            Creates a pandas.DataFrame from the given logdata from https://opendata.dwd.de/weather/nwp
+            and sets the following attributes:
+                file: str
+                    Name of the url of the file.
+                size: str
+                    The size of the file.
+                time: np.datetime64
+                    The creation time on the server.
+                model: str
+                    The forecast model, e.g. "icon".
+                file_type: str
+                    The format of the file ("grib" or "json").
+                init_time: int
+                    The time of the initialisation of the forecast for the given file.
+                variable: str
+                    The short name of the variable of the file.
+                filename: str
+                    The name of the file.
+                level_type: str
+                    The type of the level of the file.
+                forecast_hour: int
+                    Hours since the initalization of the forecast.
+
+            Parameters
+            ----------
+            logdata: str
+                The name of the content logfile.
+
+            Returns
+            -------
+            content: pandas.DataFrame
+                The DataFrame object with the given attributes.
+
+            """
             logging.info("Creating content database with {}".format(logdata))
             content = pandas.read_csv(logdata, delimiter="|", header=None, names=["file", "size", "time"])
             content["time"] = content["time"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
@@ -454,21 +490,63 @@ class DWDContent:
             self.content = create_dataframe("content.log")
 
     def refresh_content(self):
+        """
+        Initializes the DWDContent object again.
+        Downloads the actual content.log from the server and creates a new DataFrame
+        """
         self.__init__(refresh_content=True)
 
     def get_models(self):
+        """
+        Gives the available models of the data server.
+        Returns
+        -------
+        avail_models: list
+            List of Strings with the available models
+
+        """
         content = self.content
         avail_models = content["model"].drop_duplicates().values.tolist()
         avail_models.sort()
         return avail_models
 
     def get_avail_init_times(self, model=None):
+        """
+        Gives the available initialization times for a given forecast model.
+
+        Parameters
+        ----------
+        model: str
+            The model for which the available initialization times want to be known.
+
+        Returns
+        -------
+        avail_init_times: list
+            A list of integers of the available initialization times
+
+        """
         content = self.content
         avail_init_times = content[content["model"] == model]["init_time"].drop_duplicates().values.tolist()
         avail_init_times.sort()
         return avail_init_times
 
     def get_avail_vars(self, model=None, init_time=None):
+        """
+        Gives the available variables for a given forecast model and initialization time.
+
+        Parameters
+        ----------
+        model: str
+            The model for which the available variables want to be known.
+        init_time: int
+            The initialization time for which the available variables want to be known.
+
+        Returns
+        -------
+        avail_vars: list
+            The sorted list of strings of the available variables.
+
+        """
         content = self.content
         avail_vars = content[(content["model"] == model)
                              & (content["init_time"] == init_time)]["variable"].drop_duplicates().values.tolist()
@@ -476,6 +554,23 @@ class DWDContent:
         return avail_vars
 
     def get_avail_level_types(self, model=None, init_time=None, variable=None):
+        """
+        Gives the available level types for a given forecast model, initialization time and variable.
+        Parameters
+        ----------
+        model: str
+            The model for which the available level types want to be known.
+        init_time: int
+            The initialization time for which the available level types want to be known.
+        variable: str
+            The variable for which the available level types want to be known
+
+        Returns
+        -------
+        avail_level_types: list
+            The sorted list of strings of the available level types.
+
+        """
         content = self.content
         avail_level_types = content[(content["model"] == model)
                                     & (content["init_time"] == init_time)
@@ -484,6 +579,27 @@ class DWDContent:
         return avail_level_types
 
     def get_avail_forecast_hours(self, model=None, init_time=None, variable=None, level_type=None):
+        """
+        Gives the available  forecast hours since initialization for a given forecast model, initialization time,
+        variable and level type.
+
+        Parameters
+        ----------
+        model: str
+            The model for which the available forecast hours want to be known.
+        init_time: int
+            The initialization time for which the available forecast hours want to be known.
+        variable: str
+            The variable for which the available forecast hours want to be known.
+        level_type: str
+            The type of the level for which the available forecast hours want to be known.
+
+        Returns
+        -------
+        avail_forecast_hours: list
+            The available hours of the forecast data since the initilization of the forecast.
+
+        """
         content = self.content
         avail_forecast_times = content[(content["model"] == model)
                                        & (content["init_time"] == init_time)
@@ -494,6 +610,27 @@ class DWDContent:
         return avail_forecast_times
 
     def get_avail_levels(self, model=None, init_time=None, variable=None, level_type=None):
+        """
+        Gives the available levels since initialization for a given forecast model, initialization time,
+        variable and level type. If the level of the variable is not pressure or model 0 will be returned.
+
+        Parameters
+        ----------
+        model: str
+            The model for which the available levels want to be known.
+        init_time: int
+            The initialization time for which the available levels want to be known.
+        variable: str
+            The variable for which the available forecast hours want to be known.
+        level_type: str
+            The type of the level for which the available levels want to be known.
+
+        Returns
+        -------
+        avail_levels: list
+            A list of integers of the available levels.
+
+        """
         content = self.content
         avail_levels = content[(content["model"] == model)
                                & (content["init_time"] == init_time)
@@ -503,17 +640,63 @@ class DWDContent:
         return avail_levels
 
     def get_url(self, model=None, init_time=None, variable=None, level_type=None, forecast_hour=None, level=None):
+        """
+        Gives the url of the file on the https://opendata.dwd.de/weather/nwp server.
+
+        Parameters
+        ----------
+        model: str
+            The model of the file for which the url wants to be known.
+        init_time: int
+            The initialization time of the forecast of the file for which the url wants to be known.
+        variable: str
+            The variable of the file for which the url wants to be known.
+        level_type: str
+            The type of level of the file for which the url wants to be known.
+        forecast_hour: int
+            The hours since the initialization of the forecast of the file for which the url wants to be known.
+        level: int
+            The level of the file for which the url wants to be known.
+
+        Returns
+        -------
+        url: str
+            The url adress of the file.
+        """
         content = self.content
 
         url = content[(content["model"] == model)
                       & (content["init_time"] == init_time)
                       & (content["variable"] == variable)
                       & (content["level_type"] == level_type)
-                      & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["file"].values
+                      & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["file"].values[0]
 
-        return url[0]
+        return url
 
     def get_filename(self, model=None, init_time=None, variable=None, level_type=None, forecast_hour=None, level=None):
+        """
+         Gives the filename of the file on the https://opendata.dwd.de/weather/nwp server.
+
+        Parameters
+        ----------
+        model: str
+            The model of the file for which the filename wants to be known.
+        init_time: int
+            The initialization time of the forecast of the file for which the filename wants to be known.
+        variable: str
+            The variable of the file for which the filename wants to be known.
+        level_type: str
+            The type of level of the file for which the filename wants to be known.
+        forecast_hour: int
+            The hours since the initialization of the forecast of the file for which the filename wants to be known.
+        level: int
+            The level of the file for which the filename wants to be known.
+
+        Returns
+        -------
+        url: str
+            The filename of the file.
+        """
         content = self.content
         filename = content[(content["model"] == model)
                            & (content["init_time"] == init_time)
@@ -526,6 +709,30 @@ class DWDContent:
 
     def check_parameters(self, model=None, init_time=None, variable=None, level_type=None,
                          forecast_hour=None, levels=None):
+        """
+        Checks if there are all files available for the given parameters.
+        If not, the DWDContent object will be refreshed.
+        If one file is not available for the given parameters, a detailed error will be thrown.
+
+        Parameters
+        ----------
+        model:str
+            The model of the file.
+        init_time: int
+            The initialization time of the file.
+        variable: str
+            The variable of the file.
+        level_type: str
+            The type of level of the file.
+        forecast_hour:
+            The hours of the forecast since the initialization of the simulation.
+        levels: int
+            The levels.
+
+        Returns
+        -------
+
+        """
         params_available = True
         if model not in self.get_models():
             params_available = False
