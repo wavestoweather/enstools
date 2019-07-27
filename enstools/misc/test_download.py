@@ -4,13 +4,24 @@ from datetime import datetime, timedelta
 from enstools.misc import download
 from enstools.io import read
 import pandas
-import filecmp
+import numpy as np
 
 class DWD_Content():
-    def __init__(self, destination):
+    def __init__(self):
+
+        def get_content_creation_time():
+            site = urlopen("https://opendata.dwd.de/weather/nwp/").read().split()
+            time, date = site[-5:-3]
+            tdstring = str(time, "utf-8") + "-" + str(date, "utf-8")
+            td = datetime.strptime(tdstring, "%d-%b-%Y-%H:%M")
+
+            return td
 
         def create_dataframe(logdata):
             content = pandas.read_csv(logdata, delimiter="|", header=None, names=["file", "size", "time"])
+            content["time"] = content["time"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
+
+            creation_time = pandas.DataFrame({"file": "creation_time", "time": content[content.file.str.contains("content.log")]["time"]})
             content = content[~content.file.str.contains("snow4")]
             content = content[~content.file.str.contains("content.log")]
 
@@ -32,39 +43,34 @@ class DWD_Content():
             content["level"] = "0"
             content.loc[content["level_type"] == "single", ["level"]] = "0"
             content.loc[content["level_type"] == "pressure", ["level"]] = content[content.level_type == "pressure"][
-                "filename"].apply(
-                lambda x: x.split("_")[6])
+                "filename"].apply(lambda x: x.split("_")[6])
             content.loc[content["level_type"] == "model", ["level"]] = content[content.level_type == "model"][
-                "filename"].apply(
-                lambda x: x.split("_")[6])
+                "filename"].apply(lambda x: x.split("_")[6])
             content["level"] = content["level"].astype(int)
+
+            content = content.append(creation_time, ignore_index=True, sort=False)
             content.to_pickle("content.pkl")
 
-            return content
-
-        def get_content_creation_time():
-            site = urlopen("https://opendata.dwd.de/weather/nwp/").read().split()
-            time, date = site[-5:-3]
-            tdstring = str(time, "utf-8") + "-" + str(date, "utf-8")
-            td = datetime.datetime.strptime(tdstring, "%d-%b-%Y-%H:%M")
-
-            return td
-
+            return content[~(content["file"] == "creation_time")]
 
         if os.path.exists("content.pkl"):
             content_old = pandas.read_pickle("content.pkl")
             actual_creation_time = get_content_creation_time()
-            if content_old.creation_time == actual_creation_time:
-                self.content = content_old
-                self.creation_time
+            old_creation_time = content_old[content_old["file"] == "creation_time"]["time"].values[0]
+            print(old_creation_time, np.datetime64(actual_creation_time))
+            if True:#old_creation_time >= np.datetime64(actual_creation_time):
+                self.content = content_old[~(content_old["file"]=="creation_time")]
 
             else:
+                os.remove("content.log")
                 download("https://opendata.dwd.de/weather/nwp/content.log.bz2", destination="content.log.bz2",
                          uncompress=True)
                 self.content = create_dataframe("content.log")
 
         else:
-            download("https://opendata.dwd.de/weather/nwp/content.log.bz2",destination="content.log.bz2", uncompress=True)
+            os.remove("content.log")
+            download("https://opendata.dwd.de/weather/nwp/content.log.bz2",
+                     destination="content.log.bz2", uncompress=True)
             self.content = create_dataframe("content.log")
 
 
@@ -191,7 +197,7 @@ def retrieve_opendata(service="DWD", model="ICON", eps=False, variable=None, lev
     download_files = []
     download_urls = []
     model = model.lower()
-    content = DWD_Content(dest)
+    content = DWD_Content()
 
 
     if model not in content.get_models():
