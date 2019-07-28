@@ -8,9 +8,12 @@ from numba import jit
 import dask
 import pandas
 from datetime import datetime
+from shutil import copyfileobj
+
 
 if six.PY3:
-    from urllib.request import urlretrieve
+    from urllib.request import urlretrieve, urlopen
+    from urllib.error import HTTPError
 else:
     from urllib import urlretrieve
 
@@ -147,7 +150,7 @@ def swapaxis(array, a1, a2):
     a1 : int
             first axis
 
-    a1 : int
+    a2 : int
             second axis
 
     Returns
@@ -442,6 +445,7 @@ class DWDContent:
             logging.info("Creating content database with {}".format(logdata))
             content = pandas.read_csv(logdata, delimiter="|", header=None, names=["file", "size", "time"])
             content["time"] = content["time"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
+            content["size"] = content["size"].astype(int)
 
             content = content[~content.file.str.contains("snow4")]
             content = content[~content.file.str.contains("content.log")]
@@ -669,9 +673,12 @@ class DWDContent:
                       & (content["init_time"] == init_time)
                       & (content["variable"] == variable)
                       & (content["level_type"] == level_type)
-                      & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["file"].values[0]
+                      & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["file"].values
+        if len(url) == 0:
+            raise KeyError("Url not found(model:{},init_time:{},variable:{},level_type:{},forecast_hour:{},level:{})"
+                           .format(model, init_time, variable, level_type, forecast_hour, level))
 
-        return url
+        return url[0]
 
     def get_filename(self, model=None, init_time=None, variable=None, level_type=None, forecast_hour=None, level=None):
         """
@@ -707,6 +714,38 @@ class DWDContent:
 
         return filename
 
+    def check_url_available(self, model=None, init_time=None, variable=None, level_type=None,
+                            forecast_hour=None, level=None):
+        try:
+            http_code = urlopen(self.get_url(model=model, init_time=init_time, variable=variable, level_type=level_type,
+                                             forecast_hour=forecast_hour, level=level)).getcode()
+            if http_code == 200:
+                url_available = True
+        except HTTPError:
+            url_available = False
+        return url_available
+
+    def get_file_size(self, model=None, init_time=None, variable=None, level_type=None,
+                      forecast_hour=None, level=None):
+        content = self.content
+        size = content[(content["model"] == model)
+                       & (content["init_time"] == init_time)
+                       & (content["variable"] == variable)
+                       & (content["level_type"] == level_type)
+                       & (content["forecast_hour"] == forecast_hour)
+                       & (content["level"] == level)]["size"].values[0]
+        return size
+
+    def get_size_of_download(self, model=None, init_time=None, variable=None, level_type=None,
+                             forecast_hour=None, levels=None):
+        total_size = 0
+        for var in variable:
+            for hour in forecast_hour:
+                for lev in levels:
+                    total_size += self.get_file_size(model=model, init_time=init_time, variable=var,
+                                                     level_type=level_type, forecast_hour=hour, level=lev)
+        return total_size
+
     def check_parameters(self, model=None, init_time=None, variable=None, level_type=None,
                          forecast_hour=None, levels=None):
         """
@@ -720,13 +759,13 @@ class DWDContent:
             The model of the file.
         init_time: int
             The initialization time of the file.
-        variable: str
+        variable: list or str
             The variable of the file.
         level_type: str
             The type of level of the file.
-        forecast_hour:
+        forecast_hour: list or int
             The hours of the forecast since the initialization of the simulation.
-        levels: int
+        levels: list or int
             The levels.
 
         Returns
@@ -744,24 +783,41 @@ class DWDContent:
             avail_vars = self.get_avail_vars(model=model, init_time=init_time)
             if var not in avail_vars:
                 params_available = False
+                break
 
             avail_level_types = self.get_avail_level_types(model=model, init_time=init_time, variable=var)
             if level_type not in avail_level_types:
                 params_available = False
+                break
 
             for hour in forecast_hour:
                 if hour not in self.get_avail_forecast_hours(model=model, init_time=init_time,
                                                              variable=var, level_type=level_type):
                     params_available = False
+                    break
 
                 for lev in levels:
                     avail_levels = self.get_avail_levels(model=model, init_time=init_time,
                                                          variable=var, level_type=level_type)
+
                     if lev not in avail_levels:
                         params_available = False
+                        break
+
         if not params_available:
-            logging.warning("Parameters not available or database outdated" +
-                            ", trying with refreshing the content database")
+            logging.warning("Parameters not available")
+        else:
+            for hour in forecast_hour:
+                for var in variable:
+                    for lev in levels:
+                        if not self.check_url_available(model=model, init_time=init_time, variable=var,
+                                                        level_type=level_type, forecast_hour=hour, level=lev):
+                            params_available = False
+                            break
+            if not params_available:
+                logging.warning("Database outdated.")
+
+        if not params_available:
             self.refresh_content()
 
             avail_models = self.get_models()
@@ -819,12 +875,12 @@ class DWDContent:
         level_type : str
                 one of "model", "pressure", or "single"
 
-        levels : list or range
+        levels : list or int
                 levels to download. Unit depends on `level_type`.
 
         init_time : int or str
 
-        forecast_hour : list or str
+        forecast_hour : list or int
                 hours since the initialization of forecast. Multiple values are allowed.
 
         merge_files : bool
@@ -858,7 +914,6 @@ class DWDContent:
         download_files = []
         download_urls = []
 
-        # Difference between DWDContent.retrieve_opendata() and retrieve_opendata():
         self.check_parameters(model=model, init_time=init_time, variable=variable, level_type=level_type,
                               forecast_hour=forecast_hour, levels=levels)
 
@@ -866,18 +921,22 @@ class DWDContent:
             for hour in forecast_hour:
                 for lev in levels:
                     download_urls.append(self.get_url(model=model, init_time=init_time, variable=var,
-                                                         level_type=level_type, forecast_hour=hour, level=lev))
+                                                      level_type=level_type, forecast_hour=hour, level=lev))
                     download_files.append(self.get_filename(model=model, init_time=init_time, variable=var,
-                                                               level_type=level_type, forecast_hour=hour, level=lev))
+                                                            level_type=level_type, forecast_hour=hour, level=lev))
 
         download_files = [dest + "/" + file[:-4] for file in download_files]
 
+        total_size_human = bytes2human(self.get_size_of_download(model=model, init_time=init_time, variable=variable,
+                                                                 level_type=level_type, forecast_hour=forecast_hour,
+                                                                 levels=levels))
+        logging.info("Downloading {} files with the total size of {}".format(len(download_files),total_size_human))
         for i in range(len(download_urls)):
             download(download_urls[i], download_files[i] + ".bz2", uncompress=True)
 
         if merge_files:
             merge_dataset_name = dest + "/" + service + "_" + model + "_" \
-                                 + datetime.now().strftime("%d-%m-%Y_%Hh%Mm%S%fs") + ".nc"
+                                 + datetime.now().strftime("%d-%m-%Y_%Hh%Mm%S%fs") + ".grib2"
 
             concat(download_files, merge_dataset_name)
             for file in download_files:
@@ -900,12 +959,44 @@ def concat(files, out_filename):
     -------
 
     """
-    out = open(out_filename, "wb")
-    for filename in files:
-        file = open(filename, "rb")
-        out.write(file.read())
-        file.close()
-    out.close()
+    with open(out_filename, "wb") as out:
+        for filename in files:
+            with open(filename, "rb") as file:
+                copyfileobj(file, out)
+
+
+def bytes2human(n, format='%(value).1f %(symbol)s', symbols='iec'):
+    """
+    Convert n bytes into a human readable string based on format.
+    symbols can be either "customary", "customary_ext", "iec" or "iec_ext",
+    see: http://goo.gl/kTQMs
+    """
+    SYMBOLS = {
+        'customary': ('B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'),
+        'customary_ext': ('byte', 'kilo', 'mega', 'giga', 'tera', 'peta', 'exa', 'zetta', 'iotta'),
+        'customary_with_B': ('B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'),
+        'iec': ('Bi', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi'),
+        'iec_ext': ('byte', 'kibi', 'mebi', 'gibi', 'tebi', 'pebi', 'exbi', 'zebi', 'yobi'),
+        'iec_with_B': ('Bi', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'),
+    }
+
+    n = int(n)
+    if n < 0:
+        raise ValueError("n < 0")
+    if "iec" in symbols:
+        base = 1024
+    else:
+        base = 1000
+    symbols = SYMBOLS[symbols]
+    prefix = {}
+    for i, s in enumerate(symbols):
+        prefix[s] = base ** i
+    for symbol in reversed(symbols):
+        if n >= prefix[symbol]:
+            value = float(n) / prefix[symbol]
+            return format % locals()
+    return format % dict(symbol=symbols[0], value=n)
+
 
 def retrieve_opendata(service="DWD", model="ICON", eps=None, variable=None, level_type=None, levels=0,
                       init_time=None, forecast_hour=None, merge_files=False, dest=None):
@@ -927,12 +1018,12 @@ def retrieve_opendata(service="DWD", model="ICON", eps=None, variable=None, leve
     level_type : str
             one of "model", "pressure", or "single"
 
-    levels : list or range
+    levels : list or int
             levels to download. Unit depends on `level_type`.
 
     init_time : int or str
 
-    forecast_hour : list or str
+    forecast_hour : list or int
             hours since the initialization of forecast. Multiple values are allowed.
 
     merge_files : bool
@@ -980,12 +1071,16 @@ def retrieve_opendata(service="DWD", model="ICON", eps=None, variable=None, leve
 
     download_files = [dest + "/" + file[:-4] for file in download_files]
 
+    total_size_human = bytes2human(content.get_size_of_download(model=model, init_time=init_time, variable=variable,
+                                                                level_type=level_type, forecast_hour=forecast_hour,
+                                                                levels=levels))
+    logging.info("Downloading {} files with the total size of {}".format(len(download_files), total_size_human))
     for i in range(len(download_urls)):
             download(download_urls[i], download_files[i] + ".bz2", uncompress=True)
 
     if merge_files:
         merge_dataset_name = dest + "/" + service + "_" + model + "_" \
-                             + datetime.now().strftime("%d-%m-%Y_%Hh%Mm%S%fs")+ ".nc"
+                             + datetime.now().strftime("%d-%m-%Y_%Hh%Mm%S%fs") + ".grib2"
 
         concat(download_files, merge_dataset_name)
         for file in download_files:

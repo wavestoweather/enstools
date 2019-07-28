@@ -9,7 +9,7 @@ print("Available variables for icon and init_time 00:", content.get_avail_vars(m
 
 
 retrieve_opendata(variable=["t_2m"],
-                  model="icon-eps",
+                  model="icon-eu",
                   level_type="single",
                   init_time=0,
                   forecast_hour=[0, 1, 2, 3, 4],
