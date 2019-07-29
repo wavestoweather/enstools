@@ -37,6 +37,17 @@ content.retrieve_opendata(variable=["t"],
                           dest="downloads",
                           merge_files=False)
 
+content.retrieve_opendata(variable=["t"],
+                          model="cosmo-d2",
+                          grid_type="regular-lat-lon",
+                          level_type="pressure",
+                          init_time=0,
+                          levels=[1000, 950, 975],
+                          forecast_hour=[0],
+                          dest="downloads",
+                          merge_files=True)
+
+
 # This is an invalid request:
 retrieve_opendata(variable=["td"],  # Variable td is not available in icon-eps
                   model="icon-eps",

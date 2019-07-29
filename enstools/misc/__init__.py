@@ -459,6 +459,7 @@ class DWDContent:
             content["file"] = content["file"].apply(lambda x: "https://opendata.dwd.de/weather/nwp" + x[1:])
 
             content["level_type"] = content["filename"].apply(lambda x: x.split("_")[3])
+            content["grid_type"] = content["filename"].apply(lambda x: x.split("_")[2])
             content["level_type"] = content["level_type"].apply(lambda x: x[:-6])
 
             content["forecast_hour"] = content["filename"].apply(lambda x: x.split("_")[5])
@@ -514,7 +515,52 @@ class DWDContent:
         avail_models.sort()
         return avail_models
 
-    def get_avail_init_times(self, model=None):
+    def get_grid_types(self, model=None):
+        """
+        Gives the available grid_types for a specific model
+        Parameters
+        ----------
+        model: str
+            The model of the forecast simulation.
+
+        Returns
+        -------
+
+        """
+        content = self.content
+        grid_types = content[content["model"] == model]["grid_type"].drop_duplicates().values.tolist()
+        return grid_types
+
+    def check_grid_type(self, model=None, grid_type=None):
+        """
+        Checks if the given grid_type is available and if grid_type=None check if the available type is unambigious.
+
+        Parameters
+        ----------
+        model: str
+            The model of the forecast.
+        grid_type: str
+            The geo grid type.
+
+        Returns
+        -------
+        grid_type: str
+            if available and unambigious the right grid type will be returned
+
+        """
+        avail_grid_types = self.get_grid_types(model=model)
+        if grid_type is None:
+            if len(avail_grid_types) is 1:
+                grid_type = avail_grid_types[0]
+            else:
+                raise ValueError("You have to choose one of the grid_types: {}".format(avail_grid_types))
+        else:
+            if grid_type not in avail_grid_types:
+                raise ValueError("Grid type {} not available for model {}. available grid_type: {}"
+                                 .format(grid_type, model, avail_grid_types))
+        return grid_type
+
+    def get_avail_init_times(self, model=None, grid_type=None):
         """
         Gives the available initialization times for a given forecast model.
 
@@ -522,6 +568,8 @@ class DWDContent:
         ----------
         model: str
             The model for which the available initialization times want to be known.
+        grid_type: str
+            The type of the geo grid.
 
         Returns
         -------
@@ -529,12 +577,14 @@ class DWDContent:
             A list of integers of the available initialization times
 
         """
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
-        avail_init_times = content[content["model"] == model]["init_time"].drop_duplicates().values.tolist()
+        avail_init_times = content[(content["model"] == model)
+                                   & (content["grid_type"] == grid_type)]["init_time"].drop_duplicates().values.tolist()
         avail_init_times.sort()
         return avail_init_times
 
-    def get_avail_vars(self, model=None, init_time=None):
+    def get_avail_vars(self, model=None, grid_type=None, init_time=None):
         """
         Gives the available variables for a given forecast model and initialization time.
 
@@ -542,6 +592,8 @@ class DWDContent:
         ----------
         model: str
             The model for which the available variables want to be known.
+        grid_type: str
+            The type of the geo grid.
         init_time: int
             The initialization time for which the available variables want to be known.
 
@@ -551,19 +603,23 @@ class DWDContent:
             The sorted list of strings of the available variables.
 
         """
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
         avail_vars = content[(content["model"] == model)
+                             & (content["grid_type"] == grid_type)
                              & (content["init_time"] == init_time)]["variable"].drop_duplicates().values.tolist()
         avail_vars.sort()
         return avail_vars
 
-    def get_avail_level_types(self, model=None, init_time=None, variable=None):
+    def get_avail_level_types(self, model=None, grid_type=None, init_time=None, variable=None):
         """
         Gives the available level types for a given forecast model, initialization time and variable.
         Parameters
         ----------
         model: str
             The model for which the available level types want to be known.
+        grid_type: str
+            The type of the geo grid.
         init_time: int
             The initialization time for which the available level types want to be known.
         variable: str
@@ -575,14 +631,16 @@ class DWDContent:
             The sorted list of strings of the available level types.
 
         """
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
         avail_level_types = content[(content["model"] == model)
+                                    & (content["grid_type"] == grid_type)
                                     & (content["init_time"] == init_time)
                                     & (content["variable"] == variable)]["level_type"].drop_duplicates().values.tolist()
         avail_level_types.sort()
         return avail_level_types
 
-    def get_avail_forecast_hours(self, model=None, init_time=None, variable=None, level_type=None):
+    def get_avail_forecast_hours(self, model=None, grid_type=None, init_time=None, variable=None, level_type=None):
         """
         Gives the available  forecast hours since initialization for a given forecast model, initialization time,
         variable and level type.
@@ -591,6 +649,8 @@ class DWDContent:
         ----------
         model: str
             The model for which the available forecast hours want to be known.
+        grid_type: str
+            The type of the geo grid.
         init_time: int
             The initialization time for which the available forecast hours want to be known.
         variable: str
@@ -604,8 +664,10 @@ class DWDContent:
             The available hours of the forecast data since the initilization of the forecast.
 
         """
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
         avail_forecast_times = content[(content["model"] == model)
+                                       & (content["grid_type"] == grid_type)
                                        & (content["init_time"] == init_time)
                                        & (content["variable"] == variable)
                                        & (content["level_type"] == level_type)]["forecast_hour"]\
@@ -613,7 +675,7 @@ class DWDContent:
         avail_forecast_times.sort()
         return avail_forecast_times
 
-    def get_avail_levels(self, model=None, init_time=None, variable=None, level_type=None):
+    def get_avail_levels(self, model=None, grid_type=None, init_time=None, variable=None, level_type=None):
         """
         Gives the available levels since initialization for a given forecast model, initialization time,
         variable and level type. If the level of the variable is not pressure or model 0 will be returned.
@@ -622,6 +684,8 @@ class DWDContent:
         ----------
         model: str
             The model for which the available levels want to be known.
+        grid_type: str
+            The type of the geo grid.
         init_time: int
             The initialization time for which the available levels want to be known.
         variable: str
@@ -635,15 +699,18 @@ class DWDContent:
             A list of integers of the available levels.
 
         """
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
         avail_levels = content[(content["model"] == model)
+                               & (content["grid_type"] == grid_type)
                                & (content["init_time"] == init_time)
                                & (content["variable"] == variable)
                                & (content["level_type"] == level_type)]["level"].drop_duplicates().values.tolist()
         avail_levels.sort()
         return avail_levels
 
-    def get_url(self, model=None, init_time=None, variable=None, level_type=None, forecast_hour=None, level=None):
+    def get_url(self, model=None, grid_type=None, init_time=None, variable=None,
+                level_type=None, forecast_hour=None, level=None):
         """
         Gives the url of the file on the https://opendata.dwd.de/weather/nwp server.
 
@@ -651,6 +718,8 @@ class DWDContent:
         ----------
         model: str
             The model of the file for which the url wants to be known.
+        grid_type: str
+            The type of the geo grid.
         init_time: int
             The initialization time of the forecast of the file for which the url wants to be known.
         variable: str
@@ -667,20 +736,25 @@ class DWDContent:
         url: str
             The url adress of the file.
         """
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
 
         url = content[(content["model"] == model)
                       & (content["init_time"] == init_time)
                       & (content["variable"] == variable)
                       & (content["level_type"] == level_type)
-                      & (content["forecast_hour"] == forecast_hour) & (content["level"] == level)]["file"].values
-        if len(url) == 0:
-            raise KeyError("Url not found(model:{},init_time:{},variable:{},level_type:{},forecast_hour:{},level:{})"
-                           .format(model, init_time, variable, level_type, forecast_hour, level))
+                      & (content["forecast_hour"] == forecast_hour)
+                      & (content["level"] == level)
+                      & (content["grid_type"] == grid_type)]["file"].values
+        if len(url) != 1:
+            raise KeyError("Url not found(model:{}, grid_type{}, init_time:{},variable:{},level_type:{}"
+                           ",forecast_hour:{},level:{})"
+                           .format(model, grid_type, init_time, variable, level_type, forecast_hour, level))
 
-        return url[0]
+        return url.item()
 
-    def get_filename(self, model=None, init_time=None, variable=None, level_type=None, forecast_hour=None, level=None):
+    def get_filename(self, model=None, grid_type=None, init_time=None, variable=None,
+                     level_type=None, forecast_hour=None, level=None):
         """
          Gives the filename of the file on the https://opendata.dwd.de/weather/nwp server.
 
@@ -688,6 +762,8 @@ class DWDContent:
         ----------
         model: str
             The model of the file for which the filename wants to be known.
+        grid_type: str
+            The type of the geo grid.
         init_time: int
             The initialization time of the forecast of the file for which the filename wants to be known.
         variable: str
@@ -704,50 +780,56 @@ class DWDContent:
         url: str
             The filename of the file.
         """
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
         filename = content[(content["model"] == model)
                            & (content["init_time"] == init_time)
                            & (content["variable"] == variable)
                            & (content["level_type"] == level_type)
                            & (content["forecast_hour"] == forecast_hour)
-                           & (content["level"] == level)]["filename"].values[0]
+                           & (content["level"] == level)
+                           & (content["grid_type"] == grid_type)]["filename"].values.item()
 
         return filename
 
-    def check_url_available(self, model=None, init_time=None, variable=None, level_type=None,
-                            forecast_hour=None, level=None):
+    def check_url_available(self, model=None, grid_type=None, init_time=None, variable=None,
+                            level_type=None, forecast_hour=None, level=None):
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         try:
-            http_code = urlopen(self.get_url(model=model, init_time=init_time, variable=variable, level_type=level_type,
-                                             forecast_hour=forecast_hour, level=level)).getcode()
+            http_code = urlopen(self.get_url(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
+                                             level_type=level_type, forecast_hour=forecast_hour, level=level)).getcode()
             if http_code == 200:
                 url_available = True
         except HTTPError:
             url_available = False
         return url_available
 
-    def get_file_size(self, model=None, init_time=None, variable=None, level_type=None,
-                      forecast_hour=None, level=None):
+    def get_file_size(self, model=None, grid_type=None, init_time=None, variable=None,
+                      level_type=None, forecast_hour=None, level=None):
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
         size = content[(content["model"] == model)
                        & (content["init_time"] == init_time)
                        & (content["variable"] == variable)
                        & (content["level_type"] == level_type)
                        & (content["forecast_hour"] == forecast_hour)
-                       & (content["level"] == level)]["size"].values[0]
+                       & (content["level"] == level)
+                       & (content["grid_type"] == grid_type)]["size"].values.item()
         return size
 
-    def get_size_of_download(self, model=None, init_time=None, variable=None, level_type=None,
-                             forecast_hour=None, levels=None):
+    def get_size_of_download(self, model=None, grid_type=None, init_time=None,
+                             variable=None, level_type=None, forecast_hour=None, levels=None):
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         total_size = 0
         for var in variable:
             for hour in forecast_hour:
                 for lev in levels:
-                    total_size += self.get_file_size(model=model, init_time=init_time, variable=var,
-                                                     level_type=level_type, forecast_hour=hour, level=lev)
+                    total_size += self.get_file_size(model=model, grid_type=grid_type, init_time=init_time,
+                                                     variable=var, level_type=level_type, forecast_hour=hour, level=lev)
         return total_size
 
-    def check_parameters(self, model=None, init_time=None, variable=None, level_type=None,
-                         forecast_hour=None, levels=None):
+    def check_parameters(self, model=None, grid_type=None, init_time=None, variable=None,
+                         level_type=None, forecast_hour=None, levels=None):
         """
         Checks if there are all files available for the given parameters.
         If not, the DWDContent object will be refreshed.
@@ -757,6 +839,8 @@ class DWDContent:
         ----------
         model:str
             The model of the file.
+        grid_type: str
+            The type of the geo grid.
         init_time: int
             The initialization time of the file.
         variable: list or str
@@ -772,32 +856,35 @@ class DWDContent:
         -------
 
         """
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
+
         params_available = True
         if model not in self.get_models():
             params_available = False
 
-        if init_time not in self.get_avail_init_times(model=model):
+        if init_time not in self.get_avail_init_times(model=model, grid_type=grid_type):
             params_available = False
 
         for var in variable:
-            avail_vars = self.get_avail_vars(model=model, init_time=init_time)
+            avail_vars = self.get_avail_vars(model=model, grid_type=grid_type, init_time=init_time)
             if var not in avail_vars:
                 params_available = False
                 break
 
-            avail_level_types = self.get_avail_level_types(model=model, init_time=init_time, variable=var)
+            avail_level_types = self.get_avail_level_types(model=model, grid_type=grid_type,
+                                                           init_time=init_time, variable=var)
             if level_type not in avail_level_types:
                 params_available = False
                 break
 
             for hour in forecast_hour:
-                if hour not in self.get_avail_forecast_hours(model=model, init_time=init_time,
+                if hour not in self.get_avail_forecast_hours(model=model, grid_type=grid_type, init_time=init_time,
                                                              variable=var, level_type=level_type):
                     params_available = False
                     break
 
                 for lev in levels:
-                    avail_levels = self.get_avail_levels(model=model, init_time=init_time,
+                    avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_time,
                                                          variable=var, level_type=level_type)
 
                     if lev not in avail_levels:
@@ -810,8 +897,9 @@ class DWDContent:
             for hour in forecast_hour:
                 for var in variable:
                     for lev in levels:
-                        if not self.check_url_available(model=model, init_time=init_time, variable=var,
-                                                        level_type=level_type, forecast_hour=hour, level=lev):
+                        if not self.check_url_available(model=model, grid_type=grid_type, init_time=init_time,
+                                                        variable=var, level_type=level_type, forecast_hour=hour,
+                                                        level=lev):
                             params_available = False
                             break
             if not params_available:
@@ -824,39 +912,41 @@ class DWDContent:
             if model not in avail_models:
                 raise ValueError("The model {} is not available. Possible Values: {}".format(model, avail_models))
 
-            avail_init_times = self.get_avail_init_times(model=model)
+            avail_init_times = self.get_avail_init_times(model=model, grid_type=grid_type)
             if init_time not in avail_init_times:
                 raise ValueError("The initial time {} is not available. Possible Values: {}"
                                  .format(init_time, avail_init_times))
 
             for var in variable:
-                avail_vars = self.get_avail_vars(model=model, init_time=init_time)
+                avail_vars = self.get_avail_vars(model=model, grid_type=grid_type, init_time=init_time)
                 if var not in avail_vars:
                     raise ValueError(
                         "The variable {} is not available for the {} model and the init_time {}. Available variables:{}"
                         .format(var, model, init_time, avail_vars))
 
-                avail_level_types = self.get_avail_level_types(model=model, init_time=init_time, variable=var)
+                avail_level_types = self.get_avail_level_types(model=model, grid_type=grid_type,
+                                                               init_time=init_time, variable=var)
                 if level_type not in avail_level_types:
                     raise ValueError("The level type {} is not available for the variable {}. Available types: {}"
                                      .format(level_type, var, avail_level_types))
-                avail_forecast_hours = self.get_avail_forecast_hours(model=model, init_time=init_time,
-                                                                     variable=var, level_type=level_type)
+                avail_forecast_hours = self.get_avail_forecast_hours(model=model, grid_type=grid_type,
+                                                                     init_time=init_time, variable=var,
+                                                                     level_type=level_type)
                 for hour in forecast_hour:
 
                     if hour not in avail_forecast_hours:
                         raise ValueError("The forecast hour {} is not available for the variable {}. Possible values:{}"
                                          .format(hour, var, avail_forecast_hours))
                     for lev in levels:
-                        avail_levels = self.get_avail_levels(model=model, init_time=init_time,
+                        avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_time,
                                                              variable=var, level_type=level_type)
                         if lev not in avail_levels:
                             raise ValueError("The level {} is not available for the variable {} and the level type {}."
                                              .format(lev, var, level_type)
                                              + " Possible Values: {}".format(avail_levels))
 
-    def retrieve_opendata(self, service="DWD", model="ICON", eps=None, variable=None, level_type=None, levels=0,
-                          init_time=None, forecast_hour=None, merge_files=False, dest=None):
+    def retrieve_opendata(self, service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
+                          levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
         """
         Downloads datasets from opendata server. Faster access to the database.
         Parameters
@@ -868,6 +958,9 @@ class DWDContent:
 
         eps : bool
                 if True, download ensemble forecast, otherwise download deterministic forecast.
+
+        grid_type: str
+            The type of the geo grid.
 
         variable : list or str
                 list of variables to download. Multiple values are allowed.
@@ -887,7 +980,8 @@ class DWDContent:
                 if true, GRIB files are concatenated to create one file.
 
         dest : str
-                Destination folder for downloaded data. If the files are already available, they are not downloaded again.
+                Destination folder for downloaded data. If the files are already available,
+                they are not downloaded again.
 
         Returns
         -------
@@ -914,23 +1008,27 @@ class DWDContent:
         download_files = []
         download_urls = []
 
-        self.check_parameters(model=model, init_time=init_time, variable=variable, level_type=level_type,
-                              forecast_hour=forecast_hour, levels=levels)
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
+
+        self.check_parameters(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
+                              level_type=level_type, forecast_hour=forecast_hour, levels=levels)
 
         for var in variable:
             for hour in forecast_hour:
                 for lev in levels:
-                    download_urls.append(self.get_url(model=model, init_time=init_time, variable=var,
-                                                      level_type=level_type, forecast_hour=hour, level=lev))
-                    download_files.append(self.get_filename(model=model, init_time=init_time, variable=var,
-                                                            level_type=level_type, forecast_hour=hour, level=lev))
+                    download_urls.append(self.get_url(model=model, grid_type=grid_type, init_time=init_time,
+                                                      variable=var, level_type=level_type, forecast_hour=hour,
+                                                      level=lev))
+                    download_files.append(self.get_filename(model=model, grid_type=grid_type, init_time=init_time,
+                                                            variable=var, level_type=level_type, forecast_hour=hour,
+                                                            level=lev))
 
         download_files = [dest + "/" + file[:-4] for file in download_files]
 
-        total_size_human = bytes2human(self.get_size_of_download(model=model, init_time=init_time, variable=variable,
-                                                                 level_type=level_type, forecast_hour=forecast_hour,
-                                                                 levels=levels))
-        logging.info("Downloading {} files with the total size of {}".format(len(download_files),total_size_human))
+        total_size_human = bytes2human(self.get_size_of_download(model=model, grid_type=grid_type, init_time=init_time,
+                                                                 variable=variable, level_type=level_type,
+                                                                 forecast_hour=forecast_hour, levels=levels))
+        logging.info("Downloading {} files with the total size of {}".format(len(download_files), total_size_human))
         for i in range(len(download_urls)):
             download(download_urls[i], download_files[i] + ".bz2", uncompress=True)
 
@@ -998,10 +1096,10 @@ def bytes2human(n, format='%(value).1f %(symbol)s', symbols='iec'):
     return format % dict(symbol=symbols[0], value=n)
 
 
-def retrieve_opendata(service="DWD", model="ICON", eps=None, variable=None, level_type=None, levels=0,
-                      init_time=None, forecast_hour=None, merge_files=False, dest=None):
+def retrieve_opendata(service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
+                      levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
     """
-    Downloads datasets from opendata server.
+    Downloads datasets from opendata server. Faster access to the database.
     Parameters
     ----------
     service : str
@@ -1011,6 +1109,9 @@ def retrieve_opendata(service="DWD", model="ICON", eps=None, variable=None, leve
 
     eps : bool
             if True, download ensemble forecast, otherwise download deterministic forecast.
+
+    grid_type: str
+        The type of the geo grid.
 
     variable : list or str
             list of variables to download. Multiple values are allowed.
@@ -1030,7 +1131,8 @@ def retrieve_opendata(service="DWD", model="ICON", eps=None, variable=None, leve
             if true, GRIB files are concatenated to create one file.
 
     dest : str
-            Destination folder for downloaded data. If the files are already available, they are not downloaded again.
+            Destination folder for downloaded data. If the files are already available,
+            they are not downloaded again.
 
     Returns
     -------
@@ -1058,25 +1160,30 @@ def retrieve_opendata(service="DWD", model="ICON", eps=None, variable=None, leve
     download_urls = []
 
     content = DWDContent()
-    content.check_parameters(model=model, init_time=init_time, variable=variable, level_type=level_type,
-                             forecast_hour=forecast_hour, levels=levels)
+
+    grid_type = content.check_grid_type(model=model, grid_type=grid_type)
+
+    content.check_parameters(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
+                             level_type=level_type, forecast_hour=forecast_hour, levels=levels)
 
     for var in variable:
         for hour in forecast_hour:
             for lev in levels:
-                download_urls.append(content.get_url(model=model, init_time=init_time, variable=var,
-                                                     level_type=level_type, forecast_hour=hour, level=lev))
-                download_files.append(content.get_filename(model=model, init_time=init_time, variable=var,
-                                                           level_type=level_type, forecast_hour=hour, level=lev))
+                download_urls.append(content.get_url(model=model, grid_type=grid_type, init_time=init_time,
+                                                     variable=var, level_type=level_type, forecast_hour=hour,
+                                                     level=lev))
+                download_files.append(content.get_filename(model=model, grid_type=grid_type, init_time=init_time,
+                                                           variable=var, level_type=level_type, forecast_hour=hour,
+                                                           level=lev))
 
     download_files = [dest + "/" + file[:-4] for file in download_files]
 
-    total_size_human = bytes2human(content.get_size_of_download(model=model, init_time=init_time, variable=variable,
-                                                                level_type=level_type, forecast_hour=forecast_hour,
-                                                                levels=levels))
+    total_size_human = bytes2human(content.get_size_of_download(model=model, grid_type=grid_type, init_time=init_time,
+                                                                variable=variable, level_type=level_type,
+                                                                forecast_hour=forecast_hour, levels=levels))
     logging.info("Downloading {} files with the total size of {}".format(len(download_files), total_size_human))
     for i in range(len(download_urls)):
-            download(download_urls[i], download_files[i] + ".bz2", uncompress=True)
+        download(download_urls[i], download_files[i] + ".bz2", uncompress=True)
 
     if merge_files:
         merge_dataset_name = dest + "/" + service + "_" + model + "_" \
