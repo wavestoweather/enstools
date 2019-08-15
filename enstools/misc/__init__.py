@@ -450,6 +450,9 @@ class DWDContent:
             content = content[~content.file.str.contains("snow4")]
             content = content[~content.file.str.contains("content.log")]
 
+            # fix for json data, no json support now:
+            content = content[~content.file.str.contains("json")]
+
             content["model"] = content["file"].apply(lambda x: x.split("/")[1])
             content["file_type"] = content["file"].apply(lambda x: x.split("/")[2])
             content["init_time"] = content["file"].apply(lambda x: x.split("/")[3])
@@ -747,6 +750,7 @@ class DWDContent:
                       & (content["level"] == level)
                       & (content["grid_type"] == grid_type)]["file"].values
         if len(url) != 1:
+
             raise KeyError("Url not found(model:{}, grid_type{}, init_time:{},variable:{},level_type:{}"
                            ",forecast_hour:{},level:{})"
                            .format(model, grid_type, init_time, variable, level_type, forecast_hour, level))
