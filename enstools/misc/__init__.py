@@ -563,7 +563,6 @@ class DWDContent:
                                  .format(grid_type, model, avail_grid_types))
         return grid_type
 
-
     def check_level_type(self, model=None, grid_type=None, init_time=None, variable=None, level_type=None):
         """
         Checks if the given level_type is available for the variable in the given model. If no level_type is given,
@@ -577,27 +576,32 @@ class DWDContent:
             The geo grid type.
         init_time: int
             The initialization time.
-        variable
+        variable: list or tuple
+            The variable list
         level_type
 
         Returns
         -------
 
         """
-
-        avail_level_types = self.get_avail_level_types(model=model, grid_type=grid_type,
-                                                 init_time=init_time, variable=variable)
+        avail_level_types = []
+        for var in variable:
+            alevlist = self.get_avail_level_types(model=model, grid_type=grid_type, init_time=init_time, variable=var)
+            # No duplicate values:
+            for alev in alevlist:
+                if alev not in avail_level_types:
+                    avail_level_types.append(alev)
         if level_type is None:
             if len(avail_level_types) is 1:
                 level_type = avail_level_types[0]
+
             else:
                 raise ValueError("You have to choose one of the level_types: {}".format(avail_level_types))
         else:
-            if level_type not in avail_level_types:
+            if level_type not in avail_level_types and len(avail_level_types) is not 0:
                 raise ValueError("Level type {} not available for model {}, variable {}. Available level_type: {}"
                                  .format(level_type, model, variable, avail_level_types))
         return level_type
-
 
     def get_avail_init_times(self, model=None, grid_type=None):
         """
@@ -1042,8 +1046,10 @@ class DWDContent:
         if not os.path.exists(dest):
             os.mkdir(dest)
         model = model.lower()
-        grid_type = grid_type.lower()
-        level_type = level_type.lower()
+        if grid_type is not None:
+            grid_type = grid_type.lower()
+        if level_type is not None:
+            level_type = level_type.lower()
         variable = [var.lower() for var in variable]
 
         if model.endswith("eps") and eps is False:
@@ -1055,7 +1061,8 @@ class DWDContent:
         download_urls = []
 
         grid_type = self.check_grid_type(model=model, grid_type=grid_type)
-        level_type = self.check_
+        level_type = self.check_level_type(model=model, grid_type=grid_type, init_time=init_time,
+                                           variable=variable, level_type=level_type)
 
         self.check_parameters(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
                               level_type=level_type, forecast_hour=forecast_hour, levels=levels)
@@ -1187,7 +1194,7 @@ def retrieve_opendata(service="DWD", model="ICON", eps=None, grid_type=None, var
             names of downloaded files.
     """
     content = DWDContent()
-    download_files = content.retrieve_opendata(service="DWD", model="ICON", eps=None, grid_type=None, variable=None,
-                                               level_type=None, levels=0, init_time=None, forecast_hour=None,
-                                               merge_files=False, dest=None)
+    download_files = content.retrieve_opendata(service=service, model=model, eps=eps, grid_type=grid_type,
+                                               variable=variable, level_type=level_type, levels=levels, init_time=init_time,
+                                               forecast_hour=forecast_hour, merge_files=merge_files, dest=dest)
     return download_files
