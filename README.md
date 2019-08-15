@@ -4,9 +4,8 @@ The `enstools` package has now full support for Python 2 and Python 3. For new d
 use only Python 3. Important dependencies like `numpy` will stop to support Python 2 soon.
 
     conda create -n enstools
-    conda install -n enstools -c conda-forge numpy numba xarray dask distributed cloudpickle toolz pint nose scikit-learn eccodes cartopy decorator multipledispatch cffi
+    conda install -n enstools -c conda-forge numpy numba xarray dask distributed cloudpickle toolz pint nose scikit-learn eccodes cartopy decorator multipledispatch cffi cachey
     source activate enstools
-    pip install cachey
 
 # Installation in user home directory
 
@@ -16,7 +15,7 @@ or
 
     python3 setup.py install --user
 
-If you want to use the crps function you have to install it in R once manually:
+If you want to use the `crps` function you have to install it in R once manually:
 
 1.) open R
 2.) install.packages("scoringRules")

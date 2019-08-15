@@ -38,14 +38,17 @@ ffi.cdef("int codes_keys_iterator_delete(codes_keys_iterator *kiter);")
 # load the actual c-library
 if platform.system() == "Linux":
     __libext = "so"
+    __libname = "libeccodes"
 elif platform.system() == "Darwin":
     __libext = "dylib"
+    __libname = "libeccodes"
 elif platform.system() == "Windows":
     __libext = "dll"
+    __libname = "eccodes"
 else:
     raise OSError("Unknown platform: %s" % platform.system())
 try:
-    _eccodes = ffi.dlopen("libeccodes.%s" % __libext)
+    _eccodes = ffi.dlopen("{name}.{ext}".format(name=__libname, ext=__libext))
 except OSError:
     logging.warning("eccodes c-library not found, grib file support not available!")
 
