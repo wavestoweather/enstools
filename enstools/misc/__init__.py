@@ -989,6 +989,18 @@ class DWDContent:
                                              .format(lev, var, level_type)
                                              + " Possible Values: {}".format(avail_levels))
 
+    def get_merge_dataset_name(self, model=None, variable=None,
+                               level_type=None, init_time=None):
+        merge_name = "merge_" + model + "_" + level_type + "_" + "init" + str(init_time) + "_"
+
+        for var in variable:
+            merge_name = merge_name + var + "+"
+        merge_name = merge_name[:-1]
+
+        return merge_name + "_" + datetime.now().strftime("%d-%m-%Y_%Hh%Mm%S%fs") + ".grib2"
+
+
+
     def retrieve_opendata(self, service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
                           levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
         """
@@ -1087,14 +1099,16 @@ class DWDContent:
             download(download_urls[i], download_files[i] + ".bz2", uncompress=True)
 
         if merge_files:
-            merge_dataset_name = dest + "/" + service + "_" + model + "_" \
-                                 + datetime.now().strftime("%d-%m-%Y_%Hh%Mm%S%fs") + ".grib2"
+            merge_dataset_name = dest + "/" + self.get_merge_dataset_name(model=model, variable=variable,
+                                                                          level_type=level_type, init_time=init_time)
 
             concat(download_files, merge_dataset_name)
             for file in download_files:
                 os.remove(file)
+            return merge_dataset_name
 
-        return download_files
+        else:
+            return download_files
 
 
 def concat(files, out_filename):
