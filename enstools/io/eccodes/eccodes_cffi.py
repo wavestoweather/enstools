@@ -261,6 +261,7 @@ class GribMessage():
             # the dimension names differ for staggered variables like u and v
             var_name = self["shortName"].lower()
             if var_name in staggered_u and self["typeOfLevel"] not in ["heightAboveSea", "isobaricInhPa"]:
+                #breakpoint()
                 dim_names = ["rlat", "srlon"]
             elif var_name in staggered_v and self["typeOfLevel"] not in ["heightAboveSea", "isobaricInhPa"]:
                 dim_names = ["srlat", "rlon"]
@@ -334,20 +335,25 @@ class GribMessage():
         rotated_pole.attrs["grid_north_pole_latitude"] = self["latitudeOfSouthernPoleInDegrees"] * -1
         rotated_pole.attrs["grid_north_pole_longitude"] = self["longitudeOfSouthernPoleInDegrees"] - 180
         # create rotated coordinate arrays
-        first_lon = self["longitudeOfFirstGridPointInDegrees"]
-        last_lon = self["longitudeOfLastGridPointInDegrees"]
-        if last_lon < first_lon and first_lon > 180:
-            first_lon -= 360
+        # perform calculations on integers to avoid rounding errors
+        factor = 10000
+        first_lon = int(self["longitudeOfFirstGridPointInDegrees"] * factor)
+        last_lon = int(self["longitudeOfLastGridPointInDegrees"] * factor)
+        first_lat = int(self["latitudeOfFirstGridPointInDegrees"] * factor)
+        last_lat = int(self["latitudeOfLastGridPointInDegrees"] * factor)
+        if last_lon < first_lon and first_lon > 180 * factor:
+            first_lon -= 360 * factor
+        # [:self["Ni"]]: ensure that in case of rounding errors the array will not become to large
         rlon = xarray.DataArray(np.arange(first_lon,
-                                             last_lon + self["iDirectionIncrementInDegrees"],
-                                             self["iDirectionIncrementInDegrees"], dtype=np.float32),
+                                             last_lon + self["iDirectionIncrementInDegrees"] * factor,
+                                             self["iDirectionIncrementInDegrees"] * factor, dtype=np.float32)[:self["Ni"]] / factor,
                                 dims=(dim_names[-1],))
         rlon.attrs["long_name"] = "longitude in rotated pole grid"
         rlon.attrs["units"] = "degrees"
         rlon.attrs["standard_name"] = "grid_longitude"
-        rlat = xarray.DataArray(np.arange(self["latitudeOfFirstGridPointInDegrees"],
-                                             self["latitudeOfLastGridPointInDegrees"] + self["jDirectionIncrementInDegrees"],
-                                             self["jDirectionIncrementInDegrees"], dtype=np.float32),
+        rlat = xarray.DataArray(np.arange(first_lat,
+                                             last_lat + self["jDirectionIncrementInDegrees"] * factor,
+                                             self["jDirectionIncrementInDegrees"] * factor, dtype=np.float32)[:self["Nj"]] / factor,
                                 dims=(dim_names[-2],))
         rlat.attrs["long_name"] = "latitude in rotated pole grid"
         rlat.attrs["units"] = "degrees"
