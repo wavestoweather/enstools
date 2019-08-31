@@ -651,6 +651,8 @@ class DWDContent:
         list :
                 names of downloaded files.
         """
+
+
         # Want to download one or more variables?
         if not isinstance(variable, (list, tuple)):
             variable = [variable]
@@ -685,7 +687,12 @@ class DWDContent:
 
         self.check_parameters(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
                               level_type=level_type, forecast_hour=forecast_hour, levels=levels)
-
+        if merge_files:
+            merge_dataset_name = dest + "/" + self.get_merge_dataset_name(model=model, variable=variable,
+                                                                          level_type=level_type, init_time=init_time)
+            if os.path.exists(merge_dataset_name):
+                logging.warning("file not downloaded because it is already present:" + merge_dataset_name)
+                return None
         for var in variable:
             for hour in forecast_hour:
                 for lev in levels:
@@ -706,8 +713,6 @@ class DWDContent:
             download(download_urls[i], download_files[i] + ".bz2", uncompress=True)
 
         if merge_files:
-            merge_dataset_name = dest + "/" + self.get_merge_dataset_name(model=model, variable=variable,
-                                                                          level_type=level_type, init_time=init_time)
             concat(download_files, merge_dataset_name)
             for file in download_files:
                 os.remove(file)
