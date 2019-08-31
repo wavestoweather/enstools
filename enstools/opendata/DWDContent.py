@@ -5,9 +5,13 @@ from datetime import datetime
 from enstools.misc import download, bytes2human, concat
 from urllib.error import HTTPError
 from urllib.request import urlopen
+from enstools.core.tempdir import TempDir
 
 
 class DWDContent:
+
+    # create a new temporal directory to store content.log and opendata_dwd_content.pkl
+    content_path = TempDir().getpath()
 
     def __init__(self, refresh_content=False):
 
@@ -81,13 +85,13 @@ class DWDContent:
             content.loc[content["level_type"] == "model", ["level"]] = content[content.level_type == "model"][
                 "filename"].apply(lambda x: x.split("_")[6])
             content["level"] = content["level"].astype(int)
-            content.to_pickle("opendata_dwd_content.pkl")
+            content.to_pickle(os.path.join(DWDContent.content_path, "opendata_dwd_content.pkl"))
 
             return content
 
-        if os.path.exists("opendata_dwd_content.pkl") and not refresh_content:
+        if os.path.exists(os.path.join(DWDContent.content_path, "opendata_dwd_content.pkl")) and not refresh_content:
             logging.info("Reading content database from opendata_dwd_content.pkl")
-            content_old = pandas.read_pickle("opendata_dwd_content.pkl")
+            content_old = pandas.read_pickle(os.path.join(DWDContent.content_path, "opendata_dwd_content.pkl"))
             self.content = content_old
 
         else:
@@ -95,12 +99,12 @@ class DWDContent:
                 logging.info("Refreshing content database")
             else:
                 logging.info("Initializing content database")
-            if os.path.exists("content.log"):
-                os.remove("content.log")
+            if os.path.exists(os.path.join(DWDContent.content_path, "content.log")):
+                os.remove(os.path.join(DWDContent.content_path,"content.log"))
 
             download("https://opendata.dwd.de/weather/nwp/content.log.bz2",
-                     destination="content.log.bz2", uncompress=True)
-            self.content = create_dataframe("content.log")
+                     destination=os.path.join(DWDContent.content_path,"content.log.bz2"), uncompress=True)
+            self.content = create_dataframe(os.path.join(DWDContent.content_path, "content.log"))
 
     def refresh_content(self):
         """
@@ -602,7 +606,7 @@ class DWDContent:
             merge_name = merge_name + var + "+"
         merge_name = merge_name[:-1]
 
-        return merge_name + "_" + datetime.now().strftime("%d-%m-%Y_%Hh%Mm%S%fs") + ".grib2"
+        return merge_name + ".grib2"
 
     def retrieve(self, service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
                  levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
@@ -704,7 +708,6 @@ class DWDContent:
         if merge_files:
             merge_dataset_name = dest + "/" + self.get_merge_dataset_name(model=model, variable=variable,
                                                                           level_type=level_type, init_time=init_time)
-
             concat(download_files, merge_dataset_name)
             for file in download_files:
                 os.remove(file)
