@@ -8,6 +8,7 @@ import struct
 import threading
 import platform
 import logging
+import os
 
 # initialize the interface to the C-Library
 ffi = cffi.FFI()
@@ -35,10 +36,35 @@ ffi.cdef("int codes_keys_iterator_next (codes_keys_iterator *kiter);")
 ffi.cdef("const char* codes_keys_iterator_get_name(codes_keys_iterator *kiter);")
 ffi.cdef("int codes_keys_iterator_delete(codes_keys_iterator *kiter);")
 
+
+def __find_lib_ld_library_path(name):
+    """
+    find a library on a linux system with the LD_LIBRARY_PATH, is defined.
+
+    Parameters
+    ----------
+    name: str
+            name of the library, e.g. libeccodes
+
+    Returns
+    -------
+    str:
+            absolute path of the library if found. if not found, the name is returned
+    """
+    LD_LIBRARY_PATH = os.getenv("LD_LIBRARY_PATH")
+    if LD_LIBRARY_PATH is not None:
+        components = LD_LIBRARY_PATH.split(":")
+        for one_component in components:
+            lib_path = os.path.join(one_component, name)
+            if os.path.exists(lib_path + ".so"):
+                return lib_path
+    return name
+
+
 # load the actual c-library
 if platform.system() == "Linux":
     __libext = "so"
-    __libname = "libeccodes"
+    __libname = __find_lib_ld_library_path("libeccodes")
 elif platform.system() == "Darwin":
     __libext = "dylib"
     __libname = "libeccodes"
@@ -261,6 +287,7 @@ class GribMessage():
             # the dimension names differ for staggered variables like u and v
             var_name = self["shortName"].lower()
             if var_name in staggered_u and self["typeOfLevel"] not in ["heightAboveSea", "isobaricInhPa"]:
+                #breakpoint()
                 dim_names = ["rlat", "srlon"]
             elif var_name in staggered_v and self["typeOfLevel"] not in ["heightAboveSea", "isobaricInhPa"]:
                 dim_names = ["srlat", "rlon"]
@@ -334,21 +361,22 @@ class GribMessage():
         rotated_pole.attrs["grid_north_pole_latitude"] = self["latitudeOfSouthernPoleInDegrees"] * -1
         rotated_pole.attrs["grid_north_pole_longitude"] = self["longitudeOfSouthernPoleInDegrees"] - 180
         # create rotated coordinate arrays
-        first_lon = self["longitudeOfFirstGridPointInDegrees"]
-        last_lon = self["longitudeOfLastGridPointInDegrees"]
-        if last_lon < first_lon and first_lon > 180:
-            first_lon -= 360
-        rlon = xarray.DataArray(np.arange(first_lon,
-                                             last_lon + self["iDirectionIncrementInDegrees"],
-                                             self["iDirectionIncrementInDegrees"], dtype=np.float32),
-                                dims=(dim_names[-1],))
+        # perform calculations on large integers to avoid rounding errors
+        factor = 10 ** 10
+        first_lon = int(self["longitudeOfFirstGridPointInDegrees"] * factor)
+        last_lon = int(self["longitudeOfLastGridPointInDegrees"] * factor)
+        first_lat = int(self["latitudeOfFirstGridPointInDegrees"] * factor)
+        last_lat = int(self["latitudeOfLastGridPointInDegrees"] * factor)
+        if last_lon < first_lon and first_lon > 180 * factor:
+            first_lon -= 360 * factor
+        # using linspace instead of array and the stored increment to ensure the correct number of values.
+        rlon_int = np.linspace(first_lon, last_lon, self["Ni"], dtype=np.int64)
+        rlon = xarray.DataArray(np.asarray(rlon_int / factor, dtype=np.float32), dims=(dim_names[-1],))
         rlon.attrs["long_name"] = "longitude in rotated pole grid"
         rlon.attrs["units"] = "degrees"
         rlon.attrs["standard_name"] = "grid_longitude"
-        rlat = xarray.DataArray(np.arange(self["latitudeOfFirstGridPointInDegrees"],
-                                             self["latitudeOfLastGridPointInDegrees"] + self["jDirectionIncrementInDegrees"],
-                                             self["jDirectionIncrementInDegrees"], dtype=np.float32),
-                                dims=(dim_names[-2],))
+        rlat_int = np.linspace(first_lat, last_lat, self["Nj"], dtype=np.int64)
+        rlat = xarray.DataArray(np.asarray(rlat_int / factor, dtype=np.float32), dims=(dim_names[-2],))
         rlat.attrs["long_name"] = "latitude in rotated pole grid"
         rlat.attrs["units"] = "degrees"
         rlat.attrs["standard_name"] = "grid_latitude"
