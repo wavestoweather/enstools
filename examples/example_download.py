@@ -20,32 +20,32 @@ retrieve_opendata(variable=["t_2m"],
 
 # Faster access for multiple downloads:
 print("Faster access...")
-content.retrieve_opendata(variable=["t"],
-                          level_type="pressure",
-                          init_time=0,
-                          levels=[1000, 950, 900],
-                          forecast_hour=[0, 123],
-                          dest="downloads",
-                          merge_files=False)
+content.retrieve(variable=["t"],
+                 level_type="pressure",
+                 init_time=0,
+                 levels=[1000, 950, 900],
+                 forecast_hour=[0, 123],
+                 dest="downloads",
+                 merge_files=False)
 
-content.retrieve_opendata(variable=["t"],
-                          model="ICON-EU",
-                          level_type="pressure",
-                          init_time=0,
-                          levels=[1000, 950, 900],
-                          forecast_hour=[0],
-                          dest="downloads",
-                          merge_files=False)
+content.retrieve(variable=["t"],
+                 model="ICON-EU",
+                 level_type="pressure",
+                 init_time=0,
+                 levels=[1000, 950, 900],
+                 forecast_hour=[0],
+                 dest="downloads",
+                 merge_files=False)
 
-content.retrieve_opendata(variable=["t"],
-                          model="cosmo-d2",
-                          grid_type="regular-lat-lon",
-                          level_type="pressure",
-                          init_time=0,
-                          levels=[1000, 950, 975],
-                          forecast_hour=[0],
-                          dest="downloads",
-                          merge_files=True)
+content.retrieve(variable=["t"],
+                 model="cosmo-d2",
+                 grid_type="regular-lat-lon",
+                 level_type="pressure",
+                 init_time=0,
+                 levels=[1000, 950, 975],
+                 forecast_hour=[0],
+                 dest="downloads",
+                 merge_files=True)
 
 
 # This is an invalid request:

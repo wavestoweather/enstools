@@ -9,7 +9,6 @@ import dask
 from shutil import copyfileobj
 
 
-
 if six.PY3:
     from urllib.request import urlretrieve, urlopen
 else:
