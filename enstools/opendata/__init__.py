@@ -1,2 +1,2 @@
-from .DWDContent import DWDContent
+from .DWDContent import getDWDContent
 from .retrieve import retrieve

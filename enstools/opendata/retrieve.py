@@ -1,4 +1,4 @@
-from .DWDContent import DWDContent
+from .DWDContent import getDWDContent
 
 
 def retrieve(service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
@@ -44,7 +44,7 @@ def retrieve(service="DWD", model="ICON", eps=None, grid_type=None, variable=Non
     list :
             names of downloaded files.
     """
-    content = DWDContent()
+    content = getDWDContent()
     download_files = content.retrieve(service=service, model=model, eps=eps, grid_type=grid_type,
                                                variable=variable, level_type=level_type, levels=levels,
                                                init_time=init_time, forecast_hour=forecast_hour,

@@ -733,3 +733,23 @@ class DWDContent:
 
         else:
             return download_files
+
+
+# store the created content object for later re-use
+__content = None
+
+
+def getDWDContent():
+    """
+    Creates a DWDContent object and returns it. Multiple calls to this function will return the same object.
+
+    Returns
+    -------
+    DWDContent
+    """
+    global __content
+    if __content is not None:
+        return __content
+    else:
+        __content = DWDContent()
+        return __content
