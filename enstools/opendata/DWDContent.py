@@ -70,6 +70,7 @@ class DWDContent:
             content["filename"] = content["file"].apply(lambda x: x.split("/")[5])
             content["file"] = content["file"].apply(lambda x: "https://opendata.dwd.de/weather/nwp" + x[1:])
 
+            content["abs_init_time"] = content["filename"].apply(lambda x: x.split("_")[4])
             content["level_type"] = content["filename"].apply(lambda x: x.split("_")[3])
             content["grid_type"] = content["filename"].apply(lambda x: x.split("_")[2])
             content["level_type"] = content["level_type"].apply(lambda x: x[:-6])
@@ -599,9 +600,20 @@ class DWDContent:
                                              + " Possible Values: {}".format(avail_levels))
 
     def get_merge_dataset_name(self, model=None, variable=None,
-                               level_type=None, init_time=None):
-        merge_name = "merge_" + model + "_" + level_type + "_" + "init" + str(init_time) + "_"
+                               level_type=None, init_time=None, forecast_hour=None):
+        # find the absolute init time for the given init_time, use only the first variable
+        abs_init_time = self.content[(self.content["model"] == model) &
+                                     (self.content["level_type"] == level_type) &
+                                     (self.content["variable"] == variable[0]) &
+                                     (self.content["init_time"] == init_time)]["abs_init_time"].drop_duplicates().values[0]
 
+        # construct the actual file name
+        merge_name = "merge_" + model + "_" + level_type + "_" + "init" + abs_init_time
+        # add forecast time
+        for one_time in forecast_hour:
+            merge_name += "+{}h".format(one_time)
+        merge_name += "_"
+        # add variable names
         for var in variable:
             merge_name = merge_name + var + "+"
         merge_name = merge_name[:-1]
@@ -689,9 +701,10 @@ class DWDContent:
                               level_type=level_type, forecast_hour=forecast_hour, levels=levels)
         if merge_files:
             merge_dataset_name = dest + "/" + self.get_merge_dataset_name(model=model, variable=variable,
-                                                                          level_type=level_type, init_time=init_time)
+                                                                          level_type=level_type, init_time=init_time,
+                                                                          forecast_hour=forecast_hour)
             if os.path.exists(merge_dataset_name):
-                logging.warning("file not downloaded because it is already present:" + merge_dataset_name)
+                logging.warning("file not downloaded because it is already present: " + merge_dataset_name)
                 return None
         for var in variable:
             for hour in forecast_hour:
