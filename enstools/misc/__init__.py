@@ -91,7 +91,7 @@ def point_in_polygon(polyx, polyy, testx, testy):
     return res
 
 
-def generate_coordinates(res, grid="regular"):
+def generate_coordinates(res, grid="regular", lon_range=[-180, 180], lat_range=[-90, 90]):
     """
     Generate grid coordinates for different types of grids. Currently only regular grids are implemented.
 
@@ -102,6 +102,12 @@ def generate_coordinates(res, grid="regular"):
 
     grid : {'regular'}
             type of grid to generate. Currently only regular grids are supported
+    
+    lon_range : list or tuple
+            range of longitudes the new grid should cover. Default: -180 to 180
+
+    lat_range : list or tuple
+            range of latitudes the new grid should cover. Default: -90 to 90
 
     Returns
     -------
@@ -126,8 +132,8 @@ def generate_coordinates(res, grid="regular"):
         units:    degrees_north
     """
     if grid == "regular":
-        lon = xarray.DataArray(np.arange(-180, 180, res), dims=("lon",), name="lon", attrs={"units": "degrees_east"})
-        lat = xarray.DataArray(np.arange(-90+res/2.0, 90, res), dims=("lat",), name="lat", attrs={"units": "degrees_north"})
+        lon = xarray.DataArray(np.arange(lon_range[0], lon_range[1], res), dims=("lon",), name="lon", attrs={"units": "degrees_east"})
+        lat = xarray.DataArray(np.arange(lat_range[0]+res/2.0, lat_range[1], res), dims=("lat",), name="lat", attrs={"units": "degrees_north"})
     else:
         raise ValueError("unsupported grid type: '%s'" % grid)
 
