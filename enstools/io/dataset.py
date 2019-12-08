@@ -2,7 +2,7 @@
 import six
 
 
-def drop_unused(ds, inplace=False):
+def drop_unused(ds):
     """
     COSMO is one example of a model which stores all possible coordinates within the output files even if no data
     variables are present which would use these variables. This function checks all coordinates and removes those that
@@ -16,34 +16,24 @@ def drop_unused(ds, inplace=False):
     ds : xarray.Dataset
             Dataset to check.
 
-    inplace : bool
-            If True, which is not the default, the input dataset is modified inplace. Otherwise, a copy with removed
-            coordinates is returned.
-
     Returns
     -------
     xarray.Dataset:
-            depending in the inplace argument, a copy of the input dataset or the input dataset itself will be returned.
+            a copy of the input dataset with removed coordinates.
     """
-    # modify the ds inplace?
-    if inplace:
-        new_ds = ds
-    else:
-        new_ds = ds.copy()
-
     # list of unremovable coordinates
     unremovable = ["rotated_pole"]
 
     # loop over all coordinates
     coords_to_remove = []
-    for one_coord_name, one_coord_var in six.iteritems(new_ds.coords):
+    for one_coord_name, one_coord_var in six.iteritems(ds.coords):
         # skip unremoveable coordinates
         if one_coord_name in unremovable:
             continue
 
         # this coordinate is only kept if all its dimensions are used in any of the data variables
         has_all_dims_in_any_var = False
-        for one_name, one_var in six.iteritems(new_ds.data_vars):
+        for one_name, one_var in six.iteritems(ds.data_vars):
             has_all_dims = len(one_coord_var.dims) > 0
             for one_dim in one_coord_var.dims:
                 if not one_dim in one_var.dims:
@@ -60,16 +50,16 @@ def drop_unused(ds, inplace=False):
     # actually remove the coords
     if len(coords_to_remove) > 0:
         for one_coord_name in coords_to_remove:
-            if one_coord_name in new_ds.indexes:
-                new_ds.reset_index(one_coord_name, drop=True, inplace=True)
-            if one_coord_name in new_ds.coords:
-                new_ds.reset_coords(one_coord_name, drop=True, inplace=True)
+            if one_coord_name in ds.indexes:
+                ds = ds.reset_index(one_coord_name, drop=True)
+            if one_coord_name in ds.coords:
+                ds = ds.reset_coords(one_coord_name, drop=True)
 
     # remove unused dimensions
     unused_dims = []
-    for one_dim in new_ds.dims:
+    for one_dim in ds.dims:
         is_used = False
-        for one_name, one_var in six.iteritems(new_ds.data_vars):
+        for one_name, one_var in six.iteritems(ds.data_vars):
             if one_dim in one_var.dims:
                 is_used = True
                 break
@@ -79,7 +69,7 @@ def drop_unused(ds, inplace=False):
     # actually remove unused dims. This is not straight forward: it is necessary to create a dummy variable. That will
     # trigger recalculation of the dimensions.
     if len(unused_dims) > 0:
-        new_ds["dummy_for_triggering_dims_calculation"] = 0
-        del new_ds["dummy_for_triggering_dims_calculation"]
+        ds["dummy_for_triggering_dims_calculation"] = 0
+        del ds["dummy_for_triggering_dims_calculation"]
 
-    return new_ds
+    return ds

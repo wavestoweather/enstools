@@ -30,7 +30,7 @@ def test_drop_unused_coords():
     # create the dataset
     ds = xarray.Dataset({"noise":array, "rlon": unused_coord1, "srlat": unused_coord2})
     # mark the 2d-coord as coord
-    ds.set_coords("srlat", inplace=True)
+    ds = ds.set_coords("srlat")
 
     # drop the unused coordinates
     ds = drop_unused(ds)

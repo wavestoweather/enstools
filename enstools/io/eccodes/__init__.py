@@ -368,6 +368,8 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
 
         # combine all times into one array
         if len(stacked_times) > 1:
+            print(stacked_times)
+            print(one_var)
             da_var = dask.array.stack(stacked_times)
         else:
             da_var = dask.array.reshape(stacked_times[0], (1,) + stacked_times[0].shape)

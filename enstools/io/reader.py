@@ -221,23 +221,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
 
     # if dimensions have the same size but different names, then merge them by renaming
     if merge_same_size_dim:
-        size_name_mapping = {}
-        rename_mapping = {}
-        for ds in datasets:
-            for dim_name, dim_size in six.iteritems(ds.sizes):
-                if dim_size not in size_name_mapping:
-                    size_name_mapping[dim_size] = dim_name
-                else:
-                    if dim_name != size_name_mapping[dim_size]:
-                        rename_mapping[dim_name] = size_name_mapping[dim_size]
-        if len(rename_mapping) > 0:
-            for ds in datasets:
-                rename_mapping_for_ds = {}
-                for old_name, new_name in six.iteritems(rename_mapping):
-                    if old_name in ds.dims:
-                        rename_mapping_for_ds[old_name] = new_name
-                if len(rename_mapping_for_ds) > 0:
-                    ds.rename(rename_mapping_for_ds, inplace=True)
+        datasets = __rename_same_size_dim(datasets)
 
     # combine datsets from different files
     result = __merge_datasets(datasets)
@@ -245,7 +229,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     # is there a file with constant data?
     if constant is not None:
         # read constant data
-        constant_data = __open_dataset(constant)
+        constant_data = __open_dataset(constant, None, None)
         # remove time axes if present
         if "time" in constant_data.dims:
             constant_data = constant_data.isel(time=0)
@@ -253,11 +237,61 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         for one_var in constant_data.data_vars:
             if one_var in result or one_var.lower() in result or one_var.upper() in result:
                 logging.warning("variable '%s' in constant and non-constant data => renamed to '%s_constant'!", one_var, one_var)
-                constant_data.rename({one_var: "%s_constant" % one_var}, inplace=True)
+                constant_data = constant_data.rename({one_var: "%s_constant" % one_var})
+        # rename dimensions?
+        if merge_same_size_dim:
+            datasets = __rename_same_size_dim([result, constant_data])
+        else:
+            datasets = [result, constant_data]
         # merge constant data
-        result = xarray.auto_combine((result, constant_data))
+        if hasattr(xarray, "combine_by_coords"):
+            result = xarray.combine_by_coords(datasets)
+        else:
+            result = xarray.auto_combine(datasets)
+
 
     return result
+
+
+def __rename_same_size_dim(datasets):
+    """
+    Look for dimensions with the same size and rename them to the first name found.
+
+    Parameters
+    ----------
+    datasets : list
+            list of datasets to check
+
+    Returns
+    -------
+    list:
+            list of modified datasets
+    """
+    size_name_mapping = {}
+    rename_mapping = {}
+    for ds in datasets:
+        for dim_name, dim_size in six.iteritems(ds.sizes):
+            if dim_size not in size_name_mapping:
+                size_name_mapping[dim_size] = dim_name
+            else:
+                if dim_name != size_name_mapping[dim_size]:
+                    rename_mapping[dim_name] = size_name_mapping[dim_size]
+    if len(rename_mapping) > 0:
+        # we need do rename something. return a new list of datasets
+        result = []
+        for ds in datasets:
+            rename_mapping_for_ds = {}
+            for old_name, new_name in six.iteritems(rename_mapping):
+                if old_name in ds.dims:
+                    rename_mapping_for_ds[old_name] = new_name
+            if len(rename_mapping_for_ds) > 0:
+                result.append(ds.rename(rename_mapping_for_ds))
+            else:
+                result.append(ds)
+        return result
+    else:
+        # nothing to be done. return the unchanged input
+        return datasets
 
 
 def __merge_datasets(datasets):
@@ -374,7 +408,10 @@ def __merge_datasets(datasets):
     else:
         # try to merge the datasets
         try:
-            result = xarray.auto_combine(list(datasets))
+            if hasattr(xarray, "combine_by_coords"):
+                result = xarray.combine_by_coords(list(datasets))
+            else:
+                result = xarray.auto_combine(list(datasets))
         except Exception as ex:
             logging.error("merging the following datasets automatically failed:")
             for one_ds in datasets:
@@ -385,7 +422,7 @@ def __merge_datasets(datasets):
     # are the variables not available in all files?
     if len(datasets_incomplete) > 0:
         datasets_incomplete = xarray.merge(datasets_incomplete)
-        result.merge(datasets_incomplete, inplace=True)
+        result = result.merge(datasets_incomplete)
 
     return result
 
@@ -452,7 +489,7 @@ def __open_dataset(filename, client, worker, **kwargs):
 
     # drop unused coords
     if kwargs.get("drop_unused", False):
-        drop_unused(result, inplace=True)
+        result = drop_unused(result)
 
     # add an ensemble dimension if we want to create one by folder or filename
     if kwargs.get("create_ens_dim", False):

@@ -11,7 +11,7 @@ from enstools.core.tempdir import TempDir
 class DWDContent:
 
     # create a new temporal directory to store content.log and opendata_dwd_content.pkl
-    content_path = TempDir().getpath()
+    content_path = TempDir(check_free_space=False).getpath()
 
     def __init__(self, refresh_content=False):
 
