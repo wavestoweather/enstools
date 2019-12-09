@@ -404,8 +404,8 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
                                                       dims=var_dim_names,
                                                       name=var_name,
                                                       attrs=attributes[one_var],
-                                                      coords=var_coords,
-                                                      encoding=encodings[one_var])
+                                                      coords=var_coords)
+        xarray_variables[var_name].encoding = encodings[one_var]
 
         # are there lon-lat values?
         if "cell" in var_dim_names[-1] and "lon" not in xarray_variables and "lon" in coordinates:

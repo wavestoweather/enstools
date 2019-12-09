@@ -170,7 +170,7 @@ def nearest_neighbour(src_lon, src_lat, dst_lon, dst_lat, src_grid="regular", ds
     Examples
     --------
     >>> import numpy
-    >>> numpy.set_printoptions(legacy="1.13")                                       # numpy version independent printing
+    >>> if numpy.__version__ > "1.13.9": numpy.set_printoptions(legacy="1.13")      # numpy version independent printing
     >>> lon = numpy.arange(10)
     >>> lat = numpy.arange(15)
     >>> gridded_data = numpy.zeros((15, 10))
