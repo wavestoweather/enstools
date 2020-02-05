@@ -38,7 +38,7 @@ def download(url, destination, uncompress=True):
 
     if os.path.exists(destination_intern):
         logging.warning("file not downloaded because it is already present: %s" % url)
-        return
+        return destination_intern
 
     # download
     logging.info("downloading %s ..." % os.path.basename(destination))
@@ -55,6 +55,9 @@ def download(url, destination, uncompress=True):
         bfile.close()
         # delete compressed
         os.remove(destination)
+
+    # return the name if the downloaded file
+    return destination_intern
 
 
 @jit(["b1(f4[:],f4[:],f4,f4)", "b1(f8[:],f8[:],f8,f8)"], nopython=True)
