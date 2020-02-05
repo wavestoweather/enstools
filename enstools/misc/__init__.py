@@ -91,6 +91,36 @@ def point_in_polygon(polyx, polyy, testx, testy):
     return res
 
 
+def spherical2cartesien(lon, lat, radius=6371229.0):
+    """
+    calculate cartesien 3d coordinates from spherical coordinates
+
+    Parameters
+    ----------
+    lon: np.array
+            longitude in radian
+
+    lat: np.array
+            latitude in radian
+
+    radius: float
+            radius of the earth.
+
+    Returns
+    -------
+    np.array (n, 3)
+            cartesian coordinates (x, y, z)
+    """
+    # create result array
+    result = np.empty((lon.shape[0], 3))
+    _lat = lat - np.pi / 2.0
+    _lon = lon + np.pi
+    result[:, 0] = radius * np.sin(_lat) * np.cos(_lon)
+    result[:, 1] = radius * np.sin(_lat) * np.sin(_lon)
+    result[:, 2] = radius * np.cos(_lat)
+    return result
+
+
 def generate_coordinates(res, grid="regular", lon_range=[-180, 180], lat_range=[-90, 90]):
     """
     Generate grid coordinates for different types of grids. Currently only regular grids are implemented.
