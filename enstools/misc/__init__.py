@@ -94,9 +94,9 @@ def point_in_polygon(polyx, polyy, testx, testy):
     return res
 
 
-def spherical2cartesien(lon, lat, radius=6371229.0):
+def spherical2cartesian(lon, lat, radius=6371229.0):
     """
-    calculate cartesien 3d coordinates from spherical coordinates
+    calculate cartesian 3d coordinates from spherical coordinates
 
     Parameters
     ----------
@@ -124,7 +124,7 @@ def spherical2cartesien(lon, lat, radius=6371229.0):
     return result
 
 
-def generate_coordinates(res, grid="regular", lon_range=[-180, 180], lat_range=[-90, 90]):
+def generate_coordinates(res, grid="regular", lon_range=[-180, 180], lat_range=[-90, 90], unit="degrees"):
     """
     Generate grid coordinates for different types of grids. Currently only regular grids are implemented.
 
@@ -141,6 +141,8 @@ def generate_coordinates(res, grid="regular", lon_range=[-180, 180], lat_range=[
 
     lat_range : list or tuple
             range of latitudes the new grid should cover. Default: -90 to 90
+
+    unit: {'degrees', 'radians'}
 
     Returns
     -------
@@ -167,6 +169,16 @@ def generate_coordinates(res, grid="regular", lon_range=[-180, 180], lat_range=[
     if grid == "regular":
         lon = xarray.DataArray(np.arange(lon_range[0], lon_range[1], res), dims=("lon",), name="lon", attrs={"units": "degrees_east"})
         lat = xarray.DataArray(np.arange(lat_range[0]+res/2.0, lat_range[1], res), dims=("lat",), name="lat", attrs={"units": "degrees_north"})
+        if unit == "degrees":
+            lon.attrs["units"] = "degrees_east"
+            lat.attrs["units"] = "degrees_north"
+        elif unit == "radians":
+            lon.attrs["units"] = "radians"
+            lat.attrs["units"] = "radians"
+            lon *= np.pi / 180.0
+            lat *= np.pi / 180.0
+        else:
+            raise ValueError(f"unsupported unit: {unit}")
     else:
         raise ValueError("unsupported grid type: '%s'" % grid)
 

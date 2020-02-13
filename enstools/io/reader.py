@@ -41,7 +41,7 @@ def __read_one_file(filename, constant=None, **kwargs):
             in-memory representation of the content of the input file(s)
     """
     # is the filename a pattern?
-    files = __expand_file_pattern(filename)
+    files = expand_file_pattern(filename)
     if len(files) > 1 or constant is not None:
         return read(files, constant=constant, **kwargs)
     else:
@@ -116,7 +116,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         kwargs["create_ens_dim"] = True
     for filename in filenames:
         # is the filename a pattern?
-        files = __expand_file_pattern(filename)
+        files = expand_file_pattern(filename)
         for one_file in files:
             one_file = os.path.abspath(one_file)
             datasets.append(dask.delayed(__read_one_file)(one_file, **kwargs))
@@ -497,7 +497,7 @@ def __open_dataset(filename, client, worker, **kwargs):
     return result
 
 
-def __expand_file_pattern(pattern):
+def expand_file_pattern(pattern):
     """
     use glob to find all files matching the pattern
 

@@ -558,7 +558,7 @@ def _cstr(pstr):
     -------
     const char*
     """
-    buffer = np.fromstring(pstr + "\x00", dtype=np.uint8)
+    buffer = np.frombuffer(pstr.encode("utf8") + b"\x00", dtype=np.uint8)
     result = ffi.from_buffer(buffer)
     return result
 
@@ -613,7 +613,7 @@ def _read_message_raw_data(infile, offset, read_data=False):
 
         # create an numpy array with the total size of the message
         bytes = np.zeros(length_total, dtype=np.uint8)
-        bytes[0:8] = np.fromstring(section0, dtype=np.uint8)
+        bytes[0:8] = np.frombuffer(section0, dtype=np.uint8)
         pos = 8
 
         # read the complete message?
@@ -646,7 +646,7 @@ def _read_message_raw_data(infile, offset, read_data=False):
 
         # create an numpy array with the total size of the message
         bytes = np.zeros(length_total, dtype=np.uint8)
-        bytes[0:16] = np.fromstring(section0, dtype=np.uint8)
+        bytes[0:16] = np.frombuffer(section0, dtype=np.uint8)
         pos = 16
 
         # read the complete message?
