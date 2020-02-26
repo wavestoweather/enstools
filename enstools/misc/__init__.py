@@ -94,6 +94,38 @@ def point_in_polygon(polyx, polyy, testx, testy):
     return res
 
 
+def distance(lat1, lat2, lon1, lon2, radius=6371229.0):
+    """
+    distance between two points on a globe.
+
+    Parameters
+    ----------
+    lat1:
+            latitude of first point in radian.
+
+    lat2:
+            latitude of second point in radian.
+
+    lon1:
+            longitude of first point in radian.
+
+    lon2:
+            logitude of second point in radian.
+
+    radius:
+            radius of the globe in m.
+
+    Returns
+    -------
+    distance in m
+    """
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+    return radius * c
+
+
 def spherical2cartesian(lon, lat, radius=6371229.0):
     """
     calculate cartesian 3d coordinates from spherical coordinates
