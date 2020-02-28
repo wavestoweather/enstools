@@ -13,7 +13,7 @@ def get_version():
     str:
             version string
     """
-    with open("enstools/__init__.py") as f:
+    with open("enstools/core/__init__.py") as f:
         for line in f:
             match = re.search('__version__\s*=\s*"([a-zA-Z0-9_.]+)"', line)
             if match is not None:
@@ -31,6 +31,7 @@ setup(name="enstools",
       version=get_version(),
       author="Robert Redl et al.",
       author_email="robert.redl@lmu.de",
+      namespace_packages=['enstools'],
       packages=['enstools',
                 'enstools.core',
                 'enstools.scores',
