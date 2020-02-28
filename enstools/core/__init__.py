@@ -19,6 +19,9 @@ from .cluster import init_cluster, get_num_available_procs, get_client_and_worke
     RoundRobinWorkerIterator
 from .os_support import getstatusoutput
 
+# to convert enstools into a namespace package, the version is now listed here and not in the level above
+__version__ = "2019.12.a1"
+
 
 class UnitRegistry(pint.UnitRegistry):
     # workaround for Pint issue: https://github.com/hgrecco/pint/issues/476
