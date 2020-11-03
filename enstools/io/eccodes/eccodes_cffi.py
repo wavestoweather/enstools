@@ -112,7 +112,7 @@ standard_keys = ['bitsPerValue',
                  'missingValue',
                  'Ni',
                  'Nj',
-                 'numberOfValues',
+                 'numberOfDataPoints',
                  'parameterCategory',
                  'parameterName',
                  'parameterNumber',
@@ -297,7 +297,7 @@ class GribMessage():
             shape = (self["Nj"], self["Ni"])
             dim_names = ["lat", "lon"]
         elif self["gridType"] in ["sh", "reduced_gg", "unstructured_grid"]:
-            shape = (self["numberOfValues"],)
+            shape = (self["numberOfDataPoints"],)
             dim_names = ["cell"]
         else:
             raise ValueError("don't know how to calculate the shape for grid type %s" % self["gridType"])
