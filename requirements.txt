@@ -1,0 +1,16 @@
+wheel
+numpy
+xarray
+dask
+distributed
+cachey
+pint
+decorator
+multipledispatch
+numba>=0.48.0
+cython
+cartopy
+matplotlib
+netCDF4
+scipy
+pytest
