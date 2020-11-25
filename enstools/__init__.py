@@ -1,4 +1,1 @@
-# version of enstools, see https://www.python.org/dev/peps/pep-0440/ for visioning scheme.
-__version__ = "2020.11.a1"
-
-from . import core
+__path__ = __import__('pkgutil').extend_path(__path__, __name__)

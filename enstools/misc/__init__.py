@@ -38,7 +38,7 @@ def download(url, destination, uncompress=True):
 
     if os.path.exists(destination_intern):
         logging.warning("file not downloaded because it is already present: %s" % url)
-        return
+        return destination_intern
 
     # download
     logging.info("downloading %s ..." % os.path.basename(destination))
@@ -55,6 +55,9 @@ def download(url, destination, uncompress=True):
         bfile.close()
         # delete compressed
         os.remove(destination)
+
+    # return the name if the downloaded file
+    return destination_intern
 
 
 @jit(["b1(f4[:],f4[:],f4,f4)", "b1(f8[:],f8[:],f8,f8)"], nopython=True)
@@ -91,7 +94,69 @@ def point_in_polygon(polyx, polyy, testx, testy):
     return res
 
 
-def generate_coordinates(res, grid="regular", lon_range=[-180, 180], lat_range=[-90, 90]):
+def distance(lat1, lat2, lon1, lon2, radius=6371229.0):
+    """
+    distance between two points on a globe.
+
+    Parameters
+    ----------
+    lat1:
+            latitude of first point in radian.
+
+    lat2:
+            latitude of second point in radian.
+
+    lon1:
+            longitude of first point in radian.
+
+    lon2:
+            logitude of second point in radian.
+
+    radius:
+            radius of the globe in m.
+
+    Returns
+    -------
+    distance in m
+    """
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+    return radius * c
+
+
+def spherical2cartesian(lon, lat, radius=6371229.0):
+    """
+    calculate cartesian 3d coordinates from spherical coordinates
+
+    Parameters
+    ----------
+    lon: np.array
+            longitude in radian
+
+    lat: np.array
+            latitude in radian
+
+    radius: float
+            radius of the earth.
+
+    Returns
+    -------
+    np.array (n, 3)
+            cartesian coordinates (x, y, z)
+    """
+    # create result array
+    result = np.empty((lon.shape[0], 3))
+    _lat = lat - np.pi / 2.0
+    _lon = lon + np.pi
+    result[:, 0] = radius * np.sin(_lat) * np.cos(_lon)
+    result[:, 1] = radius * np.sin(_lat) * np.sin(_lon)
+    result[:, 2] = radius * np.cos(_lat)
+    return result
+
+
+def generate_coordinates(res, grid="regular", lon_range=[-180, 180], lat_range=[-90, 90], unit="degrees"):
     """
     Generate grid coordinates for different types of grids. Currently only regular grids are implemented.
 
@@ -108,6 +173,8 @@ def generate_coordinates(res, grid="regular", lon_range=[-180, 180], lat_range=[
 
     lat_range : list or tuple
             range of latitudes the new grid should cover. Default: -90 to 90
+
+    unit: {'degrees', 'radians'}
 
     Returns
     -------
@@ -134,6 +201,16 @@ def generate_coordinates(res, grid="regular", lon_range=[-180, 180], lat_range=[
     if grid == "regular":
         lon = xarray.DataArray(np.arange(lon_range[0], lon_range[1], res), dims=("lon",), name="lon", attrs={"units": "degrees_east"})
         lat = xarray.DataArray(np.arange(lat_range[0]+res/2.0, lat_range[1], res), dims=("lat",), name="lat", attrs={"units": "degrees_north"})
+        if unit == "degrees":
+            lon.attrs["units"] = "degrees_east"
+            lat.attrs["units"] = "degrees_north"
+        elif unit == "radians":
+            lon.attrs["units"] = "radians"
+            lat.attrs["units"] = "radians"
+            lon *= np.pi / 180.0
+            lat *= np.pi / 180.0
+        else:
+            raise ValueError(f"unsupported unit: {unit}")
     else:
         raise ValueError("unsupported grid type: '%s'" % grid)
 

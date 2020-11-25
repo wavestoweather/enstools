@@ -17,7 +17,7 @@ class TempDir(object):
                 the directory is created in the parent directory. If the argument is none, then the directory is created in the default temp-Directory
 
         check_free_space : bool
-                if true, at least 10GB free space in the temporal directory if neccessary
+                if true, at least 10GB free space in the temporal directory if necessary
 
         cleanup: bool
                 if True, the folder will be deleted at exit of python.
