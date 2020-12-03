@@ -163,7 +163,7 @@ class DWDContent:
         """
         avail_grid_types = self.get_grid_types(model=model)
         if grid_type is None:
-            if len(avail_grid_types) is 1:
+            if len(avail_grid_types) == 1:
                 grid_type = avail_grid_types[0]
             else:
                 raise ValueError("You have to choose one of the grid_types: {}".format(avail_grid_types))
@@ -202,13 +202,13 @@ class DWDContent:
                 if alev not in avail_level_types:
                     avail_level_types.append(alev)
         if level_type is None:
-            if len(avail_level_types) is 1:
+            if len(avail_level_types) == 1:
                 level_type = avail_level_types[0]
 
             else:
                 raise ValueError("You have to choose one of the level_types: {}".format(avail_level_types))
         else:
-            if level_type not in avail_level_types and len(avail_level_types) is not 0:
+            if level_type not in avail_level_types and len(avail_level_types) > 0:
                 raise ValueError("Level type {} not available for model {}, variable {}. Available level_type: {}"
                                  .format(level_type, model, variable, avail_level_types))
         return level_type
@@ -399,12 +399,14 @@ class DWDContent:
                       & (content["forecast_hour"] == forecast_hour)
                       & (content["level"] == level)
                       & (content["grid_type"] == grid_type)]["file"].values
-        if len(url) != 1:
-
-            raise KeyError("Url not found(model:{}, grid_type{}, init_time:{},variable:{},level_type:{}"
-                           ",forecast_hour:{},level:{})"
+        if len(url) == 1:
+            raise KeyError("No url not found for (model: {}, grid_type: {}, init_time: {}, variable: {}, "
+                           "level_type: {}, forecast_hour: {}, level: {})"
                            .format(model, grid_type, init_time, variable, level_type, forecast_hour, level))
-
+        if len(url) > 1:
+            raise KeyError("{} urls found, only one expected for (model: {}, grid_type: {}, init_time: {}, "
+                           "variable: {}, level_type: {}, forecast_hour: {}, level: {})"
+                           .format(len(url), model, grid_type, init_time, variable, level_type, forecast_hour, level))
         return url.item()
 
     def get_filename(self, model=None, grid_type=None, init_time=None, variable=None,
@@ -575,7 +577,7 @@ class DWDContent:
                 avail_vars = self.get_avail_vars(model=model, grid_type=grid_type, init_time=init_time)
                 if var not in avail_vars:
                     raise ValueError(
-                        "The variable {} is not available for the {} model and the init_time {}. Available variables:{}"
+                        "The variable {} is not available for the {} model and the init_time {}. Available variables: {}"
                         .format(var, model, init_time, avail_vars))
 
                 avail_level_types = self.get_avail_level_types(model=model, grid_type=grid_type,
@@ -589,7 +591,7 @@ class DWDContent:
                 for hour in forecast_hour:
 
                     if hour not in avail_forecast_hours:
-                        raise ValueError("The forecast hour {} is not available for the variable {}. Possible values:{}"
+                        raise ValueError("The forecast hour {} is not available for the variable {}. Possible values: {}"
                                          .format(hour, var, avail_forecast_hours))
                     for lev in levels:
                         avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_time,
