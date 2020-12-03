@@ -362,6 +362,55 @@ class DWDContent:
         avail_levels.sort()
         return avail_levels
 
+    def __get_uniq_content_line(self, model=None, grid_type=None, init_time=None, variable=None,
+                level_type=None, forecast_hour=None, level=None):
+        """
+        Use the given parameters to find ONE entry of the content.
+
+        Parameters
+        ----------
+        model: str
+            The model of the file for which the url wants to be known.
+        grid_type: str
+            The type of the geo grid.
+        init_time: int
+            The initialization time of the forecast of the file for which the url wants to be known.
+        variable: str
+            The variable of the file for which the url wants to be known.
+        level_type: str
+            The type of level of the file for which the url wants to be known.
+        forecast_hour: int
+            The hours since the initialization of the forecast of the file for which the url wants to be known.
+        level: int
+            The level of the file for which the url wants to be known.
+
+        Returns
+        -------
+        pandas.DataFrame
+        """
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
+        content = self.content
+        result = content[(content["model"] == model)
+                        & (content["init_time"] == init_time)
+                        & (content["variable"] == variable)
+                        & (content["level_type"] == level_type)
+                        & (content["forecast_hour"] == forecast_hour)
+                        & (content["level"] == level)
+                        & (content["grid_type"] == grid_type)]
+
+        # raise exception if nothing was found.
+        if len(result) == 0:
+            raise KeyError("No entry not found in content for (model: {}, grid_type: {}, init_time: {}, variable: {}, "
+                           "level_type: {}, forecast_hour: {}, level: {})"
+                           .format(model, grid_type, init_time, variable, level_type, forecast_hour, level))
+        elif len(result) > 1:
+            logging.warning("{} entries found in content, only one expected for (model: {}, grid_type: {}, "
+                            "init_time: {}, variable: {}, level_type: {}, forecast_hour: {}, level: {}), "
+                            "taking the newest!"
+                            .format(len(result), model, grid_type, init_time, variable, level_type, forecast_hour, level))
+            result = result.sort_values(by="time", ascending=False).iloc[0]
+        return result
+
     def get_url(self, model=None, grid_type=None, init_time=None, variable=None,
                 level_type=None, forecast_hour=None, level=None):
         """
@@ -389,25 +438,9 @@ class DWDContent:
         url: str
             The url adress of the file.
         """
-        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
-        content = self.content
-
-        url = content[(content["model"] == model)
-                      & (content["init_time"] == init_time)
-                      & (content["variable"] == variable)
-                      & (content["level_type"] == level_type)
-                      & (content["forecast_hour"] == forecast_hour)
-                      & (content["level"] == level)
-                      & (content["grid_type"] == grid_type)]["file"].values
-        if len(url) == 1:
-            raise KeyError("No url not found for (model: {}, grid_type: {}, init_time: {}, variable: {}, "
-                           "level_type: {}, forecast_hour: {}, level: {})"
-                           .format(model, grid_type, init_time, variable, level_type, forecast_hour, level))
-        if len(url) > 1:
-            raise KeyError("{} urls found, only one expected for (model: {}, grid_type: {}, init_time: {}, "
-                           "variable: {}, level_type: {}, forecast_hour: {}, level: {})"
-                           .format(len(url), model, grid_type, init_time, variable, level_type, forecast_hour, level))
-        return url.item()
+        url = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
+                level_type=level_type, forecast_hour=forecast_hour, level=level)
+        return url["file"]
 
     def get_filename(self, model=None, grid_type=None, init_time=None, variable=None,
                      level_type=None, forecast_hour=None, level=None):
@@ -436,17 +469,9 @@ class DWDContent:
         url: str
             The filename of the file.
         """
-        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
-        content = self.content
-        filename = content[(content["model"] == model)
-                           & (content["init_time"] == init_time)
-                           & (content["variable"] == variable)
-                           & (content["level_type"] == level_type)
-                           & (content["forecast_hour"] == forecast_hour)
-                           & (content["level"] == level)
-                           & (content["grid_type"] == grid_type)]["filename"].values.item()
-
-        return filename
+        url = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
+                level_type=level_type, forecast_hour=forecast_hour, level=level)
+        return url["filename"]
 
     def check_url_available(self, model=None, grid_type=None, init_time=None, variable=None,
                             level_type=None, forecast_hour=None, level=None):
@@ -462,16 +487,9 @@ class DWDContent:
 
     def get_file_size(self, model=None, grid_type=None, init_time=None, variable=None,
                       level_type=None, forecast_hour=None, level=None):
-        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
-        content = self.content
-        size = content[(content["model"] == model)
-                       & (content["init_time"] == init_time)
-                       & (content["variable"] == variable)
-                       & (content["level_type"] == level_type)
-                       & (content["forecast_hour"] == forecast_hour)
-                       & (content["level"] == level)
-                       & (content["grid_type"] == grid_type)]["size"].values.item()
-        return size
+        url = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
+                                           level_type=level_type, forecast_hour=forecast_hour, level=level)
+        return url["size"]
 
     def get_size_of_download(self, model=None, grid_type=None, init_time=None,
                              variable=None, level_type=None, forecast_hour=None, levels=None):
@@ -708,21 +726,21 @@ class DWDContent:
             if os.path.exists(merge_dataset_name):
                 logging.warning("file not downloaded because it is already present: " + merge_dataset_name)
                 return None
+        total_size = 0
         for var in variable:
             for hour in forecast_hour:
                 for lev in levels:
-                    download_urls.append(self.get_url(model=model, grid_type=grid_type, init_time=init_time,
+                    content_entry = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time,
                                                       variable=var, level_type=level_type, forecast_hour=hour,
-                                                      level=lev))
-                    download_files.append(self.get_filename(model=model, grid_type=grid_type, init_time=init_time,
-                                                            variable=var, level_type=level_type, forecast_hour=hour,
-                                                            level=lev))
+                                                      level=lev)
+                    download_urls.append(content_entry["file"])
+                    download_files.append(content_entry["filename"])
+                    total_size += content_entry["size"]
 
         download_files = [dest + "/" + file[:-4] for file in download_files]
 
-        total_size_human = bytes2human(self.get_size_of_download(model=model, grid_type=grid_type, init_time=init_time,
-                                                                 variable=variable, level_type=level_type,
-                                                                 forecast_hour=forecast_hour, levels=levels))
+        total_size_human = bytes2human(total_size)
+
         logging.info("Downloading {} files with the total size of {}".format(len(download_files), total_size_human))
         for i in range(len(download_urls)):
             download(download_urls[i], download_files[i] + ".bz2", uncompress=True)
