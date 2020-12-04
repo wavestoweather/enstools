@@ -1,6 +1,7 @@
 import logging
 import os
 import pandas
+import numpy as np
 from datetime import datetime
 from enstools.misc import download, bytes2human, concat
 from urllib.error import HTTPError
@@ -235,6 +236,11 @@ class DWDContent:
         avail_init_times = content[(content["model"] == model)
                                    & (content["grid_type"] == grid_type)]["init_time"].drop_duplicates().values.tolist()
         avail_init_times.sort()
+        avail_abs_init_times = content[(content["model"] == model)
+                                   & (content["grid_type"] == grid_type)]["abs_init_time"].drop_duplicates().values.tolist()
+        avail_abs_init_times.sort()
+        for one_abs in avail_abs_init_times:
+            avail_init_times.append(datetime.strptime(one_abs, "%Y%m%d%H"))
         return avail_init_times
 
     def get_avail_vars(self, model=None, grid_type=None, init_time=None):
@@ -260,7 +266,7 @@ class DWDContent:
         content = self.content
         avail_vars = content[(content["model"] == model)
                              & (content["grid_type"] == grid_type)
-                             & (content["init_time"] == init_time)]["variable"].drop_duplicates().values.tolist()
+                             & self.__init_time_selection(init_time)]["variable"].drop_duplicates().values.tolist()
         avail_vars.sort()
         return avail_vars
 
@@ -288,7 +294,7 @@ class DWDContent:
         content = self.content
         avail_level_types = content[(content["model"] == model)
                                     & (content["grid_type"] == grid_type)
-                                    & (content["init_time"] == init_time)
+                                    & self.__init_time_selection(init_time)
                                     & (content["variable"] == variable)]["level_type"].drop_duplicates().values.tolist()
         avail_level_types.sort()
         return avail_level_types
@@ -321,7 +327,7 @@ class DWDContent:
         content = self.content
         avail_forecast_times = content[(content["model"] == model)
                                        & (content["grid_type"] == grid_type)
-                                       & (content["init_time"] == init_time)
+                                       & self.__init_time_selection(init_time)
                                        & (content["variable"] == variable)
                                        & (content["level_type"] == level_type)]["forecast_hour"]\
             .drop_duplicates().values.tolist()
@@ -356,11 +362,32 @@ class DWDContent:
         content = self.content
         avail_levels = content[(content["model"] == model)
                                & (content["grid_type"] == grid_type)
-                               & (content["init_time"] == init_time)
+                               & self.__init_time_selection(init_time)
                                & (content["variable"] == variable)
                                & (content["level_type"] == level_type)]["level"].drop_duplicates().values.tolist()
         avail_levels.sort()
         return avail_levels
+
+    def __init_time_selection(self, init_time):
+        """
+        this function is internally used for indexing and selecting a specific init time.
+
+        Parameters
+        ----------
+        init_time:  int or datetime
+                    if an integer is given, the column inti_time is used. For da datetime object
+                    the column abs_init_time is used.
+        Returns
+        -------
+        Series:
+                    pandas series object used for indexing.
+        """
+        if type(init_time) == int:
+            return self.content["init_time"] == init_time
+        elif isinstance(init_time, datetime):
+            return self.content["abs_init_time"] == init_time.strftime("%Y%m%d%H")
+        else:
+            raise ValueError(f"invalid data type for init_time: {type(init_time)}")
 
     def __get_uniq_content_line(self, model=None, grid_type=None, init_time=None, variable=None,
                 level_type=None, forecast_hour=None, level=None):
@@ -391,7 +418,7 @@ class DWDContent:
         grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
         result = content[(content["model"] == model)
-                        & (content["init_time"] == init_time)
+                        & self.__init_time_selection(init_time)
                         & (content["variable"] == variable)
                         & (content["level_type"] == level_type)
                         & (content["forecast_hour"] == forecast_hour)
@@ -440,7 +467,7 @@ class DWDContent:
         """
         url = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
                 level_type=level_type, forecast_hour=forecast_hour, level=level)
-        return url["file"]
+        return url["file"].values[0]
 
     def get_filename(self, model=None, grid_type=None, init_time=None, variable=None,
                      level_type=None, forecast_hour=None, level=None):
@@ -471,7 +498,7 @@ class DWDContent:
         """
         url = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
                 level_type=level_type, forecast_hour=forecast_hour, level=level)
-        return url["filename"]
+        return url["filename"].values[0]
 
     def check_url_available(self, model=None, grid_type=None, init_time=None, variable=None,
                             level_type=None, forecast_hour=None, level=None):
@@ -489,7 +516,7 @@ class DWDContent:
                       level_type=None, forecast_hour=None, level=None):
         url = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
                                            level_type=level_type, forecast_hour=forecast_hour, level=level)
-        return url["size"]
+        return url["size"].values[0]
 
     def get_size_of_download(self, model=None, grid_type=None, init_time=None,
                              variable=None, level_type=None, forecast_hour=None, levels=None):
@@ -625,20 +652,24 @@ class DWDContent:
         abs_init_time = self.content[(self.content["model"] == model) &
                                      (self.content["level_type"] == level_type) &
                                      (self.content["variable"] == variable[0]) &
-                                     (self.content["init_time"] == init_time)]["abs_init_time"].drop_duplicates().values[0]
+                                     self.__init_time_selection(init_time)]["abs_init_time"].drop_duplicates().values[0]
 
         # construct the actual file name
-        merge_name = "merge_" + model + "_" + level_type + "_" + "init" + abs_init_time
+        merge_name = model + "_" + level_type + "_" + "init" + abs_init_time
         # add forecast time
-        for one_time in forecast_hour:
-            merge_name += "+{}h".format(one_time)
+        # do we have regular spaced data?
+        if len(forecast_hour) == forecast_hour[-1] - forecast_hour[0] + 1:
+            merge_name += f"+{forecast_hour[0]}h-{forecast_hour[-1]}h"
+        else:
+            for one_time in forecast_hour:
+                merge_name += "+{}h".format(one_time)
         merge_name += "_"
         # add variable names
         for var in variable:
             merge_name = merge_name + var + "+"
         merge_name = merge_name[:-1]
 
-        return merge_name + ".grib2"
+        return merge_name + "s.grib2"
 
     def retrieve(self, service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
                  levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
@@ -733,9 +764,9 @@ class DWDContent:
                     content_entry = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time,
                                                       variable=var, level_type=level_type, forecast_hour=hour,
                                                       level=lev)
-                    download_urls.append(content_entry["file"])
-                    download_files.append(content_entry["filename"])
-                    total_size += content_entry["size"]
+                    download_urls.append(content_entry["file"].values[0])
+                    download_files.append(content_entry["filename"].values[0])
+                    total_size += content_entry["size"].values[0]
 
         download_files = [dest + "/" + file[:-4] for file in download_files]
 
