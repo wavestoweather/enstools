@@ -1,5 +1,5 @@
 # install the ensemble tools
-from numpy.distutils.core import setup
+from setuptools import setup, find_packages
 import re
 import sys
 
@@ -32,25 +32,14 @@ setup(name="enstools",
       author="Robert Redl et al.",
       author_email="robert.redl@lmu.de",
       namespace_packages=['enstools'],
-      packages=['enstools',
-                'enstools.core',
-                'enstools.scores',
-                'enstools.plot',
-                'enstools.clustering',
-                'enstools.io',
-                'enstools.misc',
-                'enstools.post',
-                'enstools.interpolation',
-                'enstools.scores.DisplacementAmplitudeScore',
-                'enstools.scores.ScoringRules2Py',
-                'enstools.io.eccodes',
-                'enstools.opendata'],
+      packages=find_packages()[1:],
       install_requires=[
                 "numpy",
                 "xarray",
                 "dask",
                 "distributed",
                 "cloudpickle",
+                "colorama",
                 "numba",
                 "toolz",
                 "pint",
@@ -60,5 +49,9 @@ setup(name="enstools",
                 "multipledispatch",
                 "cachey",
                 "cffi",
-                "pandas"]
+                "bottleneck",
+                "pandas"],
+        entry_points={
+          'console_scripts': ['enstools-opendata=enstools.opendata.cli:main'],
+        },
       )

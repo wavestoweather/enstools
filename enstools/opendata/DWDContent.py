@@ -669,7 +669,7 @@ class DWDContent:
             merge_name = merge_name + var + "+"
         merge_name = merge_name[:-1]
 
-        return merge_name + "s.grib2"
+        return merge_name + ".grib2"
 
     def retrieve(self, service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
                  levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
@@ -756,7 +756,7 @@ class DWDContent:
                                                                           forecast_hour=forecast_hour)
             if os.path.exists(merge_dataset_name):
                 logging.warning("file not downloaded because it is already present: " + merge_dataset_name)
-                return None
+                return [merge_dataset_name]
         total_size = 0
         for var in variable:
             for hour in forecast_hour:
@@ -780,8 +780,7 @@ class DWDContent:
             concat(download_files, merge_dataset_name)
             for file in download_files:
                 os.remove(file)
-            return merge_dataset_name
-
+            return [merge_dataset_name]
         else:
             return download_files
 
