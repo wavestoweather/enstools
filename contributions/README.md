@@ -13,6 +13,8 @@ accordingly have names like `enstools.contribution`.
 * Rename the folder `enstools/dummy` to your new package name.
 * Execute `venv-setup.sh`, that will do the following:
     * create a new virtual environment in a new folder `venv`.
+    * if present, a additional file for loading modules or other modifications to the environment is source.
+    Name of the File is `environment-your-top-level-domain.sh` (e.g., `environment-uni-muenchen-de.sh`).
     * install all dependencies including the `enstools`-core Package. The core package is installed editable, which 
     should make required additions and modifications easier. The source code is installed here: `venv/src/enstools`
     * Install a Jupyter-Kernel for the new environment. If done at LMU, it will be available in our 
