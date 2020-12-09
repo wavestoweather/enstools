@@ -46,6 +46,7 @@ accordingly have names like `enstools.contribution`.
 * Format for documentation: Numpy-Docstring-Style (https://numpydoc.readthedocs.io/en/latest/format.html).
 * Documentation-Webpages will be created with Sphinx (see core package for reference).
 * Source code files should be formated according to the pep8 (https://www.python.org/dev/peps/pep-0008/) standard. 
-
+* Unit tests: all functionality should be covert by units tests. The core package still makes use of `nose`, but this 
+will be replaced by `pytest` soon. New code should be tested using the `pytest` framework (https://docs.pytest.org). 
 
 ... to be extended!
