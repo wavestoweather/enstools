@@ -36,4 +36,14 @@ accordingly have names like `enstools.contribution`.
     * some support functions for dimensions are available in `enstools.misc`, 
     e.g., `get_ensemble_dim`, `get_time_dim`, ...
     
+
+## Documentation and source code format
+
+* A README.md file in the root folder of the repository is required. 
+* All other documentation should be included in the source code files.
+* Format for documentation: Numpy-Docstring-Style (https://numpydoc.readthedocs.io/en/latest/format.html).
+* Documentation-Webpages will be created with Sphinx (see core package for reference).
+* Source code files should be formated according to the pep8 (https://www.python.org/dev/peps/pep-0008/) standard. 
+
+
 ... to be extended!
