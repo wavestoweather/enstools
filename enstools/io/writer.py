@@ -10,7 +10,7 @@ from distutils.version import LooseVersion
 
 
 
-def write(ds, filename, file_format=None, compression_mode="lossless"):
+def write(ds, filename, file_format=None, compression_mode="lossless", compute=True):
     """
     write a xarray dataset to a file
 
@@ -58,7 +58,7 @@ def write(ds, filename, file_format=None, compression_mode="lossless"):
     if selected_format == "NC":
         #"""
         try:
-            ds.to_netcdf(filename, engine="h5netcdf", encoding=encoding)
+            task = ds.to_netcdf(filename, engine="h5netcdf", encoding=encoding, compute=True)
             #ds.to_netcdf(filename)
         
         except ValueError as err:
@@ -66,6 +66,7 @@ def write(ds, filename, file_format=None, compression_mode="lossless"):
             print(err)
             print("Compression filter is not available!")
             raise(err)
+        return task
         #"""
         """
         #Old workaround (neet to be sure that its not needed anymore)
