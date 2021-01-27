@@ -10,7 +10,7 @@ from distutils.version import LooseVersion
 
 
 
-def write(ds, filename, file_format=None, compression_mode="lossless", compute=True):
+def write(ds, filename, file_format=None, compression="lossless", compute=True):
     """
     write a xarray dataset to a file
 
@@ -25,17 +25,43 @@ def write(ds, filename, file_format=None, compression_mode="lossless", compute=T
     file_format : {'NC'}
             string indicating the format to use. if not specified, the file extension if used.
             
-    compressor : string
-            one of the available backends for the BLOSC filter:
+    compression : string
+            Used to specify the compression mode and optionally additional arguments.
+            
+            To apply lossless compression we can just use:
+                "lossless"
+            Or we can select the backend and the compression level using the following syntax:
+                "lossless:backend:compression_level"
+            The backend can be one of:
                     'blosclz' 
                     'lz4' (default)
                     'lz4hc'
                     'snappy'
                     'zlib'
                     'zstd'
-
-    clevel : int 
-            integer that indicates the compression level (from 1 to 9). default = 9
+            and the compression level must be an integer from 1 to 9 (default is 9).
+            Few examples:
+                "lossless:zstd:4"
+                "lossless:lz4:9"
+                "lossless:snappy:1"
+            Using "lossless" without additional arguments would be equivalent to "lossless:lz4:9"
+            
+            For lossy compression, we might be able to pass more arguments:
+                "lossy"
+            The lossy compressors available will be:
+                'zfp'
+                'sz'
+            For ZFP we have different compression methods available:
+                'rate'
+                'accuracy'
+                'precision'
+            Each one of this methods require an additional parameter: the rate, the precision or the accuracy.
+            The examples would look like:
+                'lossy:zfp:accuracy:0.2'
+                'lossy:zfp:rate:4'
+            Another option would be to pass a configuration file as argument. (json?)
+    compute : bool 
+            Dask delayed feature. Set to true to delay the file writting.
     """
     # if ds is a DataVariable instead of a Dataset, then convert it
     if isinstance(ds, xarray.DataArray):
@@ -53,12 +79,12 @@ def write(ds, filename, file_format=None, compression_mode="lossless", compute=T
      
 
     # Encoding
-    encoding = set_encoding(ds, compression_mode)
+    encoding = set_encoding(ds, compression)
     # write a netcdf file
     if selected_format == "NC":
         #"""
         try:
-            task = ds.to_netcdf(filename, engine="h5netcdf", encoding=encoding, compute=True)
+            task = ds.to_netcdf(filename, engine="h5netcdf", encoding=encoding, compute=compute)
             #ds.to_netcdf(filename)
         
         except ValueError as err:
