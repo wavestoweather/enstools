@@ -145,6 +145,7 @@ def zfp_rate_opts(rate):
 
     The float rate parameter is the number of compressed bits per value.
     """
+    from struct import pack, unpack
     rate = pack('<d', rate)            # Pack as IEEE 754 double
     high = unpack('<I', rate[0:4])[0]  # Unpack high bits as unsigned int
     low = unpack('<I', rate[4:8])[0]   # Unpack low bits as unsigned int
@@ -164,6 +165,7 @@ def zfp_accuracy_opts(accuracy):
 
     The float accuracy parameter is the absolute error tolarance (e.g. 0.001).
     """
+    from struct import pack, unpack
     accuracy = pack('<d', accuracy)        # Pack as IEEE 754 double
     high = unpack('<I', accuracy[0:4])[0]  # Unpack high bits as unsigned int
     low = unpack('<I', accuracy[4:8])[0]   # Unpack low bits as unsigned int
