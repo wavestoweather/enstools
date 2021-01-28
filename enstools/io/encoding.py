@@ -1,14 +1,3 @@
-# Some definitions
-
-# Some filter ids
-BLOSC_filter_id = 32001
-ZFP_filter_id = 32013
-
-# ZFP modes
-ZFP_MODE_RATE = 1
-ZFP_MODE_PRECISION = 2
-ZFP_MODE_ACCURACY = 3
-ZFP_MODE_EXPERT = 4
 
 
 def set_encoding(ds, compression_options):
@@ -20,31 +9,124 @@ def set_encoding(ds, compression_options):
     ds : xarray.Dataset
             the dataset that will be stored
 
-    mode: string
-        "lossless"
-        "lossy"
+    compression_options: string or filepath
+        It can contain the string that defines the compression options that will be used in the whole dataset,
+        or a filepath to a configuration file in which we might have per variable specification.
+        For lossless compression, we can choose the backend and the compression leven as follows
+            "lossless:backend:compression_level(from 1 to 9)"
+        The backend must be one of the following options:
+                'blosclz'
+                'lz4'
+                'lz4hc'
+                'snappy'
+                'zlib'
+                'zstd'
+        For lossy compression, we can choose the compressor (wight now only zfp is implemented),
+        the method and the method parameter (the accuracy, the precision or the rate).
+        Some examples:
+            "lossless"
+            "lossy"
+            "lossless:zlib:5"
+            "lossy:zfp:accuracy:0.00001"
+            "lossy:zfp:precision:12"
+            
+        If using a configuration file, the file should follow a json format and can contain per-variable values.
+        It is also possible to define a default option. For example:
+        { "default": "lossless",
+          "temp": "lossy:zfp:accuracy:0.1",
+          "qv": "lossy:zfp:accuracy:0.00001"        
+        }
+            
+           
     
     """
     # Parsing the compression options
     mode, options = parse_compression_options(compression_options)
     
+    # Get list of variable names
+    variables = [var for var in ds.variables]
+
+    # Initialize encoding dictionary
+    encoding = {}
+    
+    # If using a single mode for all the variables, find the corresponding filter_id and options and fill the encoding dictionary with the information.
     if mode == "lossless":
-        return BLOSC_encoding(ds,compressor=options[0],clevel=options[1])
+        compressor, clevel = options
+        filter_id, compression_options = BLOSC_encoding(compressor=compressor, clevel=clevel)
+        for variable in variables:
+            encoding[variable] = {}
+            encoding[variable]["compression"] = filter_id
+            encoding[variable]["compression_opts"] = compression_options
+            
     elif mode == "lossy":
-        return ZFP_encoding(ds,options)
+        filter_id, compression_options = ZFP_encoding(options)
+        for variable in variables:
+            encoding[variable] = {}
+            encoding[variable]["compression"] = filter_id
+            encoding[variable]["compression_opts"] = compression_options
+    # In the case of using a configuration file , we might have a different encoding specification for each variable    
+    elif mode == "file":
+        
+        filename = options[0]
+        # Read the file to get the per variable specifications
+        dictionary_of_filter_ids, dictionary_of_compression_options = parse_configuration_file(filename)
+        
+        # Check if there's a default defined, otherwise use BLOSC encoding with default arguments
+        try:
+            default_id = dictionary_of_filter_ids["default"]
+            default_options = dictionary_of_compression_options["default"]
+        except KeyError:
+            default_id, default_options = BLOSC_encoding()
+            
+        # Loop through variables and use the custom parameters if exist and otherwise the default ones
+        for variable in variables:
+            try:
+                filter_id = dictionary_of_filter_ids[variable]
+                compression_options = dictionary_of_compression_options[variable]
+            except KeyError:
+                filter_id = default_id
+                compression_options = default_options
+            
+            # Fill the encoding dictionary
+            encoding[variable] = {}
+            encoding[variable]["compression"] = filter_id
+            encoding[variable]["compression_opts"] = compression_options
     else:
         return None
-
     
-def BLOSC_encoding(dataset, compressor = "lz4", clevel = 9 ):
+    return encoding
+
+def filter_and_options_from_command_line_arguments(string):
     """
-    Create a dictionary with the encoding that will be passed to the hdf5 engine, to use the BLOSC filter.
+    Given a configuration string , it will return the proper filter_id and compressor options.
+    
+    
 
     Parameters
     ----------
-    ds : xarray.Dataset
-            the dataset that will be stored
+    string:  string
+           compression configuration string (i.e.  "lossy:zfp:accuracy:0.1")
+    Returns:
+    ----------
+    filter_id: integer with the corresponding HDF5 filter id
+    compression_options: tuple with filter specific options
+    """
+    # Parsing the compression options
+    mode, options = parse_compression_options(string)
+    assert mode != "file", "Compression: File method argument should not happen here"
+    if mode == "lossless":
+        compressor, clevel = options
+        return BLOSC_encoding(compressor=compressor, clevel=clevel)
+    elif mode == "lossy":
+        return ZFP_encoding(options)
+    
+    
+def BLOSC_encoding(compressor = "lz4", clevel = 9 ):
+    """
+    The function will return the BLOSC_is and the compression options .
 
+    Parameters
+    ----------
     compressor:  string
             the backend that will be used in BLOSC. The avaliable options are:
                 'blosclz'
@@ -56,11 +138,8 @@ def BLOSC_encoding(dataset, compressor = "lz4", clevel = 9 ):
     clevel: integer
         Compression level From 1 to 9
     """
-    encoding = {}
-
-    
-    variables = [var for var in dataset.variables]
-
+    # The uniq filter id given by HDF5
+    BLOSC_filter_id = 32001
     # For now, the shuffle its always activated
     shuffle = 1
 
@@ -80,37 +159,24 @@ def BLOSC_encoding(dataset, compressor = "lz4", clevel = 9 ):
     # Define the compression_opts array that will be passed to the filter
     compression_opts = (0, 0, 0, 0, clevel, shuffle, compressor_id)
 
-    #Set the enconding for each variable
-    for variable in variables:
-        encoding[variable] = {}
-        encoding[variable]["compression"] = BLOSC_filter_id
-        encoding[variable]["compression_opts"] = compression_opts
-    return encoding
+    return BLOSC_filter_id, compression_opts
 
 
-def ZFP_encoding(ds, compression_options):
+def ZFP_encoding(compression_options):
     """
     Create a dictionary with the encoding that will be passed to the hdf5 engine, to use the ZFP filter.
     One and only of the method options need to be provided: rate, precision or accuracy.
     Parameters
     ----------
-    ds : xarray.Dataset
-            the dataset that will be stored
-
-    rate: integer
-    
-    precision: integer
-    
-    accuracy: float
-    
-    reversible: bool
+    compression_options: list of strings
     """
+    # The uniq filter id given by HDF5 
+    ZFP_filter_id = 32013
+
     # Check options provided:
     compressor, method, parameter = compression_options
     assert compressor == "zfp", "Passing wrong options"
-    # ZFP encoding
-    encoding = {}
-    
+    # Get ZFP encoding options
     if method == "rate":
         compression_opts = zfp_rate_opts(parameter)
     elif method == "precision" :
@@ -120,20 +186,7 @@ def ZFP_encoding(ds, compression_options):
     elif method == "reversible":
         compression_opts = zfp_reversible()
 
-    
-    # Get list of variable names
-    variables = [var for var in ds.variables]
-
-
-    # Define the compression_opts array that will be passed to the filter
-
-
-    #Set the enconding for each variable
-    for variable in variables:
-        encoding[variable] = {}
-        encoding[variable]["compression"] = ZFP_filter_id
-        encoding[variable]["compression_opts"] = compression_opts
-    return encoding
+    return ZFP_filter_id, compression_opts
 
 
 
@@ -145,6 +198,7 @@ def zfp_rate_opts(rate):
 
     The float rate parameter is the number of compressed bits per value.
     """
+    ZFP_MODE_RATE = 1
     from struct import pack, unpack
     rate = pack('<d', rate)            # Pack as IEEE 754 double
     high = unpack('<I', rate[0:4])[0]  # Unpack high bits as unsigned int
@@ -157,6 +211,7 @@ def zfp_precision_opts(precision):
 
     The float precision parameter is the number of uncompressed bits per value.
     """
+    ZFP_MODE_PRECISION = 2
     return (ZFP_MODE_PRECISION, 0, precision, 0, 0, 0)
 
 
@@ -165,6 +220,7 @@ def zfp_accuracy_opts(accuracy):
 
     The float accuracy parameter is the absolute error tolarance (e.g. 0.001).
     """
+    ZFP_MODE_ACCURACY = 3
     from struct import pack, unpack
     accuracy = pack('<d', accuracy)        # Pack as IEEE 754 double
     high = unpack('<I', accuracy[0:4])[0]  # Unpack high bits as unsigned int
@@ -177,10 +233,16 @@ def zfp_expert_opts(minbits, maxbits, maxprec, minexp):
 
     See the ZFP docs for the meaning of the parameters.
     """
+    ZFP_MODE_EXPERT = 4
     return (ZFP_MODE_EXPERT , 0, minbits, maxbits, maxprec, minexp)
 
 def zfp_reversible():
-    return (5, 0, 0, 0, 0, 0)
+    """Create compression options for ZFP in reversible mode
+
+    It should result in lossless compression.
+    """
+    ZFP_MODE_REVERSIBLE = 5
+    return (ZFP_MODE_REVERSIBLE, 0, 0, 0, 0, 0)
 
 
 # Functions to parse the commpression options, to give more flexibility and allow a way to pass custom compression options
@@ -207,7 +269,7 @@ def parse_compression_options(string):
     first = arguments[0]
     # Check if it is a file:
     if isfile(first):
-        return parse_file(first)
+        return "file", (first)
     elif first == "lossless":
         return parse_lossless_compression_options(arguments)
     elif first == "lossy":
@@ -311,5 +373,21 @@ def parse_ZFP_compression_options(arguments):
     except ValueError:
         raise AssertionError("Compression: Invalid value '%s' for ZFP" % arguments[3])
         
-def parse_file(arguments):
-    raise NotImplementedError
+def parse_configuration_file(filename):
+    import json
+    
+    # Initialize dictionaries
+    dictionary_of_filter_ids = {}
+    dictionary_of_compression_options = {}
+    
+    filename = "test_configuration_file.txt"
+    with open(filename) as f:
+        specifications = json.loads(f.read())
+    
+    
+    for key, options in specifications.items():
+        filter_id, compression_options = filter_and_options_from_command_line_arguments(options)
+        dictionary_of_filter_ids[key] = filter_id
+        dictionary_of_compression_options[key] = compression_options
+
+    return dictionary_of_filter_ids, dictionary_of_compression_options
