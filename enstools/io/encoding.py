@@ -145,6 +145,7 @@ def zfp_rate_opts(rate):
 
     The float rate parameter is the number of compressed bits per value.
     """
+    from struct import pack, unpack
     rate = pack('<d', rate)            # Pack as IEEE 754 double
     high = unpack('<I', rate[0:4])[0]  # Unpack high bits as unsigned int
     low = unpack('<I', rate[4:8])[0]   # Unpack low bits as unsigned int
@@ -164,6 +165,7 @@ def zfp_accuracy_opts(accuracy):
 
     The float accuracy parameter is the absolute error tolarance (e.g. 0.001).
     """
+    from struct import pack, unpack
     accuracy = pack('<d', accuracy)        # Pack as IEEE 754 double
     high = unpack('<I', accuracy[0:4])[0]  # Unpack high bits as unsigned int
     low = unpack('<I', accuracy[4:8])[0]   # Unpack low bits as unsigned int
@@ -200,6 +202,8 @@ def parse_compression_options(string):
                        for lossy:    (backend, method, parameter)
     """
     arguments=string.split(":")
+    # Check that all arguments have information
+    assert not any([not argument.strip() for argument in arguments]), "Compression: The provided option has a wrong format."
     first = arguments[0]
     # Check if it is a file:
     if isfile(first):
@@ -209,7 +213,7 @@ def parse_compression_options(string):
     elif first == "lossy":
         return parse_lossy_compression_options(arguments)
     else:
-        raise AssertionError("The argument should be lossless/lossy/or a path to a file.")
+        raise AssertionError("Compression: The argument should be lossless/lossy/or a path to a file.")
 
         
 def parse_lossless_compression_options(arguments):
@@ -246,10 +250,10 @@ def parse_lossless_compression_options(arguments):
         try:
             compression_level = int(arguments[2])
         except ValueError:
-            raise AssertionError("Invalid value '%s' for compression level. Must be a value between 1 and 9" % arguments[2])
-        assert 1 <= compression_level <= 9, "Invalid value '%s' for compression level. Must be a value between 1 and 9" % arguments[2]
+            raise AssertionError("Compression: Invalid value '%s' for compression level. Must be a value between 1 and 9" % arguments[2])
+        assert 1 <= compression_level <= 9, "Compression: Invalid value '%s' for compression level. Must be a value between 1 and 9" % arguments[2]
     else:
-        raise AssertionError ("Wrong number of arguments in %s" % ":".join(arguments))
+        raise AssertionError ("Compression: Wrong number of arguments in %s" % ":".join(arguments))
     return "lossless", (backend, compression_level)
 
 
@@ -275,7 +279,7 @@ def parse_lossy_compression_options(arguments):
         if arguments[1] == "zfp":
             return parse_ZFP_compression_options(arguments)
         else:
-            raise AssertionError("Unknown lossy compressor: %s" % arguments[1])
+            raise AssertionError("Compression: Unknown lossy compressor: %s" % arguments[1])
 
             
 def parse_ZFP_compression_options(arguments):
@@ -291,7 +295,7 @@ def parse_ZFP_compression_options(arguments):
     compression_opts:  tuple
                        (backend:string, method:string, parameter:int or float)
     """
-    assert len(arguments) == 4, "ZFP compression requires 4 arguments: lossy:zfp:method:value"
+    assert len(arguments) == 4, "Compression: ZFP compression requires 4 arguments: lossy:zfp:method:value"
     try:
         if arguments[2] == "rate":
             rate = int(arguments[3])
@@ -303,9 +307,9 @@ def parse_ZFP_compression_options(arguments):
             accuracy = float(arguments[3])
             return "lossy", ("zfp", "accuracy", accuracy)
         else:
-            raise AssertionError("Unknown ZFP method.")
+            raise AssertionError("Compression: Unknown ZFP method.")
     except ValueError:
-        raise AssertionError("Invalid value '%s' for ZFP" % arguments[3])
+        raise AssertionError("Compression: Invalid value '%s' for ZFP" % arguments[3])
         
 def parse_file(arguments):
     raise NotImplementedError
