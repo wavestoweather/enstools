@@ -50,7 +50,9 @@ def set_encoding(ds, compression_options):
     encoding = {}
     
     # If using a single mode for all the variables, find the corresponding filter_id and options and fill the encoding dictionary with the information.
-    if mode == "lossless":
+    if mode == None:
+        return None
+    elif mode == "lossless":
         compressor, clevel = options
         filter_id, compression_options = BLOSC_encoding(compressor=compressor, clevel=clevel)
         for variable in variables:
@@ -274,6 +276,8 @@ def parse_compression_options(string):
         return parse_lossless_compression_options(arguments)
     elif first == "lossy":
         return parse_lossy_compression_options(arguments)
+    elif first == "None":
+        return None, None
     else:
         raise AssertionError("Compression: The argument should be lossless/lossy/or a path to a file.")
 
