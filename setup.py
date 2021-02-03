@@ -52,6 +52,10 @@ setup(name="enstools",
                 "bottleneck",
                 "pandas"],
         entry_points={
-          'console_scripts': ['enstools-opendata=enstools.opendata.cli:main'],
+          'console_scripts': [
+              'enstools-opendata=enstools.opendata.cli:main',
+              'enstools-compressor=enstools.io:compress',
+              'enstools-analyzer=enstools.io:get_compression_parameters'
+              ],
         },
       )
