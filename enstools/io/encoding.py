@@ -271,7 +271,7 @@ def parse_compression_options(string):
     first = arguments[0]
     # Check if it is a file:
     if isfile(first):
-        return "file", (first)
+        return "file", [first]
     elif first == "lossless":
         return parse_lossless_compression_options(arguments)
     elif first == "lossy":
@@ -384,7 +384,6 @@ def parse_configuration_file(filename):
     dictionary_of_filter_ids = {}
     dictionary_of_compression_options = {}
     
-    filename = "test_configuration_file.txt"
     with open(filename) as f:
         specifications = json.loads(f.read())
     
