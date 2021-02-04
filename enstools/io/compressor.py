@@ -120,8 +120,54 @@ Few different examples
 Launch a SLURM job for workers:
 %prog -o /path/to/destination/folder /path/to/multiple/files/* --nodes 4
 
-Use lossy compression:
-%prog -o /path/to/destination/folder /path/to/multiple/files/* --lossy
+To use custom compression parameters:
+%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression compression_specification
+
+Where compression_specification can contain the string that defines the compression options that will be used in the whole dataset,
+        or a filepath to a configuration file in which we might have per variable specification.
+        For lossless compression, we can choose the backend and the compression leven as follows
+            "lossless:backend:compression_level(from 1 to 9)"
+        The backend must be one of the following options:
+                'blosclz'
+                'lz4'
+                'lz4hc'
+                'snappy'
+                'zlib'
+                'zstd'
+        For lossy compression, we can choose the compressor (wight now only zfp is implemented),
+        the method and the method parameter (the accuracy, the precision or the rate).
+        Some examples:
+            "lossless"
+            "lossy"
+            "lossless:zlib:5"
+            "lossy:zfp:accuracy:0.00001"
+            "lossy:zfp:precision:12"
+            
+        If using a configuration file, the file should follow a json format and can contain per-variable values.
+        It is also possible to define a default option. For example:
+        { "default": "lossless",
+          "temp": "lossy:zfp:accuracy:0.1",
+          "qv": "lossy:zfp:accuracy:0.00001"        
+        }
+            
+So, few examples with custom compression would be:
+
+%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression lossless
+
+%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression lossless:blosclz:9
+
+%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression lossy
+
+%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression lossy:zfp:rate:4
+
+%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression compression_paramters.json
+
+
+Last but not least, now it is possible to automatically find which are the compression parametsr that must be applied to each variable in order to mantain a 0.99999 Pearson corre
+
+%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression auto
+
+
 
 """
     

@@ -55,7 +55,7 @@ setup(name="enstools",
           'console_scripts': [
               'enstools-opendata=enstools.opendata.cli:main',
               'enstools-compressor=enstools.io:compress',
-              'enstools-analyzer=enstools.io:get_compression_parameters'
+              'enstools-analyzer=enstools.io:main'
               ],
         },
       )
