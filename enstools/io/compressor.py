@@ -1,14 +1,13 @@
-#!/usr/bin/env python
 """
-    #
-    # Prototype of the command line tool to compress datasets.
-    #
+#
+# Functions to compress netcdf/grib files from the command line.
+#
 
 """
 
 def init_cluster(nodes=1):
     """
-    # Submiting DASK workers to a Slurm cluster.
+    # Submiting DASK workers to a Slurm cluster. Need to merge it with the init_cluster in enstools.core
 
            Parameters
     ----------
@@ -100,28 +99,35 @@ def parse_command_line_arguments():
     """
     Parse the command line arguments and return the list of files, the destination folder and the number of nodes that will be used.
     """
-    from os import access, W_OK
-    from os.path import isdir
     import glob
-    from optparse import OptionParser
+    import argparse
+    from os.path import isdir, realpath
+    from os import access, W_OK
+
+    def expand_paths(string):
+        """
+        Small function to expand the file paths
+        """
+        files = glob.glob(string)
+        return [realpath(f) for f in files]
     
     help_text = """
 Few different examples
 
 -Single file:
-%prog -o /path/to/destination/folder /path/to/file/1 
+%(prog)s -o /path/to/destination/folder /path/to/file/1 
 
 -Multiple files:
-%prog -o /path/to/destination/folder /path/to/file/1 /path/to/file/2
+%(prog)s -o /path/to/destination/folder /path/to/file/1 /path/to/file/2
 
 -Path pattern:
-%prog -o /path/to/destination/folder /path/to/multiple/files/* 
+%(prog)s -o /path/to/destination/folder /path/to/multiple/files/* 
 
 Launch a SLURM job for workers:
-%prog -o /path/to/destination/folder /path/to/multiple/files/* --nodes 4
+%(prog)s -o /path/to/destination/folder /path/to/multiple/files/* --nodes 4
 
 To use custom compression parameters:
-%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression compression_specification
+%(prog)s -o /path/to/destination/folder /path/to/multiple/files/* --compression compression_specification
 
 Where compression_specification can contain the string that defines the compression options that will be used in the whole dataset,
         or a filepath to a configuration file in which we might have per variable specification.
@@ -149,60 +155,68 @@ Where compression_specification can contain the string that defines the compress
           "temp": "lossy:zfp:accuracy:0.1",
           "qv": "lossy:zfp:accuracy:0.00001"        
         }
-            
+
+
 So, few examples with custom compression would be:
 
-%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression lossless
+%(prog)s -o /path/to/destination/folder /path/to/multiple/files/* --compression lossless
 
-%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression lossless:blosclz:9
+%(prog)s -o /path/to/destination/folder /path/to/multiple/files/* --compression lossless:blosclz:9
 
-%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression lossy
+%(prog)s -o /path/to/destination/folder /path/to/multiple/files/* --compression lossy
 
-%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression lossy:zfp:rate:4
+%(prog)s -o /path/to/destination/folder /path/to/multiple/files/* --compression lossy:zfp:rate:4
 
-%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression compression_paramters.json
+%(prog)s -o /path/to/destination/folder /path/to/multiple/files/* --compression compression_paramters.json
 
 
-Last but not least, now it is possible to automatically find which are the compression parametsr that must be applied to each variable in order to mantain a 0.99999 Pearson corre
+Last but not least, now it is possible to automatically find which are the compression parametrs that must be applied to each variable in order to mantain a 0.99999 Pearson corre
 
-%prog -o /path/to/destination/folder /path/to/multiple/files/* --compression auto
-
+%(prog)s -o /path/to/destination/folder /path/to/multiple/files/* --compression auto
 
 
 """
-    
-    parser = OptionParser(usage=help_text)
-    
-    parser.add_option("-o", "--output-folder", dest="output_folder",
-                      default=None, help="Path to the output folder")
-    parser.add_option("--compression", dest="compression", default="lossless",
-                     help="Compression options. Using lossless compression by default. Full description of available options upcoming.")
-    parser.add_option("--nodes", "-N", dest="nodes", default=0,
+
+    parser = argparse.ArgumentParser(description=help_text, formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    #parser = OptionParser(usage=help_text)
+    parser.add_argument("files", type=expand_paths, nargs='*', help="Path to file/files that will be compressed")
+    parser.add_argument("-o", '--output-folder', type=str, dest="output_folder", default=None, required=True)
+    parser.add_argument('--compression', type=str, dest="compression", default="lossless",
+                      help="""
+        Specifications about the compression options that will be used in the whole dataset,
+        or a filepath to a configuration file in which we might have per variable specification.
+        Some examples:   
+            "lossless"
+            "lossy" 
+            "lossless:zlib:5"
+            "lossy:zfp:accuracy:0.00001"
+            "lossy:zfp:precision:12"
+            "configuration_file.json"
+        If using a configuration file, the file should follow a json format and can contain per-variable values.
+        It is also possible to define a default option. For example:
+        { "default": "lossless",
+          "temp": "lossy:zfp:accuracy:0.1",
+          "qv": "lossy:zfp:accuracy:0.00001"        
+        }""")
+    parser.add_argument("--nodes", "-N", dest="nodes", default=0, type=int,
                      help="This parameter can be used to allocate additional nodes in the cluster to speed-up the computation.")
 
-    (options, args) = parser.parse_args()
-    if len(args) == 0:
-        print("No argument given!")
-        parser.print_help()
-        exit(1)
+
+    args = parser.parse_args()
     
     # Read the output folder from the command line and assert that it exists and has write permissions.
-    output_folder = options.output_folder
-    if output_folder is None:
-        parser.print_help()
-        print("\nThe parameter output folder is mandatory.")
-        exit(1)
+    output_folder = realpath(args.output_folder)
     assert isdir(output_folder), "The provided folder does not exist"
     assert access(output_folder,W_OK ), "The output folder provided does not have write permissions"
 
-    # Expand the filenames in case we ued a regex expression
-    assert len(args) > 0, "Need to provide the list of files as arguments. Regex patterns are allowed."
-    file_paths = sum([glob.glob(arg) for arg in args], [])
+    file_paths = args.files
+    file_paths = sum(file_paths, [])
 
     # Compression options
-    compression = options.compression
+    compression = args.compression
     # Read the number of nodes
-    nodes = int(options.nodes)
+    nodes = args.nodes
         
     # If we are not using MPI, just return the output folder and the list of files
     return output_folder, file_paths, compression, nodes

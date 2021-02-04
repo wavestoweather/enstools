@@ -13,7 +13,18 @@ def parse_command_line_arguments():
     from os.path import isdir
     import glob
     from optparse import OptionParser
-    
+  
+    import glob
+    import argparse
+    from os.path import isdir, realpath
+    from os import access, W_OK
+
+    def expand_paths(string):
+        """
+        Small function to expand the file paths
+        """
+        files = glob.glob(string)
+        return [realpath(f) for f in files]
     help_text = """
 Few different examples
 
@@ -30,33 +41,34 @@ Few different examples
 %prog /path/to/multiple/files/* --tolerance 0.999
 
 """
+    parser = argparse.ArgumentParser(description=help_text,  formatter_class=argparse.RawDescriptionHelpFormatter)
+
     
-    parser = OptionParser(usage=help_text)
-    
-    parser.add_option("--tolerance", dest="tolerance", default="0.99999",
+    parser.add_argument("--correlation", dest="correlation", default=0.99999, type=float, 
                      help="Tolerance.")
-    parser.add_option("--output", "-o", dest="output", default=None)
-
-    (options, args) = parser.parse_args()
-    if len(args) == 0:
-        print("No argument given!")
-        parser.print_help()
-        exit(1)
+    parser.add_argument("--output", "-o", dest="output", default=None, type=str)
+    parser.add_argument("files", type=str, nargs="+")
+    args = parser.parse_args()
     
-    # Expand the filenames in case we ued a regex expression
-    assert len(args) > 0, "Need to provide the list of files as arguments. Regex patterns are allowed."
-    file_paths = sum([glob.glob(arg) for arg in args], [])
-
+    file_paths = args.files
+    # Put all the files in a single 1d list
+    #files = sum(file_paths,[])
+    
+       
     # Compression options
-    tolerance = float(options.tolerance)
+    correlation = float(args.correlation)
     
     # Output filename
-    output_file = options.output
+    output_file = args.output
     # If we are not using MPI, just return the output folder and the list of files
-    return file_paths, tolerance, output_file
+    return file_paths, correlation, output_file
 
 
 def zfp_analyze_variable(dataset,variable_name, mode, correlation_threshold = 0.99999):
+    """
+    Determine which ZFP parameters allow the reovered data to achieve the provided correlation threshold.
+    Right now we are using the rate method and a simple iterative process in order to find the minimum rate value that still mantains the level of correlation.
+    """
     import zfpy
     import numpy as np
     from scipy.stats.stats import pearsonr
@@ -80,6 +92,9 @@ def zfp_analyze_variable(dataset,variable_name, mode, correlation_threshold = 0.
 
 
 def zfp_analyze_files(file_paths, correlation_threshold=0.99999):
+    """
+    Load the dataset and go variable by variable determining the optimal ZFP compression parameters
+    """
     from .reader import read
     dataset = read(file_paths)
     variables = [v for v in dataset.variables]
@@ -94,6 +109,10 @@ def zfp_analyze_files(file_paths, correlation_threshold=0.99999):
 
 
 def analyze_files(file_paths, correlation_threshold=0.99999):
+    """
+    Function to switch between the different compressors and methods.
+    Currrently only ZFP its available.
+    """
     return zfp_analyze_files(file_paths, correlation_threshold)
 
 
@@ -117,7 +136,7 @@ def get_compression_parameters(file_paths,correlation_threshold=0.99999, output_
         print(json.dumps(encoding,indent=4, sort_keys=True))
 
         
-def main():
+def find_compression_parameters():
     """
     Finds optimal compression parameters for a list of files provided as command line arguments.
     The correlation_threshold can be adjusted by command line argument and if an output_file argument is provided it will output the json dictionary in there.
@@ -127,4 +146,4 @@ def main():
     get_compression_parameters(file_paths,correlation_threshold, output_file)
 
 if __name__ == "__main__":
-    main()
+    find_compression_parameters()
