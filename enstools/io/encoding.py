@@ -67,8 +67,7 @@ def set_encoding(ds, compression_options):
             encoding[variable]["compression"] = filter_id
             encoding[variable]["compression_opts"] = compression_options
     # In the case of using a configuration file , we might have a different encoding specification for each variable    
-    elif mode == "file":
-        
+    elif mode == "file":      
         filename = options[0]
         # Read the file to get the per variable specifications
         dictionary_of_filter_ids, dictionary_of_compression_options = parse_configuration_file(filename)
@@ -101,8 +100,6 @@ def set_encoding(ds, compression_options):
 def filter_and_options_from_command_line_arguments(string):
     """
     Given a configuration string , it will return the proper filter_id and compressor options.
-    
-    
 
     Parameters
     ----------

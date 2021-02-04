@@ -70,7 +70,8 @@ def transfer(file_paths, output_folder, compression="lossless"):
 
     # Compute all the tasks
     compute(tasks)
-        
+
+    
 def transfer_file(origin, destination, compression):    
     """
     This function will copy a dataset while optionally applying compression.
@@ -94,6 +95,7 @@ def transfer_file(origin, destination, compression):
     encoding = set_encoding(dataset, compression)
     write(dataset, destination, compression=compression)
 
+    
 def parse_command_line_arguments():
     """
     Parse the command line arguments and return the list of files, the destination folder and the number of nodes that will be used.
@@ -188,6 +190,15 @@ def compress():
     """
     # Parse command line arguments
     output_folder, file_paths, compression, nodes = parse_command_line_arguments()
+    
+    # In case of using automatic compression option, call here get_compression_parameters()
+    if compression == "auto":
+        from .analyzer import get_compression_parameters
+        compression_parameters_path = "compression_parameters.json"
+        get_compression_parameters(file_paths, correlation_threshold=0.99999, output_file=compression_parameters_path)
+        # Now lets continue setting compression = compression_parameters_path
+        compression = compression_parameters_path
+    
     # In case of wanting to use additional nodes
     if nodes > 0:
         with init_cluster(nodes) as cluster, init_client(cluster) as client:

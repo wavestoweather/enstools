@@ -56,7 +56,7 @@ Few different examples
     return file_paths, tolerance, output_file
 
 
-def zfp_analyze_variable(dataset,variable_name, mode, correlation_threshold = 0.99999 ):
+def zfp_analyze_variable(dataset,variable_name, mode, correlation_threshold = 0.99999):
     import zfpy
     import numpy as np
     from scipy.stats.stats import pearsonr
@@ -79,7 +79,7 @@ def zfp_analyze_variable(dataset,variable_name, mode, correlation_threshold = 0.
     return "lossy:zfp:rate:%i" %rate
 
 
-def zfp_analyze_files(file_paths, correlation_threshold):
+def zfp_analyze_files(file_paths, correlation_threshold=0.99999):
     from .reader import read
     dataset = read(file_paths)
     variables = [v for v in dataset.variables]
@@ -93,17 +93,19 @@ def zfp_analyze_files(file_paths, correlation_threshold):
     return encoding
 
 
-    
-def get_compression_parameters():
+def analyze_files(file_paths, correlation_threshold=0.99999):
+    return zfp_analyze_files(file_paths, correlation_threshold)
+
+
+
+def get_compression_parameters(file_paths,correlation_threshold=0.99999, output_file=None):
     """
-    Copies a list of files provided as command line arguments to a destination folder, optionally applying compression.
-    The list of files, the destination folder and the compression options have to be provided as command line options.
+    Finds optimal compression parameters for a list of files to fullfill a correlation_threshold. 
+    If an output_file argument is provided it will output the json dictionary in there.
     """
-    # Parse command line arguments
-    file_paths, tolerance, output_file = parse_command_line_arguments()
-    # In case of wanting to use additional nodes
-    print("Analyzing files to determine optimal compression options to achieve a Pearson Correlation of %f ." % tolerance)
-    encoding = zfp_analyze_files(file_paths, tolerance)
+
+    print("Analyzing files to determine optimal compression options to achieve a Pearson Correlation of %f ." % correlation_threshold)
+    encoding = analyze_files(file_paths, correlation_threshold)
     
     import json
     if output_file:
@@ -114,5 +116,15 @@ def get_compression_parameters():
         print("Compresion options:")
         print(json.dumps(encoding,indent=4, sort_keys=True))
 
+        
+def main():
+    """
+    Finds optimal compression parameters for a list of files provided as command line arguments.
+    The correlation_threshold can be adjusted by command line argument and if an output_file argument is provided it will output the json dictionary in there.
+    """
+    # Parse command line arguments
+    file_paths, correlation_threshold, output_file = parse_command_line_arguments() 
+    get_compression_parameters(file_paths,correlation_threshold, output_file)
+
 if __name__ == "__main__":
-    get_compression_parameters()
+    main()
