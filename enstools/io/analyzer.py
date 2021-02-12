@@ -117,7 +117,7 @@ def analyze_files(file_paths, correlation_threshold=0.99999):
 
 
 
-def get_compression_parameters(file_paths,correlation_threshold=0.99999, output_file=None):
+def analyze(file_paths, correlation_threshold=0.99999, output_file=None):
     """
     Finds optimal compression parameters for a list of files to fullfill a correlation_threshold. 
     If an output_file argument is provided it will output the json dictionary in there.
@@ -136,14 +136,14 @@ def get_compression_parameters(file_paths,correlation_threshold=0.99999, output_
         print(json.dumps(encoding,indent=4, sort_keys=True))
 
         
-def find_compression_parameters():
+def launch_analysis_from_command_line():
     """
     Finds optimal compression parameters for a list of files provided as command line arguments.
     The correlation_threshold can be adjusted by command line argument and if an output_file argument is provided it will output the json dictionary in there.
     """
     # Parse command line arguments
     file_paths, correlation_threshold, output_file = parse_command_line_arguments() 
-    get_compression_parameters(file_paths,correlation_threshold, output_file)
+    analyze(file_paths,correlation_threshold, output_file)
 
 if __name__ == "__main__":
-    find_compression_parameters()
+    launch_analysis_from_command_line()

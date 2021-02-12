@@ -243,13 +243,21 @@ def destination_path(origin_path, destination_folder):
     return destination
 
 
-def compress():
+
+
+
+def launch_compress_from_command_line():
     """
-    Copies a list of files provided as command line arguments to a destination folder, optionally applying compression.
-    The list of files, the destination folder and the compression options have to be provided as command line options.
+    Read command line arguments and launch the compress function
     """
     # Parse command line arguments
     output_folder, file_paths, compression, nodes = parse_command_line_arguments()
+    compress(output_folder, file_paths, compression, nodes)
+
+def compress(output_folder, file_paths, compression, nodes):
+    """
+    Copies a list of files to a destination folder, optionally applying compression.
+    """
     
     # In case of using automatic compression option, call here get_compression_parameters()
     if compression == "auto":
@@ -271,4 +279,4 @@ def compress():
 
         
 if __name__ == "__main__":
-    compress()
+    launch_compress_from_command_line()
