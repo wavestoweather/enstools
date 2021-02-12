@@ -5,63 +5,6 @@
     #
 
 """
-def parse_command_line_arguments():
-    """
-    Parse the command line arguments and return the list of files, the destination folder and the number of nodes that will be used.
-    """
-    from os import access, W_OK
-    from os.path import isdir
-    import glob
-    from optparse import OptionParser
-  
-    import glob
-    import argparse
-    from os.path import isdir, realpath
-    from os import access, W_OK
-
-    def expand_paths(string):
-        """
-        Small function to expand the file paths
-        """
-        files = glob.glob(string)
-        return [realpath(f) for f in files]
-    help_text = """
-Few different examples
-
--Single file:
-%prog /path/to/file/1 
-
--Multiple files:
-%prog /path/to/file/1 /path/to/file/2
-
--Path pattern:
-%prog /path/to/multiple/files/* 
-
-- Specify tolerance
-%prog /path/to/multiple/files/* --tolerance 0.999
-
-"""
-    parser = argparse.ArgumentParser(description=help_text,  formatter_class=argparse.RawDescriptionHelpFormatter)
-
-    
-    parser.add_argument("--correlation", dest="correlation", default=0.99999, type=float, 
-                     help="Tolerance.")
-    parser.add_argument("--output", "-o", dest="output", default=None, type=str)
-    parser.add_argument("files", type=str, nargs="+")
-    args = parser.parse_args()
-    
-    file_paths = args.files
-    # Put all the files in a single 1d list
-    #files = sum(file_paths,[])
-    
-       
-    # Compression options
-    correlation = float(args.correlation)
-    
-    # Output filename
-    output_file = args.output
-    # If we are not using MPI, just return the output folder and the list of files
-    return file_paths, correlation, output_file
 
 
 def zfp_analyze_variable(dataset,variable_name, mode, correlation_threshold = 0.99999):
@@ -134,16 +77,4 @@ def analyze(file_paths, correlation_threshold=0.99999, output_file=None):
     else:
         print("Compresion options:")
         print(json.dumps(encoding,indent=4, sort_keys=True))
-
         
-def launch_analysis_from_command_line():
-    """
-    Finds optimal compression parameters for a list of files provided as command line arguments.
-    The correlation_threshold can be adjusted by command line argument and if an output_file argument is provided it will output the json dictionary in there.
-    """
-    # Parse command line arguments
-    file_paths, correlation_threshold, output_file = parse_command_line_arguments() 
-    analyze(file_paths,correlation_threshold, output_file)
-
-if __name__ == "__main__":
-    launch_analysis_from_command_line()

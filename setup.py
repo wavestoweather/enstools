@@ -54,9 +54,7 @@ setup(name="enstools",
         entry_points={
           'console_scripts': [
               'enstools-opendata=enstools.opendata.cli:main',
-              'enstools-compressor=enstools.io:launch_compress_from_command_line',
-              'enstools-analyzer=enstools.io:launch_analysis_from_command_line',
-              'enstools=enstools.accesspoint:main'
+              'enstools-compressor=enstools.io:cli'
               ],
         },
       )
