@@ -20,7 +20,7 @@ from distributed.config import config
 config["connect-timeout"] = "30"        # increase the connect-timeout from 3 to 10s
 
 
-def init_cluster(ntasks=None):
+def init_cluster(ntasks=None, extend=False):
     """
     Create a Dask.distributed cluster and return the client object. The type of the cluster is automatically selected
     based on the environment of the script. Inside of a SLURM job, a distributed Cluster is created. All allocated
@@ -36,9 +36,22 @@ def init_cluster(ntasks=None):
     distributed.Client
             a client object usable to submit computations to the new cluster.
     """
+    
+    # In case of requesting an extension of the available resources through asking for more workers through SlurmCluster,
+    # check that the sbatch command its present in the system and call init_slurm_cluster()
+    if extend == True and check_sbatch_availability():
+        job_id = os.getenv("SLURM_JOB_ID")
+        if job_id is None:
+            logging.info("Launching new workers through SLURM.")
+        else:
+            logging.info("Launching new workers through SLURM even do we already are inside a SLURM job with ID %s" % job_id)
+        
+        #if job_id is None:
+        return init_slurm_cluster(nodes=ntasks)
+
     # create a temporal directory for the work log files
     tmpdir = TempDir(cleanup=False)
-
+    
     # figure out which type of cluster to create
     global batchjob_object
     batchjob_object = get_batch_job(local_dir=tmpdir.getpath(), ntasks=ntasks)
@@ -47,6 +60,35 @@ def init_cluster(ntasks=None):
     batchjob_object.start()
 
     return batchjob_object.get_client()
+
+
+def init_slurm_cluster(nodes=1, tmp_dir="/dev/shm/"):
+    """
+    # Submiting DASK workers to a Slurm cluster. Need to merge it with the init_cluster in enstools.core
+
+           Parameters
+    ----------
+    nodes : int
+            number of nodes
+    """
+    from dask.distributed import Client
+    from dask_jobqueue import SLURMCluster
+
+    # Define the kind of jobs that will be launched to the cluster
+    # This will apply for each one of the different jobs sent
+    cluster = SLURMCluster(
+        cores=12,
+        memory="24 GB",
+        queue="cluster",
+        local_directory=tmp_dir,
+        #silence_logs="debug",
+    )
+    # Start workers
+    cluster.scale(jobs=nodes)
+    client = Client(cluster)
+    print("You can follow the dashboard in the following link:\n%s" % client.dashboard_link)
+    # client.wait_for_workers(nodes)
+    return client    
 
 
 def get_num_available_procs():
@@ -134,3 +176,21 @@ class RoundRobinWorkerIterator():
         if self.index == len(self.workers):
             self.index = 0
         return next
+
+    
+def check_sbatch_availability():
+    """
+    Function that checks that sbatch command can be reached in the system.
+    It launches the sbatch version command and checks that the return code its 0.
+    """
+    from subprocess import run, PIPE
+    
+    command = "sbatch --version"
+    arguments = command.split()
+    result = run(arguments, stdout=PIPE)
+    try:
+        result.check_returncode()
+        return True
+    except CalledProcessError:
+        logging.warning("Sbatch its not available, won't start an additional cluster.")
+        return False
