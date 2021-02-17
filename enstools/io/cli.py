@@ -68,6 +68,8 @@ Last but not least, now it is possible to automatically find which are the compr
 
 
 """
+
+
 def expand_paths(string):
     import glob
     from os.path import realpath
@@ -81,48 +83,54 @@ def expand_paths(string):
 def main():
     # Create parser
     import argparse
-    
+
     # Create the top-level parser
     parser = argparse.ArgumentParser()
     parser.set_defaults(which=None)
     subparsers = parser.add_subparsers(help='Select between the different enstools utilities')
-    
-    
+
     # Create the parser for the "compressor" command
-    parser_compressor = subparsers.add_parser('compress', help='Compress help', formatter_class=argparse.RawDescriptionHelpFormatter, description=compressor_help_text)
-    parser_compressor.add_argument("files", type=expand_paths, nargs='*', help="Path to file/files that will be compressed.Multiple files and regex patterns are allowed.")
+    parser_compressor = subparsers.add_parser('compress', help='Compress help',
+                                              formatter_class=argparse.RawDescriptionHelpFormatter,
+                                              description=compressor_help_text)
+    parser_compressor.add_argument("files", type=expand_paths, nargs='*',
+                                   help="Path to file/files that will be compressed."
+                                        "Multiple files and regex patterns are allowed.")
     parser_compressor.add_argument("-o", '--output-folder', type=str, dest="output_folder", default=None, required=True)
     parser_compressor.add_argument('--compression', type=str, dest="compression", default="lossless",
-                      help="""
+                                   help="""
         Specifications about the compression options. Default is: %(default)s""")
     parser_compressor.add_argument("--nodes", "-N", dest="nodes", default=0, type=int,
-                     help="This parameter can be used to allocate additional nodes in the cluster to speed-up the computation.")
+                                   help="This parameter can be used to allocate additional nodes in the cluster to speed-up the computation.")
 
     parser_compressor.set_defaults(which='compressor')
-    
+
     # Create the parser for the "analyzer" command
-    parser_analyzer = subparsers.add_parser('analyze', help='Analyze help', formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser_analyzer.add_argument("--correlation", dest="correlation", default=0.99999, type=float, 
-                     help="Correlation threshold. Default=%(default)s")
+    parser_analyzer = subparsers.add_parser('analyze', help='Analyze help',
+                                            formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser_analyzer.add_argument("--correlation", dest="correlation", default=0.99999, type=float,
+                                 help="Correlation threshold. Default=%(default)s")
     parser_analyzer.add_argument("--output", "-o", dest="output", default=None, type=str,
-                                help="Path to the file where the configuration will be saved. If not provided will be print in the stdout.")
-    parser_analyzer.add_argument("files", type=str, nargs="+", help='List of files to compress. Multiple files and regex patterns are allowed.')
+                                 help="Path to the file where the configuration will be saved."
+                                      "If not provided will be print in the stdout.")
+    parser_analyzer.add_argument("files", type=str, nargs="+",
+                                 help='List of files to compress. Multiple files and regex patterns are allowed.')
     parser_analyzer.set_defaults(which='analyzer')
-    
+
     # Parse the command line arguments
     args = parser.parse_args()
-    
+
     # Process options acording to the selected option
     if args.which is None:
         parser.print_help()
-        exit(0)    
+        exit(0)
     elif args.which == "compressor":
         from os.path import isdir, realpath
         from os import access, W_OK
         # Read the output folder from the command line and assert that it exists and has write permissions.
         output_folder = realpath(args.output_folder)
         assert isdir(output_folder), "The provided folder does not exist"
-        assert access(output_folder,W_OK ), "The output folder provided does not have write permissions"
+        assert access(output_folder, W_OK), "The output folder provided does not have write permissions"
 
         file_paths = args.files
         file_paths = sum(file_paths, [])
@@ -132,7 +140,7 @@ def main():
         # Read the number of nodes
         nodes = args.nodes
 
-        #Import and launc compress function
+        # Import and launch compress function
         from enstools.io import compress
         compress(output_folder, file_paths, compression, nodes)
     elif args.which == "analyzer":
@@ -142,4 +150,4 @@ def main():
         # Output filename
         output_file = args.output
         from enstools.io import analyze
-        analyze(file_paths,correlation_threshold, output_file)
+        analyze(file_paths, correlation, output_file)
