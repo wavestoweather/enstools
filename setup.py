@@ -50,7 +50,8 @@ setup(name="enstools",
                 "cachey",
                 "cffi",
                 "bottleneck",
-                "pandas"],
+                "pandas",
+                "hdf5plugin"],
         entry_points={
           'console_scripts': [
               'enstools-opendata=enstools.opendata.cli:main',
