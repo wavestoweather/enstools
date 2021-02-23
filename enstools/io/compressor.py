@@ -5,45 +5,12 @@
 
 """
 
-def init_cluster(nodes=1):
-    """
-    # Submiting DASK workers to a Slurm cluster. Need to merge it with the init_cluster in enstools.core
-
-           Parameters
-    ----------
-    nodes : int
-            number of nodes
-    """
-    from dask_jobqueue import SLURMCluster
-
-    # Define the kind of jobs that will be launched to the cluster
-    # This will apply for each one of the different jobs sent
-    cluster = SLURMCluster(
-        cores=12,
-        memory="24 GB",
-        queue="cluster",
-        local_directory="/dev/shm",
-        silence_logs="debug",
-    )
-    # Start workers
-    cluster.scale(jobs=nodes)
-    return cluster
-
-
-def init_client(cluster):
-    """
-    Init Dask client using a cluster
-    """
-    from dask.distributed import Client
-    # Start client and print link to dashboard
-    client = Client(cluster)
-    print("You can follow the dashboard in the following link:\n%s" % client.dashboard_link)
-    return client
-
 
 def transfer(file_paths, output_folder, compression="lossless"):
     """
-    This function loops through a list of files creating delayed dask tasks to copy each one of the files while optionally using compression. If there are dask workers available the tasks will be automatically distributed when using compute.
+    This function loops through a list of files creating delayed dask tasks to copy each one of the files while
+    optionally using compression.
+    If there are dask workers available the tasks will be automatically distributed when using compute.
 
     Parameters:
     -----------
@@ -88,11 +55,10 @@ def transfer_file(origin, destination, compression):
     """
     from .reader import read
     from .writer import write
-    from .encoding import set_encoding
     import hdf5plugin
     dataset = read(origin)
-    encoding = set_encoding(dataset, compression)
     write(dataset, destination, compression=compression)
+
 
 def destination_path(origin_path, destination_folder):
     """
@@ -122,18 +88,21 @@ def compress(output_folder, file_paths, compression, nodes):
     
     # In case of using automatic compression option, call here get_compression_parameters()
     if compression == "auto":
-        from .analyzer import get_compression_parameters
+        from .analyzer import analyze
         compression_parameters_path = "compression_parameters.json"
-        get_compression_parameters(file_paths, correlation_threshold=0.99999, output_file=compression_parameters_path)
+        analyze(file_paths, correlation_threshold=0.99999, output_file=compression_parameters_path)
         # Now lets continue setting compression = compression_parameters_path
         compression = compression_parameters_path
     
     # In case of wanting to use additional nodes
     if nodes > 0:
-        with init_cluster(nodes) as cluster, init_client(cluster) as client:
+        from enstools.core import init_cluster
+        with init_cluster(nodes, extend=True) as client:
             client.wait_for_workers(nodes)
-            # Transfer will copy the files from its origin path to the output folder, using read and write functions from enstools 
+            # Transfer will copy the files from its origin path to the output folder,
+            # using read and write functions from enstools
             transfer(file_paths, output_folder, compression)
     else:
-        # Transfer will copy the files from its origin path to the output folder, using read and write functions from enstools 
-        transfer(file_paths, output_folder,compression)
+        # Transfer will copy the files from its origin path to the output folder,
+        # using read and write functions from enstools
+        transfer(file_paths, output_folder, compression)
