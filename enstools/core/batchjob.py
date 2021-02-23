@@ -284,8 +284,11 @@ class LocalJob(BatchJob):
                 self.client.close()
                 self.client = None
                 workers = list(self.cluster.workers)
-                for one_worker in workers:
-                    self.cluster.stop_worker(one_worker)
+                try:
+                    for one_worker in workers:
+                        self.cluster.stop_worker(one_worker)
+                except AttributeError:
+                    pass
                 self.cluster.close()
 
             # remove the temporal folder on the local host
