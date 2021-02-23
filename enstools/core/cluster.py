@@ -30,23 +30,25 @@ def init_cluster(ntasks=None, extend=False):
     ----------
     ntasks : int
             the number of tasks (threads or processes) to start.
-
+    extend : bool
+            launch workers in a separate slurm jobs or not
     Returns
     -------
     distributed.Client
             a client object usable to submit computations to the new cluster.
     """
     
-    # In case of requesting an extension of the available resources through asking for more workers through SlurmCluster,
+    # In case of requesting an extension of the available resources through asking for more workers through SlurmCluster
     # check that the sbatch command its present in the system and call init_slurm_cluster()
+    logging.debug("Starting cluster")
     if extend == True and check_sbatch_availability():
         job_id = os.getenv("SLURM_JOB_ID")
         if job_id is None:
             logging.info("Launching new workers through SLURM.")
         else:
-            logging.info("Launching new workers through SLURM even do we already are inside a SLURM job with ID %s" % job_id)
-        
-        #if job_id is None:
+            logging.info("Launching new workers through SLURM even do we already are inside a SLURM job with ID %s" %
+                         job_id)
+
         return init_slurm_cluster(nodes=ntasks)
 
     # create a temporal directory for the work log files
@@ -86,7 +88,7 @@ def init_slurm_cluster(nodes=1, tmp_dir="/dev/shm/"):
     # Start workers
     cluster.scale(jobs=nodes)
     client = Client(cluster)
-    print("You can follow the dashboard in the following link:\n%s" % client.dashboard_link)
+    logging.info("You can follow the dashboard in the following link:\n%s" % client.dashboard_link)
     # client.wait_for_workers(nodes)
     return client    
 
@@ -183,7 +185,7 @@ def check_sbatch_availability():
     Function that checks that sbatch command can be reached in the system.
     It launches the sbatch version command and checks that the return code its 0.
     """
-    from subprocess import run, PIPE
+    from subprocess import run, PIPE, CalledProcessError
     
     command = "sbatch --version"
     arguments = command.split()
