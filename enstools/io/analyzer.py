@@ -22,7 +22,7 @@ def zfp_analyze_variable(dataset,variable_name, mode, correlation_threshold = 0.
     
     variable_data = np.squeeze(variable_data.values)
     
-    rate = 0
+    rate = 2  # The process will start at rate 3
     corr = 0
     while corr < correlation_threshold:
         rate += 1

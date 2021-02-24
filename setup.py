@@ -51,7 +51,8 @@ setup(name="enstools",
                 "cffi",
                 "bottleneck",
                 "pandas",
-                "hdf5plugin"],
+                "hdf5plugin",
+                "zfpy"],
         entry_points={
           'console_scripts': [
               'enstools-opendata=enstools.opendata.cli:main',
