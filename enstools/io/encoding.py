@@ -391,3 +391,29 @@ def parse_configuration_file(filename):
         dictionary_of_compression_options[key] = compression_options
 
     return dictionary_of_filter_ids, dictionary_of_compression_options
+
+
+def encoding_description(encoding):
+    """
+    Function to create a meaningful description that will be added as variable attribute into the netcdf file.
+    Input:
+    ------
+
+    encoding: dict
+        Dictionary with the encoding specifications for each variable.
+    """
+    labels = {
+        32001: "BLOSC",
+        32013: "ZFP"
+    }
+    descriptions = {}
+    for variable, var_encoding in encoding.items():
+        filter_id = var_encoding["compression"]
+        filter_name = labels[filter_id]
+        if filter_name == "BLOSC":
+            compression_type = "Lossless"
+        else:
+            compression_type = "Lossy"
+        description = "Compressed using %s (id:%i) - %s" % (filter_name, filter_id, compression_type)
+        descriptions[variable] = description
+    return descriptions

@@ -3,7 +3,7 @@ from xarray.backends.netCDF4_ import NetCDF4DataStore
 
 from enstools.misc import has_dask_arrays
 from .file_type import get_file_type
-from .encoding import set_encoding
+from .encoding import set_encoding, encoding_description
 import dask.array
 import six
 from distutils.version import LooseVersion
@@ -80,9 +80,10 @@ def write(ds, filename, file_format=None, compression="lossless", compute=True):
     # In case of using an encoding, we'll add an attribute to the file indicating that the file has been compressed.
     if encoding is not None:
         import hdf5plugin
-        for variable, var_encoding in encoding.items():
-            description = "Compressed using filter %i" % var_encoding["compression"]
+        descriptions = encoding_description(encoding)
+        for variable, description in descriptions.items():
             ds[variable].attrs["compression"] = description
+
     # write a netcdf file
     if selected_format == "NC":
         #"""
