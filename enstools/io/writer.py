@@ -75,11 +75,14 @@ def write(ds, filename, file_format=None, compression="lossless", compute=True):
     if selected_format not in valid_formats:
         raise ValueError("the format '%s' is not (yet) supported!" % selected_format)
 
-        
-     
-
     # Encoding
     encoding = set_encoding(ds, compression)
+    # In case of using an encoding, we'll add an attribute to the file indicating that the file has been compressed.
+    if encoding is not None:
+        import hdf5plugin
+        for variable, var_encoding in encoding.items():
+            description = "Compressed using filter %i" % var_encoding["compression"]
+            ds[variable].attrs["compression"] = description
     # write a netcdf file
     if selected_format == "NC":
         #"""
