@@ -1,5 +1,3 @@
-
-
 def set_encoding(ds, compression_options):
     """
     Create a dictionary with the encoding that will be passed to the hdf5 engine.
@@ -42,15 +40,16 @@ def set_encoding(ds, compression_options):
     """
     # Parsing the compression options
     mode, options = parse_compression_options(compression_options)
-    
+
     # Get list of variable names
     variables = [var for var in ds.variables]
 
     # Initialize encoding dictionary
     encoding = {}
-    
-    # If using a single mode for all the variables, find the corresponding filter_id and options and fill the encoding dictionary with the information.
-    if mode == None:
+
+    # If using a single mode for all the variables, find the corresponding filter_id
+    # and options and fill the encoding dictionary with the information.
+    if mode is None:
         return None
     elif mode == "lossless":
         compressor, clevel = options
@@ -59,7 +58,7 @@ def set_encoding(ds, compression_options):
             encoding[variable] = {}
             encoding[variable]["compression"] = filter_id
             encoding[variable]["compression_opts"] = compression_options
-            
+
     elif mode == "lossy":
         filter_id, compression_options = ZFP_encoding(options)
         for variable in variables:
@@ -67,18 +66,18 @@ def set_encoding(ds, compression_options):
             encoding[variable]["compression"] = filter_id
             encoding[variable]["compression_opts"] = compression_options
     # In the case of using a configuration file , we might have a different encoding specification for each variable    
-    elif mode == "file":      
+    elif mode == "file":
         filename = options[0]
         # Read the file to get the per variable specifications
         dictionary_of_filter_ids, dictionary_of_compression_options = parse_configuration_file(filename)
-        
+
         # Check if there's a default defined, otherwise use BLOSC encoding with default arguments
         try:
             default_id = dictionary_of_filter_ids["default"]
             default_options = dictionary_of_compression_options["default"]
         except KeyError:
             default_id, default_options = BLOSC_encoding()
-            
+
         # Loop through variables and use the custom parameters if exist and otherwise the default ones
         for variable in variables:
             try:
@@ -87,15 +86,16 @@ def set_encoding(ds, compression_options):
             except KeyError:
                 filter_id = default_id
                 compression_options = default_options
-            
+
             # Fill the encoding dictionary
             encoding[variable] = {}
             encoding[variable]["compression"] = filter_id
             encoding[variable]["compression_opts"] = compression_options
     else:
         return None
-    
+
     return encoding
+
 
 def filter_and_options_from_command_line_arguments(string):
     """
@@ -105,10 +105,6 @@ def filter_and_options_from_command_line_arguments(string):
     ----------
     string:  string
            compression configuration string (i.e.  "lossy:zfp:accuracy:0.1")
-    Returns:
-    ----------
-    filter_id: integer with the corresponding HDF5 filter id
-    compression_options: tuple with filter specific options
     """
     # Parsing the compression options
     mode, options = parse_compression_options(string)
@@ -118,9 +114,9 @@ def filter_and_options_from_command_line_arguments(string):
         return BLOSC_encoding(compressor=compressor, clevel=clevel)
     elif mode == "lossy":
         return ZFP_encoding(options)
-    
-    
-def BLOSC_encoding(compressor = "lz4", clevel = 9 ):
+
+
+def BLOSC_encoding(compressor="lz4", clevel=9):
     """
     The function will return the BLOSC_is and the compression options .
 
@@ -178,20 +174,19 @@ def ZFP_encoding(compression_options):
     # Get ZFP encoding options
     if method == "rate":
         compression_opts = zfp_rate_opts(parameter)
-    elif method == "precision" :
+    elif method == "precision":
         compression_opts = zfp_precision_opts(parameter)
-    elif method == "accuracy" :
+    elif method == "accuracy":
         compression_opts = zfp_accuracy_opts(parameter)
     elif method == "reversible":
         compression_opts = zfp_reversible()
+    else:
+        raise NotImplementedError("Method %s has not been implemented yet" % method)
 
     return ZFP_filter_id, compression_opts
 
 
-
-
-
-# Some funcions to define the compression_opts array that will be passed to the filter
+# Some functions to define the compression_opts array that will be passed to the filter
 def zfp_rate_opts(rate):
     """Create compression options for ZFP in fixed-rate mode
 
@@ -199,10 +194,10 @@ def zfp_rate_opts(rate):
     """
     ZFP_MODE_RATE = 1
     from struct import pack, unpack
-    rate = pack('<d', rate)            # Pack as IEEE 754 double
+    rate = pack('<d', rate)  # Pack as IEEE 754 double
     high = unpack('<I', rate[0:4])[0]  # Unpack high bits as unsigned int
-    low = unpack('<I', rate[4:8])[0]   # Unpack low bits as unsigned int
-    return (ZFP_MODE_RATE, 0, high, low, 0, 0)
+    low = unpack('<I', rate[4:8])[0]  # Unpack low bits as unsigned int
+    return ZFP_MODE_RATE, 0, high, low, 0, 0
 
 
 def zfp_precision_opts(precision):
@@ -211,7 +206,7 @@ def zfp_precision_opts(precision):
     The float precision parameter is the number of uncompressed bits per value.
     """
     ZFP_MODE_PRECISION = 2
-    return (ZFP_MODE_PRECISION, 0, precision, 0, 0, 0)
+    return ZFP_MODE_PRECISION, 0, precision, 0, 0, 0
 
 
 def zfp_accuracy_opts(accuracy):
@@ -221,10 +216,10 @@ def zfp_accuracy_opts(accuracy):
     """
     ZFP_MODE_ACCURACY = 3
     from struct import pack, unpack
-    accuracy = pack('<d', accuracy)        # Pack as IEEE 754 double
+    accuracy = pack('<d', accuracy)  # Pack as IEEE 754 double
     high = unpack('<I', accuracy[0:4])[0]  # Unpack high bits as unsigned int
-    low = unpack('<I', accuracy[4:8])[0]   # Unpack low bits as unsigned int
-    return (ZFP_MODE_ACCURACY, 0, high, low, 0, 0)
+    low = unpack('<I', accuracy[4:8])[0]  # Unpack low bits as unsigned int
+    return ZFP_MODE_ACCURACY, 0, high, low, 0, 0
 
 
 def zfp_expert_opts(minbits, maxbits, maxprec, minexp):
@@ -233,7 +228,8 @@ def zfp_expert_opts(minbits, maxbits, maxprec, minexp):
     See the ZFP docs for the meaning of the parameters.
     """
     ZFP_MODE_EXPERT = 4
-    return (ZFP_MODE_EXPERT , 0, minbits, maxbits, maxprec, minexp)
+    return ZFP_MODE_EXPERT, 0, minbits, maxbits, maxprec, minexp
+
 
 def zfp_reversible():
     """Create compression options for ZFP in reversible mode
@@ -241,10 +237,11 @@ def zfp_reversible():
     It should result in lossless compression.
     """
     ZFP_MODE_REVERSIBLE = 5
-    return (ZFP_MODE_REVERSIBLE, 0, 0, 0, 0, 0)
+    return ZFP_MODE_REVERSIBLE, 0, 0, 0, 0, 0
 
 
-# Functions to parse the commpression options, to give more flexibility and allow a way to pass custom compression options
+# Functions to parse the compression options,
+# to give more flexibility and allow a way to pass custom compression options
 # TODO: Move to a different file?
 def parse_compression_options(string):
     from os.path import isfile
@@ -262,9 +259,10 @@ def parse_compression_options(string):
                        for lossless: (backend, clevel) 
                        for lossy:    (backend, method, parameter)
     """
-    arguments=string.split(":")
+    arguments = string.split(":")
     # Check that all arguments have information
-    assert not any([not argument.strip() for argument in arguments]), "Compression: The provided option has a wrong format."
+    assert not any(
+        [not argument.strip() for argument in arguments]), "Compression: The provided option has a wrong format."
     first = arguments[0]
     # Check if it is a file:
     if isfile(first):
@@ -278,7 +276,7 @@ def parse_compression_options(string):
     else:
         raise AssertionError("Compression: The argument should be lossless/lossy/or a path to a file.")
 
-        
+
 def parse_lossless_compression_options(arguments):
     """
     Function to parse compression options for the lossless case
@@ -294,18 +292,19 @@ def parse_lossless_compression_options(arguments):
     """
 
     BLOSC_backends = ['blosclz',
-                    'lz4',
-                    'lz4hc',
-                    'snappy',
-                    'zlib',
-                    'zstd']
+                      'lz4',
+                      'lz4hc',
+                      'snappy',
+                      'zlib',
+                      'zstd']
     if len(arguments) == 1:
         # By default, lossless compression will use lz4 backend and the maximum compression level
         backend = "lz4"
         compression_level = 9
     elif len(arguments) == 2:
         assert arguments[1] in BLOSC_backends, "Unknwown backend %s" % arguments[1]
-        # In case the backend its selected but the compression level its not specified, the intermediate level 5 will be selected
+        # In case the backend its selected but the compression level its not specified,
+        # the intermediate level 5 will be selected
         backend = arguments[1]
         compression_level = 5
     elif len(arguments) == 3:
@@ -313,10 +312,12 @@ def parse_lossless_compression_options(arguments):
         try:
             compression_level = int(arguments[2])
         except ValueError:
-            raise AssertionError("Compression: Invalid value '%s' for compression level. Must be a value between 1 and 9" % arguments[2])
-        assert 1 <= compression_level <= 9, "Compression: Invalid value '%s' for compression level. Must be a value between 1 and 9" % arguments[2]
+            raise AssertionError(
+                "Compression: Invalid value '%s' for compression level. Must be a value between 1 and 9" % arguments[2])
+        assert 1 <= compression_level <= 9,\
+            "Compression: Invalid value '%s' for compression level. Must be a value between 1 and 9" % arguments[2]
     else:
-        raise AssertionError ("Compression: Wrong number of arguments in %s" % ":".join(arguments))
+        raise AssertionError("Compression: Wrong number of arguments in %s" % ":".join(arguments))
     return "lossless", (backend, compression_level)
 
 
@@ -335,7 +336,6 @@ def parse_lossy_compression_options(arguments):
     """
 
     if len(arguments) == 1:
-        # TODO: Check that this is the final desired behaviour. By default, the lossy compression will be set to zfp rate at 4 bits per value.
         return "lossy", ("zfp", "rate", 4)
     else:
         # Right now we only have the zfp case:
@@ -344,7 +344,7 @@ def parse_lossy_compression_options(arguments):
         else:
             raise AssertionError("Compression: Unknown lossy compressor: %s" % arguments[1])
 
-            
+
 def parse_ZFP_compression_options(arguments):
     """
     Function to parse compression options for the ZFP compressor
@@ -373,18 +373,18 @@ def parse_ZFP_compression_options(arguments):
             raise AssertionError("Compression: Unknown ZFP method.")
     except ValueError:
         raise AssertionError("Compression: Invalid value '%s' for ZFP" % arguments[3])
-        
+
+
 def parse_configuration_file(filename):
     import json
-    
+
     # Initialize dictionaries
     dictionary_of_filter_ids = {}
     dictionary_of_compression_options = {}
-    
+
     with open(filename) as f:
         specifications = json.loads(f.read())
-    
-    
+
     for key, options in specifications.items():
         filter_id, compression_options = filter_and_options_from_command_line_arguments(options)
         dictionary_of_filter_ids[key] = filter_id
