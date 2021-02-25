@@ -20,7 +20,7 @@ except ImportError:
     pass
 
 
-def __read_one_file(filename, constant=None, **kwargs):
+def __read_one_file(filename, constant=None, decode_times=True, **kwargs):
     """
     Read one or more input files
 
@@ -50,10 +50,11 @@ def __read_one_file(filename, constant=None, **kwargs):
         # do we have a client, but we are not running inside of a worker?
         if client is not None and worker is None:
             return dask.compute(dask.delayed(read)(filename, **kwargs))[0]
-        return __open_dataset(filename, client, worker, **kwargs)
+        return __open_dataset(filename, client, worker, decode_times=decode_times, **kwargs)
 
 
-def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=False, member_by_filename=None, **kwargs):
+def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=False, member_by_filename=None,
+         decode_times=True, **kwargs):
     """
     Read multiple input files
 
@@ -77,7 +78,8 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
 
     constant : str
             name of a file containing constant variables.
-
+    decode_times: bool
+            decode the times
     **kwargs
             all arguments accepted by xarray.open_dataset() of xarray.open_mfdataset() plus some additional:
 
@@ -119,7 +121,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         files = expand_file_pattern(filename)
         for one_file in files:
             one_file = os.path.abspath(one_file)
-            datasets.append(dask.delayed(__read_one_file)(one_file, **kwargs))
+            datasets.append(dask.delayed(__read_one_file)(one_file, decode_times=decode_times, **kwargs))
             expanded_filenames.append(one_file)
             parent = os.path.dirname(one_file)
             if not parent in parent_folders:
@@ -167,7 +169,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         if len(incomplete_folders) > 0:
             incomplete_folders.sort()
             for folder in incomplete_folders:
-                logging.warning("The ensemble member in folder '%s' seems to be incomplete with only %d of %d files. This member will not be part of the merged dataset.", folder, n_files_per_folder[folder], max_files)
+                logging.warning("The ensemble member in folder '%s' seems to be incomplete with only %d of %d files.This member will not be part of the merged dataset.", folder, n_files_per_folder[folder], max_files)
             new_datasets = []
             for ids in range(len(datasets)):
                 if os.path.dirname(expanded_filenames[ids]) not in incomplete_folders:
@@ -229,7 +231,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     # is there a file with constant data?
     if constant is not None:
         # read constant data
-        constant_data = __open_dataset(constant, None, None)
+        constant_data = __open_dataset(constant, None, None, decode_times=decode_times)
         # remove time axes if present
         if "time" in constant_data.dims:
             constant_data = constant_data.isel(time=0)
@@ -427,7 +429,7 @@ def __merge_datasets(datasets):
     return result
 
 
-def __open_dataset(filename, client, worker, **kwargs):
+def __open_dataset(filename, client, worker, decode_times=True, **kwargs):
     """
     read one input file. the type is automatically determined.
 
@@ -458,12 +460,12 @@ def __open_dataset(filename, client, worker, **kwargs):
     # read the data
     if file_type in ["NC", "HDF"]:
         if kwargs.get("in_memory", False) and client is None:
-            result0 = xarray.open_dataset(filename)
+            result0 = xarray.open_dataset(filename, decode_times=decode_times)
             result = result0.compute().chunk()
             result0.close()
             result.close()
         else:
-            result = xarray.open_dataset(filename, chunks={})
+            result = xarray.open_dataset(filename, decode_times=decode_times, chunks={})
             if client is not None:
                 if worker is not None:
                     logging.debug("running on worker: %s" % worker.address)
