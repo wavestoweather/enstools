@@ -56,7 +56,7 @@ def transfer_file(origin, destination, compression):
     from .reader import read
     from .writer import write
     import hdf5plugin
-    dataset = read(origin)
+    dataset = read(origin, decode_times=False)
     write(dataset, destination, compression=compression)
 
 
