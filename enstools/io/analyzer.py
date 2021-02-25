@@ -15,18 +15,26 @@ def zfp_analyze_variable(dataset,variable_name, mode, correlation_threshold = 0.
     import zfpy
     import numpy as np
     from scipy.stats.stats import pearsonr
+    import logging
     try:
         variable_data = dataset[variable_name].sel(time=dataset["time"][0])
     except IndexError:
         variable_data = dataset[variable_name]
     
     variable_data = np.squeeze(variable_data.values)
-    
+
+    if len(variable_data.shape) == 1:
+        logging.info("1D variable found: %s, falling back to BLOSC compression." % variable_name)
+        return "lossless"
     rate = 2  # The process will start at rate 3
     corr = 0
     while corr < correlation_threshold:
         rate += 1
-        compressed_data = zfpy.compress_numpy(variable_data,rate=rate)
+        if rate >= 12:
+            # In case of requiring a rate bigger than 12 we might just jump to lossless compression for simplicity.
+            return "lossless"
+        logging.info("Analysis-> var: %s Trying rate: %i" % (variable_name, rate))
+        compressed_data = zfpy.compress_numpy(variable_data, rate=rate)
         recovered_data = zfpy.decompress_numpy(compressed_data)
         corr, pval = pearsonr(variable_data.ravel(), recovered_data.ravel())
         if np.isnan(corr):
