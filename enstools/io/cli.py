@@ -101,7 +101,12 @@ def main():
                                    help="""
         Specifications about the compression options. Default is: %(default)s""")
     parser_compressor.add_argument("--nodes", "-N", dest="nodes", default=0, type=int,
-                                   help="This parameter can be used to allocate additional nodes in the cluster to speed-up the computation.")
+                                   help="This parameter can be used to allocate additional nodes in the cluster"
+                                        "to speed-up the computation.")
+    parser_compressor.add_argument("--variables", dest="variables", default=None, type=str,
+                                   help="List of variables to be kept. The other variables will be dropped."
+                                        "Must be a list of comma separated values: i.e. vor,temp,qv"
+                                        "Default=None")
 
     parser_compressor.set_defaults(which='compressor')
 
@@ -140,9 +145,13 @@ def main():
         # Read the number of nodes
         nodes = args.nodes
 
+        # List of variables
+        variables = args.variables
+        if variables is not None:
+            variables = variables.split(",")
         # Import and launch compress function
         from enstools.io import compress
-        compress(output_folder, file_paths, compression, nodes)
+        compress(output_folder, file_paths, compression, nodes, variables_to_keep=variables)
     elif args.which == "analyzer":
         file_paths = args.files
         # Compression options

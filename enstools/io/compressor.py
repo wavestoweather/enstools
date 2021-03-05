@@ -6,7 +6,7 @@
 """
 
 
-def transfer(file_paths, output_folder, compression="lossless"):
+def transfer(file_paths, output_folder, compression="lossless", variables_to_keep=None):
     """
     This function loops through a list of files creating delayed dask tasks to copy each one of the files while
     optionally using compression.
@@ -30,7 +30,7 @@ def transfer(file_paths, output_folder, compression="lossless"):
     for file_path in file_paths:
         new_file_path = destination_path(file_path, output_folder)
         # Create task
-        task = delayed_transfer_file(file_path, new_file_path, compression)
+        task = delayed_transfer_file(file_path, new_file_path, compression, variables_to_keep)
         # Add task to the list
         tasks.append(task)
 
@@ -38,7 +38,7 @@ def transfer(file_paths, output_folder, compression="lossless"):
     compute(tasks)
 
     
-def transfer_file(origin, destination, compression):    
+def transfer_file(origin, destination, compression, variables_to_keep=None):
     """
     This function will copy a dataset while optionally applying compression.
 
@@ -57,6 +57,13 @@ def transfer_file(origin, destination, compression):
     from .writer import write
     import hdf5plugin
     dataset = read(origin, decode_times=False)
+    if variables_to_keep is not None:
+        # Drop the undesired variables and keep the coordinates
+        coordinates = [v for v in dataset.coords]
+        variables = [v for v in dataset.variables if v not in coordinates]
+        variables_to_drop = [v for v in variables if v not in variables_to_keep]
+        dataset = dataset.drop_vars(variables_to_drop)
+
     write(dataset, destination, compression=compression)
 
 
@@ -81,7 +88,7 @@ def destination_path(origin_path, destination_folder):
     return destination
 
 
-def compress(output_folder, file_paths, compression, nodes):
+def compress(output_folder, file_paths, compression, nodes, variables_to_keep=None):
     """
     Copies a list of files to a destination folder, optionally applying compression.
     """
@@ -105,4 +112,4 @@ def compress(output_folder, file_paths, compression, nodes):
     else:
         # Transfer will copy the files from its origin path to the output folder,
         # using read and write functions from enstools
-        transfer(file_paths, output_folder, compression)
+        transfer(file_paths, output_folder, compression, variables_to_keep=variables_to_keep)
