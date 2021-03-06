@@ -4,3 +4,4 @@
 build
 enstools.egg-info
 .cache
+venv

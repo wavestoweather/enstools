@@ -1,10 +1,10 @@
 from .DWDContent import getDWDContent
 
 
-def retrieve(service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
-             levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
+def retrieve_nwp(service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
+                 levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
     """
-    Downloads datasets from opendata server. Faster access to the database.
+    Downloads numerical weather prediction (NWP) datasets from opendata server.
     Parameters
     ----------
     service : str

@@ -5,7 +5,7 @@ import os
 import argparse
 import logging
 from datetime import datetime
-from enstools.opendata import retrieve, getDWDContent
+from enstools.opendata import retrieve_nwp, getDWDContent
 
 # default format used on the command line.
 __DATE_FORMAT="%Y-%m-%dT%H:%M"
@@ -26,7 +26,7 @@ def error_exit(text):
 
 def retrieve_data(args):
     """
-    use enstools.opendata.retrieve to download files
+    use enstools.opendata.retrieve_nwp to download files
 
     Parameters
     ----------
@@ -54,15 +54,15 @@ def retrieve_data(args):
     if not os.path.isdir(args.dest):
         error_exit(f"path is not a directory: {args.dest}")
     try:
-        files = retrieve(model=args.model,
-                         grid_type=args.grid_type,
-                         variable=args.variable,
-                         level_type=args.level_type,
-                         levels=args.levels,
-                         init_time=args.init_time,
-                         forecast_hour=args.lead_time,
-                         dest=args.dest,
-                         merge_files=args.merge)
+        files = retrieve_nwp(model=args.model,
+                             grid_type=args.grid_type,
+                             variable=args.variable,
+                             level_type=args.level_type,
+                             levels=args.levels,
+                             init_time=args.init_time,
+                             forecast_hour=args.lead_time,
+                             dest=args.dest,
+                             merge_files=args.merge)
         for one_file in files:
             logging.info(f"downloaded: {one_file}")
     except ValueError as ve:
