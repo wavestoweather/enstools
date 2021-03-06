@@ -51,7 +51,9 @@ class DWDRadar:
             content["upload_time"] = content["upload_time"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
             content["size"] = content["size"].astype(int)
 
+            # ignore the content.log file and tar.gz files
             content = content[~content.file.str.contains("content.log")]
+            content = content[~content.file.str.contains(".tar.")]
 
             content["product_class"] = content["file"].apply(lambda x: x.split("/")[1])
             content["product"] = content["file"].apply(lambda x: x.split("/")[2])
