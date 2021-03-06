@@ -74,7 +74,6 @@ class DWDRadar:
                                                               if x.endswith("-dwd---bufr")
                                                               else None)
             content["forecast_time"] = content["filename"]
-            print(content['forecast_time'])
             content["forecast_time"] = content["forecast_time"].apply(lambda x: int(x[-6:-3])
                                                                       if (x.startswith("RE")
                                                                           or x.startswith("RQ"))
