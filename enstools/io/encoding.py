@@ -19,7 +19,7 @@ def set_encoding(ds, compression_options):
                 'snappy'
                 'zlib'
                 'zstd'
-        For lossy compression, we can choose the compressor (wight now only zfp is implemented),
+        For lossy compression, we can choose the compressor (zfp or sz),
         the method and the method parameter (the accuracy, the precision or the rate).
         Some examples:
             "lossless"
@@ -27,6 +27,8 @@ def set_encoding(ds, compression_options):
             "lossless:zlib:5"
             "lossy:zfp:accuracy:0.00001"
             "lossy:zfp:precision:12"
+            "lossy:sz:abs:0.1"
+            "lossy:sz:rel:0.01"
             
         If using a configuration file, the file should follow a json format and can contain per-variable values.
         It is also possible to define a default option. For example:
@@ -60,11 +62,33 @@ def set_encoding(ds, compression_options):
             encoding[variable]["compression_opts"] = compression_options
 
     elif mode == "lossy":
-        filter_id, compression_options = ZFP_encoding(options)
-        for variable in variables:
-            encoding[variable] = {}
-            encoding[variable]["compression"] = filter_id
-            encoding[variable]["compression_opts"] = compression_options
+        filter_id, compression_options = lossy_encoding(options)
+        if filter_id == 32013:
+            # Case ZFP (filter id 32013)
+            # Compression_opts are independent from the variable shape
+            for variable in variables:
+                encoding[variable] = {}
+                encoding[variable]["compression"] = filter_id
+                encoding[variable]["compression_opts"] = compression_options
+        elif filter_id == 32017:
+            # Case SZ (filter id 32017)
+            # Compression_opts have to include dimensions of data and shape.
+            for variable in variables:
+                shape = ds[variable].shape
+                dim = len(shape)
+                data_type = 0 # TODO: Maybe we can set this dynamically instead of having it hardcoded here.
+                error_mode = compression_options[0]
+                error_val = compression_options[2]
+                comp = {
+                    "compression": filter_id,
+                    "compression_opts": (dim, data_type, *shape, error_mode, error_val, error_val, error_val),
+                    "chunksizes": shape,
+                }
+                # TODO: Having an issue with 1D data. Need to better understand what happens here. This is a workaround.
+                if dim < 2:  
+                    comp = {}
+                encoding[variable] = comp
+
     # In the case of using a configuration file , we might have a different encoding specification for each variable    
     elif mode == "file":
         filename = options[0]
@@ -157,6 +181,14 @@ def BLOSC_encoding(compressor="lz4", clevel=9):
     return BLOSC_filter_id, compression_opts
 
 
+def lossy_encoding(compression_options):
+    if compression_options[0] == "zfp":
+        return ZFP_encoding(compression_options)
+    elif compression_options[0] == "sz":
+        return sz_encoding(compression_options)
+    else:
+        raise NotImplementedError
+
 def ZFP_encoding(compression_options):
     """
     Create a dictionary with the encoding that will be passed to the hdf5 engine, to use the ZFP filter.
@@ -184,6 +216,59 @@ def ZFP_encoding(compression_options):
         raise NotImplementedError("Method %s has not been implemented yet" % method)
 
     return ZFP_filter_id, compression_opts
+
+
+def sz_encoding(compression_options):
+    """
+    Create a dictionary with the encoding that will be passed to the hdf5 engine, to use the ZFP filter.
+    One and only of the method options need to be provided: rate, precision or accuracy.
+    Parameters
+    ----------
+    compression_options: list of strings
+    """
+    # The uniq filter id given by HDF5
+    sz_filter_id = 32017
+
+    # Check options provided:
+    compressor, method, parameter = compression_options
+    assert compressor == "sz", "Passing wrong options"
+    # Get ZFP encoding options
+    if method == "abs":
+        compression_opts = sz_abs_opts(parameter)
+    elif method == "rel":
+        compression_opts = sz_rel_opts(parameter)
+    else:
+        raise NotImplementedError("Method %s has not been implemented yet" % method)
+
+    return sz_filter_id, compression_opts
+
+
+# Some functions to define the compression_opts array that will be passed to the filter
+def sz_abs_opts(error):
+    """Create compression options for ZFP in fixed-rate mode
+
+    The float rate parameter is the number of compressed bits per value.
+    """
+    from struct import pack, unpack
+    SZ_MODE_ABS = 0
+    def pack_error(error):
+        return unpack('I', pack('<f', error))[0]  # Pack as IEEE 754 single
+    packed_error = pack_error(error)
+    return SZ_MODE_ABS, 0, packed_error
+
+
+def sz_rel_opts(error):
+    """Create compression options for ZFP in fixed-rate mode
+
+    The float rate parameter is the number of compressed bits per value.
+    """
+    from struct import pack, unpack
+    SZ_MODE_REL = 1
+    def pack_error(error):
+        return unpack('I', pack('<f', error))[0]  # Pack as IEEE 754 single
+    packed_error = pack_error(error)
+    return SZ_MODE_REL, 0, packed_error
+
 
 
 # Some functions to define the compression_opts array that will be passed to the filter
@@ -341,6 +426,8 @@ def parse_lossy_compression_options(arguments):
         # Right now we only have the zfp case:
         if arguments[1] == "zfp":
             return parse_ZFP_compression_options(arguments)
+        elif arguments[1] == "sz":
+            return parse_sz_compression_options(arguments)
         else:
             raise AssertionError("Compression: Unknown lossy compressor: %s" % arguments[1])
 
@@ -375,6 +462,33 @@ def parse_ZFP_compression_options(arguments):
         raise AssertionError("Compression: Invalid value '%s' for ZFP" % arguments[3])
 
 
+def parse_sz_compression_options(arguments):
+    """
+    Function to parse compression options for the SZ compressor
+    Input
+    -----
+    arguments: list of strings
+
+    Output
+    -----
+    compression_method : string="lossy"
+    compression_opts:  tuple
+                       (backend:string, method:string, parameter:int or float)
+    """
+    assert len(arguments) == 4, "Compression: SZ compression requires 4 arguments: lossy:zfp:method:value"
+    try:
+        if arguments[2] == "abs":
+            abs_error = float(arguments[3])
+            return "lossy", ("sz", "abs", abs_error)
+        elif arguments[2] == "rel":
+            rel_error = float(arguments[3])
+            return "lossy", ("sz", "rel", rel_error)
+        else:
+            raise AssertionError("Compression: Unknown SZ method.")
+    except ValueError:
+        raise AssertionError("Compression: Invalid value '%s' for SZ" % arguments[3])
+
+
 def parse_configuration_file(filename):
     import json
 
@@ -404,16 +518,21 @@ def encoding_description(encoding):
     """
     labels = {
         32001: "BLOSC",
-        32013: "ZFP"
+        32013: "ZFP",
+        32017: "SZ",
     }
     descriptions = {}
     for variable, var_encoding in encoding.items():
-        filter_id = var_encoding["compression"]
-        filter_name = labels[filter_id]
-        if filter_name == "BLOSC":
-            compression_type = "Lossless"
-        else:
-            compression_type = "Lossy"
-        description = "Compressed using %s (id:%i) - %s" % (filter_name, filter_id, compression_type)
-        descriptions[variable] = description
+        try:
+            filter_id = var_encoding["compression"]
+            filter_name = labels[filter_id]
+            if filter_name == "BLOSC":
+                compression_type = "Lossless"
+            else:
+                compression_type = "Lossy"
+            description = "Compressed using %s (id:%i) - %s" % (filter_name, filter_id, compression_type)
+            descriptions[variable] = description
+        except KeyError:
+            description = "Non compressed"
+            descriptions[variable] = description
     return descriptions
