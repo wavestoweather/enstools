@@ -108,7 +108,7 @@ def compress(output_folder, file_paths, compression, nodes, variables_to_keep=No
             client.wait_for_workers(nodes)
             # Transfer will copy the files from its origin path to the output folder,
             # using read and write functions from enstools
-            transfer(file_paths, output_folder, compression)
+            transfer(file_paths, output_folder, compression, variables_to_keep=variables_to_keep)
     else:
         # Transfer will copy the files from its origin path to the output folder,
         # using read and write functions from enstools
