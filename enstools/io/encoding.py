@@ -43,34 +43,43 @@ def set_encoding(ds, compression_options):
     # Parsing the compression options
     mode, options = parse_compression_options(compression_options)
 
-    # Get list of variable names
+    # Get list of variable names and coordinates
     variables = [var for var in ds.variables]
+    coordinates = [v for v in ds.coords]
+    data_variables = [v for v in ds.variables if v not in coordinates]
 
     # Initialize encoding dictionary
     encoding = {}
+
+    # Defining lossless parameters
+    lossless_compressor, lossless_clevel = options
+    lossless_filter_id, lossless_compression_options = blosc_encoding(compressor=lossless_compressor,
+                                                                      clevel=lossless_clevel)
 
     # If using a single mode for all the variables, find the corresponding filter_id
     # and options and fill the encoding dictionary with the information.
     if mode is None:
         return None
     elif mode == "lossless":
-        compressor, clevel = options
-        filter_id, compression_options = blosc_encoding(compressor=compressor, clevel=clevel)
         for variable in variables:
             encoding[variable] = {}
-            encoding[variable]["compression"] = filter_id
-            encoding[variable]["compression_opts"] = compression_options
+            encoding[variable]["compression"] = lossless_filter_id
+            encoding[variable]["compression_opts"] = lossless_compression_options
 
     elif mode == "lossy":
-        filter_id, compression_options = lossy_encoding(options)
+        lossy_filter_id, lossy_compression_options = lossy_encoding(options)
+
         for variable in variables:
             encoding[variable] = {}
-            if len(ds[variable].shape) > 1:
-                encoding[variable]["compression"] = filter_id
-                # In some cases (i.e. SZ) the compression options need to be adapted to acount for data dimensions
-                variable_compression_options = adapt_compression_options(filter_id, compression_options, ds[variable])
-                encoding[variable]["compression_opts"] = variable_compression_options
-                encoding[variable]["chunksizes"] = ds[variable].shape
+            if len(ds[variable].shape) > 1 and variable in data_variables:
+                    encoding[variable]["compression"] = lossy_filter_id
+                    # In some cases (i.e. SZ) the compression options need to be adapted to acount for data dimensions
+                    variable_compression_options = adapt_compression_options(lossy_filter_id, compression_options, ds[variable])
+                    encoding[variable]["compression_opts"] = variable_compression_options
+                    encoding[variable]["chunksizes"] = ds[variable].shape
+            else:
+                encoding[variable]["compression"] = lossless_filter_id
+                encoding[variable]["compression_opts"] = lossless_compression_options
 
     # In the case of using a configuration file , we might have a different encoding specification for each variable    
     elif mode == "file":
@@ -87,7 +96,11 @@ def set_encoding(ds, compression_options):
 
         # Loop through variables and use the custom parameters if exist and otherwise the default ones
         for variable in variables:
-            if len(ds[variable].shape) < 3:
+            # Use default parameters for coordinates
+            if variable in coordinates:
+                filter_id = default_id
+                compression_options = default_options
+            elif len(ds[variable].shape) < 3:
                 filter_id = default_id
                 compression_options = default_options
             else:
