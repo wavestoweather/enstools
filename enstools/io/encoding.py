@@ -122,7 +122,7 @@ def adapt_compression_options(filter_id, compression_options, variable_dataset):
         data_type = 0  # TODO: Maybe we can set this dynamically instead of having it hardcoded here.
         error_mode = compression_options[0]
         error_val = compression_options[2]
-        return dim, data_type, *shape, error_mode, error_val, error_val, error_val
+        return (dim, data_type, *shape, error_mode, error_val, error_val, error_val)
     else:
         return compression_options
 
