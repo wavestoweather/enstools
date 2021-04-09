@@ -51,8 +51,9 @@ def set_encoding(ds, compression_options):
     # Initialize encoding dictionary
     encoding = {}
 
+    _, lossless_options = parse_compression_options("lossless")
     # Defining lossless parameters
-    lossless_compressor, lossless_clevel = options
+    lossless_compressor, lossless_clevel = lossless_options
     lossless_filter_id, lossless_compression_options = blosc_encoding(compressor=lossless_compressor,
                                                                       clevel=lossless_clevel)
 
@@ -74,7 +75,10 @@ def set_encoding(ds, compression_options):
             if len(ds[variable].shape) > 1 and variable in data_variables:
                     encoding[variable]["compression"] = lossy_filter_id
                     # In some cases (i.e. SZ) the compression options need to be adapted to acount for data dimensions
-                    variable_compression_options = adapt_compression_options(lossy_filter_id, compression_options, ds[variable])
+                    variable_compression_options = adapt_compression_options(
+                        lossy_filter_id,
+                        lossy_compression_options,
+                        ds[variable])
                     encoding[variable]["compression_opts"] = variable_compression_options
                     encoding[variable]["chunksizes"] = ds[variable].shape
             else:
@@ -474,6 +478,9 @@ def parse_sz_compression_options(arguments):
     compression_opts:  tuple
                        (backend:string, method:string, parameter:int or float)
     """
+    default =  ("lossy", ("sz", "pw_rel", .01))
+    if len(arguments) == 2:
+        return default
     assert len(arguments) == 4, "Compression: SZ compression requires 4 arguments: lossy:zfp:method:value"
     try:
         if arguments[2] == "abs":
