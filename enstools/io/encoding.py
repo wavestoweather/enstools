@@ -448,6 +448,8 @@ def parse_zfp_compression_options(arguments):
     compression_opts:  tuple
                        (backend:string, method:string, parameter:int or float)
     """
+    if len(arguments) == 2:
+        return "lossy", ("zfp", "rate", 6)
     assert len(arguments) == 4, "Compression: ZFP compression requires 4 arguments: lossy:zfp:method:value"
     try:
         if arguments[2] == "rate":
@@ -478,7 +480,7 @@ def parse_sz_compression_options(arguments):
     compression_opts:  tuple
                        (backend:string, method:string, parameter:int or float)
     """
-    default =  ("lossy", ("sz", "pw_rel", .01))
+    default = ("lossy", ("sz", "pw_rel", .01))
     if len(arguments) == 2:
         return default
     assert len(arguments) == 4, "Compression: SZ compression requires 4 arguments: lossy:zfp:method:value"
