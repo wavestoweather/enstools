@@ -28,7 +28,7 @@ def zfp_analyze_variable(dataset, variable_name, mode, correlation_threshold=0.9
     variable_data = np.squeeze(variable_data.values)
 
     if len(variable_data.shape) == 1:
-        logging.info("1D variable found: %s, falling back to BLOSC compression." % variable_name)
+        logging.debug("1D variable found: %s, falling back to BLOSC compression." % variable_name)
         return "lossless"
     rate = 2  # The process will start at rate 3
     corr = 0
@@ -37,7 +37,7 @@ def zfp_analyze_variable(dataset, variable_name, mode, correlation_threshold=0.9
         if rate >= 12:
             # In case of requiring a rate bigger than 12 we might just jump to lossless compression for simplicity.
             return "lossless"
-        logging.info("Analysis-> var: %s Trying rate: %i" % (variable_name, rate))
+        logging.debug("Analysis-> var: %s Trying rate: %i" % (variable_name, rate))
         compressed_data = zfpy.compress_numpy(variable_data, rate=rate)
         recovered_data = zfpy.decompress_numpy(compressed_data)
         corr, pval = pearsonr(variable_data.ravel(), recovered_data.ravel())
@@ -67,7 +67,7 @@ def sz_analyze_variable(dataset, variable_name, mode, correlation_threshold=0.99
     variable_data = np.squeeze(variable_data.values)
 
     if len(variable_data.shape) == 1:
-        logging.info("1D variable found: %s, falling back to BLOSC compression." % variable_name)
+        logging.debug("1D variable found: %s, falling back to BLOSC compression." % variable_name)
         return "lossless"
     rel = 1  # The process will start at rel 1
     corr = 0
@@ -76,7 +76,7 @@ def sz_analyze_variable(dataset, variable_name, mode, correlation_threshold=0.99
         if rel <= 10**-5:
             # In case of requiring a rate bigger than 12 we might just jump to lossless compression for simplicity.
             return "lossless"
-        logging.info("Analysis-> var: %s Trying pw_rel: %f" % (variable_name, rel))
+        logging.debug("Analysis-> var: %s Trying pw_rel: %f" % (variable_name, rel))
         print("Original:", variable_data.sum())
 
         compressor = pysz.Compressor((pysz.ConfigBuilder().errorBoundMode(pysz.PW_REL)
@@ -134,7 +134,7 @@ def analyze_files(file_paths, correlation_threshold=0.99999, compressor="sz"):
     """
     if compressor == "sz":
         return sz_analyze_files(file_paths, correlation_threshold)
-    elif compressor =="zfp":
+    elif compressor == "zfp":
         return zfp_analyze_files(file_paths, correlation_threshold)
     else:
         raise NotImplementedError(f"This compressor has not been implemented yet: {compressor}")
