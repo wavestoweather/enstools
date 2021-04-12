@@ -11,6 +11,7 @@ def create_synthetic_dataset(directory):
     import numpy as np
     import xarray as xr
     import pandas as pd
+    from scipy.ndimage import gaussian_filter
     # Create synthetic datasets
     nx, ny, nz, t = 100, 100, 100, 10
     lons = np.linspace(-180, 180, nx)
@@ -38,7 +39,9 @@ def create_synthetic_dataset(directory):
             coord_lat = lat
 
         temp = 15 + 8 * np.random.randn(*data_size)
+        temp = gaussian_filter(temp, sigma=5)
         precip = 10 * np.random.rand(*data_size)
+        precip = gaussian_filter(precip, sigma=5)
 
         ds = xr.Dataset(
             {
