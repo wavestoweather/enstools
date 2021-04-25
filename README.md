@@ -4,7 +4,11 @@ At first create a new python virtual environment:
 
     python3 -m venv --prompt=enstools venv
 
-That will create a new folder `venv` containing the new environment. Next we
+That will create a new folder `venv` containing the new environment. To use this environment, we need to activate it:
+
+    source venv/bin/activate
+
+Next we
 need to update `pip` and install `wheel`. Both are required in up-to-date 
 versions for the installation to run:
 
