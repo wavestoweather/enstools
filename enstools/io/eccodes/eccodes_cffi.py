@@ -497,7 +497,7 @@ class GribMessage():
             err = _eccodes.codes_get_string(self.handle, key, ffi.from_buffer(value_buffer), value_buffer_length)
             if value_buffer_length[0] == 1024:
                 value_buffer_length[0] = np.where(value_buffer == 0)[0][0]
-            value = value_buffer[:value_buffer_length[0]-1].tostring().decode("utf-8")
+            value = value_buffer[:value_buffer_length[0]-1].tobytes().decode("utf-8")
         if err != 0:
             raise ValueError("unable to get value for key '%s'" % ffi.string(key))
         return value
@@ -625,7 +625,7 @@ def _read_message_raw_data(infile, offset, read_data=False):
         for sec in range(1, 5):
             # read the length of the section
             infile.readinto(memoryview(bytes[pos:pos+3]))
-            length_sec = struct.unpack(">I", b'\x00' + bytes[pos:pos+3].tostring())[0]
+            length_sec = struct.unpack(">I", b'\x00' + bytes[pos:pos+3].tobytes())[0]
 
             # do not read if this is the final data section
             if pos + length_sec + 4 >= length_total:
@@ -661,7 +661,7 @@ def _read_message_raw_data(infile, offset, read_data=False):
         while True:
             # read the length of the section and the section number
             infile.readinto(memoryview(bytes[pos:pos+5]))
-            length_sec = struct.unpack(">I", bytes[pos:pos+4].tostring())[0]
+            length_sec = struct.unpack(">I", bytes[pos:pos+4].tobytes())[0]
             section = bytes[pos+4]
 
             # do not read completely if this is the final data section
@@ -678,7 +678,7 @@ def _read_message_raw_data(infile, offset, read_data=False):
                 infile.readinto(memoryview(bytes[pos+5:pos+length_sec]))
                 # if this is section 5, get the data representation type
                 if section == 5:
-                    data_representation = struct.unpack(">H", bytes[pos+9:pos+11].tostring())[0]
+                    data_representation = struct.unpack(">H", bytes[pos+9:pos+11].tobytes())[0]
                 pos = pos + length_sec
 
     return bytes
