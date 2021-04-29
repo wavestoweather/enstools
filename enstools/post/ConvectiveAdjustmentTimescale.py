@@ -65,7 +65,7 @@ def convective_adjustment_time_scale(pr, cape, th=1.0, fraction_above_th=0.0015)
     @apply_chunkwise
     def tauc(pr, cape, th):
         # create a result array filled with the default fill value for the data type of pr
-        fill_value = default_fill_value(pr)
+        fill_value = np.nan
         result = np.full_like(pr, fill_value=fill_value)
 
         # count values above threshold

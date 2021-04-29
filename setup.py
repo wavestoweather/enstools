@@ -15,7 +15,7 @@ def get_version():
     """
     with open("enstools/core/__init__.py") as f:
         for line in f:
-            match = re.search('__version__\s*=\s*"([a-zA-Z0-9_.]+)"', line)
+            match = re.search(r'__version__\s*=\s*"([a-zA-Z0-9_.]+)"', line)
             if match is not None:
                 return match.group(1)
 
@@ -51,7 +51,8 @@ setup(name="enstools",
                 "cachey",
                 "cffi",
                 "bottleneck",
-                "pandas"],
+                "pandas",
+                "basemap @ git+https://github.com/matplotlib/basemap.git@v1.2.2rel#egg=basemap"],
         entry_points={
           'console_scripts': ['enstools-opendata=enstools.opendata.cli:main'],
         },

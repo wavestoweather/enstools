@@ -6,3 +6,4 @@ build
 .eggs
 .cache
 venv
+.vscode
