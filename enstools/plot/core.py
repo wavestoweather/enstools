@@ -419,13 +419,13 @@ def contour(variable, lon=None, lat=None, **kwargs):
     if kwargs.get("figure", None) is None:
         fig = plt.figure()
     else:
-        fig = kwargs["figure"]
+        fig = kwargs.pop("figure")
     if kwargs.get("axes", None) is None:
-        subplot_args = kwargs.get("subplot_args", (111,))
-        subplot_kwargs = kwargs.get("subplot_kwargs", {})
+        subplot_args = kwargs.pop("subplot_args", (111,))
+        subplot_kwargs = kwargs.pop("subplot_kwargs", {})
         ax = fig.add_subplot(*subplot_args, projection=projection, **subplot_kwargs)
     else:
-        ax = kwargs["axes"]
+        ax = kwargs.pop("axes")
 
     # construct arguments for the matplotlib contour
     contour_args = {"transform": transformation,
@@ -497,7 +497,7 @@ def contour(variable, lon=None, lat=None, **kwargs):
         ax.gridlines(color="black", linestyle="dotted", draw_labels=kwargs.get("gridline_labels", False))
 
     # add a colorbar
-    if kwargs.get("colorbar", True) is True or kwargs.get("colorbar", True) is "empty":
+    if kwargs.get("colorbar", True) is True or kwargs.get("colorbar", True) == "empty":
         divider = make_axes_locatable(ax)
         width = AxesY(ax, aspect=0.07)
         pad = Fraction(1.0, width)
