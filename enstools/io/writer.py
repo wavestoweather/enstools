@@ -9,7 +9,6 @@ import six
 from distutils.version import LooseVersion
 
 
-
 def write(ds, filename, file_format=None, compression="lossless", compute=True):
     """
     write a xarray dataset to a file
@@ -79,7 +78,6 @@ def write(ds, filename, file_format=None, compression="lossless", compute=True):
     encoding = set_encoding(ds, compression)
     # In case of using an encoding, we'll add an attribute to the file indicating that the file has been compressed.
     if encoding is not None:
-        import hdf5plugin
         descriptions = encoding_description(encoding)
         for variable, description in descriptions.items():
             ds[variable].attrs["compression"] = description
@@ -87,15 +85,9 @@ def write(ds, filename, file_format=None, compression="lossless", compute=True):
     # write a netcdf file
     if selected_format == "NC":
         #"""
-        try:
-            task = ds.to_netcdf(filename, engine="h5netcdf", encoding=encoding, compute=compute)
-            #ds.to_netcdf(filename)
-        
-        except ValueError as err:
-            # Can rise the error or just remove the enconding.
-            print(err)
-            print("Compression filter is not available!")
-            raise(err)
+        print(encoding)
+        task = ds.to_netcdf(filename, engine="h5netcdf", encoding=encoding, compute=compute)
+        # ds.to_netcdf(filename)
         return task
         #"""
         """
