@@ -71,7 +71,8 @@ def destination_path(origin_path, destination_folder):
     """
     Function to obtain the destination file from the source file and the destination folder.
     If the source file has GRIB format (.grb) , it will be changed to netCDF (.nc).
-        Parameters
+    
+    Parameters
     ----------
     origin_path : string
             path to the original file
@@ -82,9 +83,17 @@ def destination_path(origin_path, destination_folder):
     Returns the path to the new file that will be placed in the destination folder.
     """
     from os.path import join, basename
-    destination = join(destination_folder, basename(origin_path))
-    if destination.count(".grb"):
-        destination = destination.replace(".grb", ".nc")
+    from enstools.io.file_type import get_file_type
+
+    file_name = basename(origin_path)
+    
+    
+    file_format = get_file_type(filename, only_extension=True)
+    if file_format == "GRIB":
+        extension = file_name.split(".")[-1]
+        file_name = file_name.replace(extension, ".nc")
+
+    destination = join(destination_folder, file_name)
     return destination
 
 
