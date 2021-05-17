@@ -71,10 +71,18 @@ class BatchJob():
 
         # create the cluster by starting the client
         self.scheduler_port = get_first_free_port(self.ip_address, 8786)
+        # When using a single node, the port and ip options won't be specified.
+        """
         self.cluster = distributed.LocalCluster(n_workers=self.ntasks,
                                          local_dir=self.local_dir,
                                          scheduler_port=self.scheduler_port,
                                          ip=self.ip_address,
+                                         silence_logs=logging.WARN,
+                                         threads_per_worker=1,
+                                         memory_limit=mem_per_worker)
+        """
+        self.cluster = distributed.LocalCluster(n_workers=self.ntasks,
+                                         local_dir=self.local_dir,
                                          silence_logs=logging.WARN,
                                          threads_per_worker=1,
                                          memory_limit=mem_per_worker)
@@ -89,9 +97,10 @@ class BatchJob():
         self.scheduler_port = get_first_free_port(self.ip_address, 8786)
         # TODO: check if successful!
         args = [which(sys.executable), which("dask-scheduler"), "--port", "%d" % self.scheduler_port, "--host", self.ip_address]
-        if self.local_dir is not None:
-            args.insert(2, "--local-directory")
-            args.insert(3, self.local_dir)
+        logging.debug("Scheduler has been started at port %d and host %s" % (self.scheduler_port, self.ip_address))
+        #if self.local_dir is not None:
+        #    args.insert(2, "--local-directory")
+        #    args.insert(3, self.local_dir)
         p = ProcessObserver(args)
         self.child_processes.append(p)
 
@@ -222,9 +231,9 @@ class SlurmJob(BatchJob):
                 "tcp://%s:%d" % (self.ip_address, self.scheduler_port)
                 ]
         logging.debug(" ".join(args))
-        if self.local_dir is not None:
-            args.insert(4, "--local-directory")
-            args.insert(5, self.local_dir)
+        #if self.local_dir is not None:
+        #    args.insert(4, "--local-directory")
+        #    args.insert(5, self.local_dir)
         p = ProcessObserver(args)  # subprocess.Popen(args)
         self.child_processes.append(p)
 
@@ -275,8 +284,11 @@ class LocalJob(BatchJob):
                 self.client.close()
                 self.client = None
                 workers = list(self.cluster.workers)
-                for one_worker in workers:
-                    self.cluster.stop_worker(one_worker)
+                try:
+                    for one_worker in workers:
+                        self.cluster.stop_worker(one_worker)
+                except AttributeError:
+                    pass
                 self.cluster.close()
 
             # remove the temporal folder on the local host
@@ -309,7 +321,14 @@ def get_batch_job(local_dir=None, **kwargs):
     # are we inside of SLURM?
     job_id = os.getenv("SLURM_JOB_ID")
     if job_id is not None:
-        return SlurmJob(local_dir, **kwargs)
+        # Check if we are in more than one node:
+        node_list = os.getenv("SLURM_NODELIST")
+        logging.debug("Node list: %s" % node_list)
+        number_of_nodes = int(os.getenv("SLURM_NNODES"))
+        logging.debug("Number of nodes in the current slurm job: %d" % number_of_nodes)
+        if number_of_nodes > 1:
+            
+            return SlurmJob(local_dir, **kwargs)
 
     # no job environment detected? create a local cluster!
     return LocalJob(local_dir, **kwargs)

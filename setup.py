@@ -52,8 +52,13 @@ setup(name="enstools",
                 "cffi",
                 "bottleneck",
                 "pandas",
-                "basemap @ git+https://github.com/matplotlib/basemap.git@v1.2.2rel#egg=basemap"],
+                "basemap @ git+https://github.com/matplotlib/basemap.git@v1.2.2rel#egg=basemap",
+                "hdf5plugin",
+                "zfpy"],
         entry_points={
-          'console_scripts': ['enstools-opendata=enstools.opendata.cli:main'],
+          'console_scripts': [
+              'enstools-opendata=enstools.opendata.cli:main',
+              'enstools-compressor=enstools.io:cli'
+              ],
         },
       )
