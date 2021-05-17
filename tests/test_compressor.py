@@ -284,6 +284,37 @@ class EnstoolsCompressorTestCases(unittest.TestCase):
             final_size = file_size(output_file_path)
             self.assertGreater(initial_size, final_size)
 
+   #def test_compress_multinode(self):
+   #    # Check that compression works when specifying compression = lossy:sz
+   #    input_tempdir = self.input_tempdir
+   #    output_tempdir = self.output_tempdir
+
+   #    datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
+   #    compression = "lossless"
+   #    for ds in datasets:
+   #        input_path = join(input_tempdir.getpath(), ds)
+   #        output_path = output_tempdir.getpath()
+   #        output_file_path = join(output_path, ds)
+   #        command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression} -N 2"
+   #        #return_code = launch_bash_command(command)
+   #        self.assertFalse(False)
+
+    def test_filters_availability(self):
+        from enstools.io.encoding import check_all_filters_availability
+        self.assertTrue(check_all_filters_availability())
+
+    def test_blosc_filter_availability(self):
+        from enstools.io.encoding import check_blosc_availability
+        self.assertTrue(check_blosc_availability)
+
+    def test_zfp_filter_availability(self):
+        from enstools.io.encoding import check_zfp_availability
+        self.assertTrue(check_zfp_availability)
+
+    def test_sz_filter_availability(self):
+        from enstools.io.encoding import check_sz_availability
+        self.assertTrue(check_sz_availability)
+
 
 if __name__ == '__main__':
     unittest.main()
