@@ -130,7 +130,7 @@ def sz_analyze_files(file_paths, correlation_threshold=0.99999):
     return encoding
 
 
-def analyze_files(file_paths, correlation_threshold=0.99999, compressor="sz"):
+def analyze_files(file_paths, correlation_threshold=0.99999, compressor="zfp"):
     """
     Function to switch between the different compressors and methods.
     Currrently only ZFP its available.
