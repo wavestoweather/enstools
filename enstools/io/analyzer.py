@@ -24,7 +24,8 @@ def zfp_analyze_variable(dataset, variable_name, mode, correlation_threshold=0.9
         variable_data = dataset[variable_name].sel(time=dataset["time"][0])
     except IndexError:
         variable_data = dataset[variable_name]
-
+    except ValueError:
+        variable_data = dataset[variable_name]
     variable_data = np.squeeze(variable_data.values)
 
     if len(variable_data.shape) == 1:
@@ -62,6 +63,8 @@ def sz_analyze_variable(dataset, variable_name, mode, correlation_threshold=0.99
     try:
         variable_data = dataset[variable_name].sel(time=dataset["time"][0])
     except IndexError:
+        variable_data = dataset[variable_name]
+    except ValueError:
         variable_data = dataset[variable_name]
 
     variable_data = np.squeeze(variable_data.values)
