@@ -73,14 +73,14 @@ def set_encoding(ds, compression_options):
         for variable in variables:
             encoding[variable] = {}
             if len(ds[variable].shape) > 1 and variable in data_variables:
-                    encoding[variable]["compression"] = lossy_filter_id
-                    # In some cases (i.e. SZ) the compression options need to be adapted to acount for data dimensions
-                    variable_compression_options = adapt_compression_options(
-                        lossy_filter_id,
-                        lossy_compression_options,
-                        ds[variable])
-                    encoding[variable]["compression_opts"] = variable_compression_options
-                    encoding[variable]["chunksizes"] = ds[variable].shape
+                encoding[variable]["compression"] = lossy_filter_id
+                # In some cases (i.e. SZ) the compression options need to be adapted to acount for data dimensions
+                variable_compression_options = adapt_compression_options(
+                    lossy_filter_id,
+                    lossy_compression_options,
+                    ds[variable])
+                encoding[variable]["compression_opts"] = variable_compression_options
+                encoding[variable]["chunksizes"] = ds[variable].shape
             else:
                 encoding[variable]["compression"] = lossless_filter_id
                 encoding[variable]["compression_opts"] = lossless_compression_options
@@ -129,9 +129,17 @@ def set_encoding(ds, compression_options):
 
 
 def adapt_compression_options(filter_id, compression_options, variable_dataset):
-    if filter_id == 32013:
+    """
+    In the case of SZ (filter_id == 32017) we need to adapt the compression options to include things related with
+    the dimensions of the variable being dealt with.
+    :param filter_id:
+    :param compression_options:
+    :param variable_dataset:
+    :return:
+    """
+    if filter_id == 32013:  # Case ZFP
         return compression_options
-    elif filter_id == 32017:
+    elif filter_id == 32017:  # Case SZ
         # Case SZ (filter id 32017)
         # Compression_opts have to include dimensions of data and shape.
         shape = variable_dataset.shape
@@ -140,7 +148,7 @@ def adapt_compression_options(filter_id, compression_options, variable_dataset):
         error_mode = compression_options[0]
         error_val = compression_options[2]
         return (dim, data_type, *shape, error_mode, error_val, error_val, error_val)
-    else:
+    else:  # Other cases (Blosc?)
         return compression_options
 
 
@@ -180,8 +188,9 @@ def blosc_encoding(compressor="lz4", clevel=9):
     clevel: integer
         Compression level From 1 to 9
     """
-    # The uniq filter id given by HDF5
-    BLOSC_filter_id = 32001
+    assert check_blosc_availability(), "Attempting to use BLOSC filter which is not available."
+    # The unique filter id given by HDF5
+    blosc_filter_id = 32001
     # For now, the shuffle its always activated
     shuffle = 1
 
@@ -201,7 +210,7 @@ def blosc_encoding(compressor="lz4", clevel=9):
     # Define the compression_opts array that will be passed to the filter
     compression_opts = (0, 0, 0, 0, clevel, shuffle, compressor_id)
 
-    return BLOSC_filter_id, compression_opts
+    return blosc_filter_id, compression_opts
 
 
 def lossy_encoding(compression_options):
@@ -221,8 +230,9 @@ def zfp_encoding(compression_options):
     ----------
     compression_options: list of strings
     """
+    assert check_zfp_availability(), "Attempting to use ZFP filter which is not available."
     # The uniq filter id given by HDF5 
-    ZFP_filter_id = 32013
+    zfp_filter_id = 32013
 
     # Check options provided:
     compressor, method, parameter = compression_options
@@ -239,7 +249,7 @@ def zfp_encoding(compression_options):
     else:
         raise NotImplementedError("Method %s has not been implemented yet" % method)
 
-    return ZFP_filter_id, compression_opts
+    return zfp_filter_id, compression_opts
 
 
 def sz_encoding(compression_options):
@@ -250,7 +260,8 @@ def sz_encoding(compression_options):
     ----------
     compression_options: list of strings
     """
-    # The uniq filter id given by HDF5
+    assert check_sz_availability(), "Attempting to use SZ filter which is not available."
+    # The unique filter id given by HDF5
     sz_filter_id = 32017
 
     # Check options provided:
@@ -258,14 +269,14 @@ def sz_encoding(compression_options):
     assert compressor == "sz", "Passing wrong options"
     # Get ZFP encoding options
     if method == "abs":
-        SZ_MODE = 0
+        sz_mode = 0
     elif method == "rel":
-        SZ_MODE = 1
+        sz_mode = 1
     elif method == "pw_rel":
-        SZ_MODE = 2
+        sz_mode = 2
     else:
         raise NotImplementedError("Method %s has not been implemented yet" % method)
-    compression_opts = (SZ_MODE, 0, sz_pack_error(parameter))
+    compression_opts = (sz_mode, 0, sz_pack_error(parameter))
     return sz_filter_id, compression_opts
 
 
@@ -280,12 +291,12 @@ def zfp_rate_opts(rate):
 
     The float rate parameter is the number of compressed bits per value.
     """
-    ZFP_MODE_RATE = 1
+    zfp_mode_rate = 1
     from struct import pack, unpack
     rate = pack('<d', rate)  # Pack as IEEE 754 double
     high = unpack('<I', rate[0:4])[0]  # Unpack high bits as unsigned int
     low = unpack('<I', rate[4:8])[0]  # Unpack low bits as unsigned int
-    return ZFP_MODE_RATE, 0, high, low, 0, 0
+    return zfp_mode_rate, 0, high, low, 0, 0
 
 
 def zfp_precision_opts(precision):
@@ -293,8 +304,8 @@ def zfp_precision_opts(precision):
 
     The float precision parameter is the number of uncompressed bits per value.
     """
-    ZFP_MODE_PRECISION = 2
-    return ZFP_MODE_PRECISION, 0, precision, 0, 0, 0
+    zfp_mode_precision = 2
+    return zfp_mode_precision, 0, precision, 0, 0, 0
 
 
 def zfp_accuracy_opts(accuracy):
@@ -302,12 +313,12 @@ def zfp_accuracy_opts(accuracy):
 
     The float accuracy parameter is the absolute error tolarance (e.g. 0.001).
     """
-    ZFP_MODE_ACCURACY = 3
+    zfp_mode_accuracy = 3
     from struct import pack, unpack
     accuracy = pack('<d', accuracy)  # Pack as IEEE 754 double
     high = unpack('<I', accuracy[0:4])[0]  # Unpack high bits as unsigned int
     low = unpack('<I', accuracy[4:8])[0]  # Unpack low bits as unsigned int
-    return ZFP_MODE_ACCURACY, 0, high, low, 0, 0
+    return zfp_mode_accuracy, 0, high, low, 0, 0
 
 
 def zfp_expert_opts(minbits, maxbits, maxprec, minexp):
@@ -315,8 +326,8 @@ def zfp_expert_opts(minbits, maxbits, maxprec, minexp):
 
     See the ZFP docs for the meaning of the parameters.
     """
-    ZFP_MODE_EXPERT = 4
-    return ZFP_MODE_EXPERT, 0, minbits, maxbits, maxprec, minexp
+    zfp_mode_expert = 4
+    return zfp_mode_expert, 0, minbits, maxbits, maxprec, minexp
 
 
 def zfp_reversible():
@@ -324,8 +335,8 @@ def zfp_reversible():
 
     It should result in lossless compression.
     """
-    ZFP_MODE_REVERSIBLE = 5
-    return ZFP_MODE_REVERSIBLE, 0, 0, 0, 0, 0
+    zfp_mode_reversible = 5
+    return zfp_mode_reversible, 0, 0, 0, 0, 0
 
 
 # Functions to parse the compression options,
@@ -379,7 +390,7 @@ def parse_lossless_compression_options(arguments):
                        (backend:string, clevel:int) 
     """
 
-    BLOSC_backends = ['blosclz',
+    blosc_backends = ['blosclz',
                       'lz4',
                       'lz4hc',
                       'snappy',
@@ -390,7 +401,7 @@ def parse_lossless_compression_options(arguments):
         backend = "lz4"
         compression_level = 9
     elif len(arguments) == 2:
-        assert arguments[1] in BLOSC_backends, "Unknwown backend %s" % arguments[1]
+        assert arguments[1] in blosc_backends, "Unknwown backend %s" % arguments[1]
         # In case the backend its selected but the compression level its not specified,
         # the intermediate level 5 will be selected
         backend = arguments[1]
@@ -547,3 +558,59 @@ def encoding_description(encoding):
             description = "Non compressed"
             descriptions[variable] = description
     return descriptions
+
+
+def check_all_filters_availability(try_load_hdf5plugin=True):
+    """
+    Function to check that all the filters of interest are available.
+    :return:  bool
+    """
+    blosc_available = check_blosc_availability()
+    zfp_available = check_zfp_availability()
+    sz_available = check_sz_availability()
+    all_available = blosc_available and zfp_available and sz_available
+    if all_available:
+        return True
+    else:
+        if try_load_hdf5plugin:
+            import hdf5plugin
+            return check_all_filters_availability(try_load_hdf5plugin=False)
+        else:
+            return False
+
+
+def check_blosc_availability():
+    """
+    Function to check that the BLOSC hdf5 filter is available.
+    :return: bool
+    """
+    blosc_filter_id = 32001
+    return check_filter_availability(blosc_filter_id)
+
+
+def check_zfp_availability():
+    """
+    Function to check that the ZFP hdf5 filter is available.
+    :return: bool
+    """
+    zfp_filter_id = 32013
+    return check_filter_availability(zfp_filter_id)
+
+
+def check_sz_availability():
+    """
+    Function to check that the SZ hdf5 filter is available.
+    :return: bool
+    """
+    sz_filter_id = 32017
+    return check_filter_availability(sz_filter_id)
+
+
+def check_filter_availability(filter_id):
+    """
+    Use h5py to check if a filter is available
+    :param filter_id: Id of the target filter
+    :return: bool
+    """
+    import h5py
+    return h5py.h5z.filter_avail(filter_id)
