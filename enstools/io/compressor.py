@@ -82,17 +82,16 @@ def destination_path(origin_path, destination_folder):
 
     Returns the path to the new file that will be placed in the destination folder.
     """
-    from os.path import join, basename
+    from os.path import join, basename, splitext
     from enstools.io.file_type import get_file_type
 
     file_name = basename(origin_path)
     
     
     file_format = get_file_type(file_name, only_extension=True)
-    if file_format == "GRIB":
-        extension = file_name.split(".")[-1]
-        file_name = file_name.replace(extension, ".nc")
-
+    if file_format != "NC":
+        bname, _ = splitext(file_name)
+        file_name = bname + ".nc"
     destination = join(destination_folder, file_name)
     return destination
 
