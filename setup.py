@@ -53,6 +53,7 @@ setup(name="enstools",
                 "bottleneck",
                 "pandas",
                 "basemap @ git+https://github.com/matplotlib/basemap.git@v1.2.2rel#egg=basemap",
+                "h5netcdf",
                 "hdf5plugin",
                 "zfpy"],
         entry_points={
