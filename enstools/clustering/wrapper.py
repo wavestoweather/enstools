@@ -5,7 +5,6 @@ import sklearn.cluster
 from sklearn.metrics import silhouette_score
 import numpy as np
 import xarray
-from enstools.core import get_arg_spec
 import dask.delayed
 import dask.array
 
@@ -16,6 +15,15 @@ methods = {"kmeans": sklearn.cluster.KMeans,
            "agglo": sklearn.cluster.AgglomerativeClustering,
            "dbscan": sklearn.cluster.DBSCAN,
            "birch": sklearn.cluster.Birch}
+
+methods_with_ncluster = {
+           "kmeans": True,
+           "aprop": False,
+           "mshift": False,
+           "spectral": True,
+           "agglo": True,
+           "dbscan": False,
+           "birch": True}
 
 
 def cluster(algorithm, data, n_clusters=None, n_clusters_max=None, sort=True, **kwargs):
@@ -54,7 +62,7 @@ def cluster(algorithm, data, n_clusters=None, n_clusters_max=None, sort=True, **
         raise ValueError("unsupported algorithm selected: %s supported are only: %s" % (algorithm, ", ".join(methods.keys())))
 
     # is it possible to prescribe the number of clusters?
-    has_n_clusters = "n_clusters" in get_arg_spec(methods[algorithm].__init__)[0]
+    has_n_clusters = methods_with_ncluster[algorithm]
 
     # estimate the number of clusters?
     scores = None

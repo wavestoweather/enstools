@@ -68,7 +68,6 @@ def __staggered_grid_interpolation(data, src_coord, dst_coord, label='upper'):
 
         if dst_coord not in data.variables:
             variables[dst_coord] = ((data.variables[src_coord].isel(**kwargs_end) + data.variables[src_coord].isel(**kwargs_start)) / 2.)
-            variables[dst_coord].name = dst_coord
             variables[dst_coord].dims = (dst_coord,)
         for name, var in iteritems(data.variables):
             if src_coord in var.dims:
