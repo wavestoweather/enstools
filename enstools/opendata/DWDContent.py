@@ -6,12 +6,12 @@ from datetime import datetime
 from enstools.misc import download, bytes2human, concat
 from urllib.error import HTTPError
 from urllib.request import urlopen
-from enstools.core.tempdir import TempDir
+from get_cache_dir import get_cache_dir
 
 
 class DWDContent:
     # create a new temporal directory to store content.log and opendata_dwd_content.pkl
-    content_path = TempDir(check_free_space=False).getpath()
+    cache_path = get_cache_dir()
 
     def __init__(self, refresh_content=False):
         def create_dataframe(logdata):
@@ -85,13 +85,13 @@ class DWDContent:
             content.loc[content["level_type"] == "model", ["level"]] = content[content.level_type == "model"][
                 "filename"].apply(lambda x: x.split("_")[6])
             content["level"] = content["level"].astype(int)
-            content.to_pickle(os.path.join(DWDContent.content_path, "opendata_dwd_content.pkl"))
+            content.to_pickle(self.content_pkl)
 
             return content
-
-        if os.path.exists(os.path.join(DWDContent.content_path, "opendata_dwd_content.pkl")) and not refresh_content:
-            logging.info("Reading content database from opendata_dwd_content.pkl")
-            content_old = pandas.read_pickle(os.path.join(DWDContent.content_path, "opendata_dwd_content.pkl"))
+        self.content_pkl = os.path.join(DWDContent.cache_path, "opendata_dwd_content_nwp.pkl")
+        if os.path.exists(self.content_pkl) and not refresh_content:
+            logging.info(f"Reading content database from {self.content_pkl}")
+            content_old = pandas.read_pickle(self.content_pkl)
             self.content = content_old
 
         else:
@@ -99,12 +99,13 @@ class DWDContent:
                 logging.info("Refreshing content database")
             else:
                 logging.info("Initializing content database")
-            if os.path.exists(os.path.join(DWDContent.content_path, "content.log")):
-                os.remove(os.path.join(DWDContent.content_path, "content.log"))
+            self.content_log_path = os.path.join(DWDContent.cache_path, "content_nwp.log.bz2")
+            if os.path.exists(self.content_log_path):
+                os.remove(self.content_log_path)
 
             download("https://opendata.dwd.de/weather/nwp/content.log.bz2",
-                     destination=os.path.join(DWDContent.content_path, "content.log.bz2"), uncompress=False)
-            self.content = create_dataframe(os.path.join(DWDContent.content_path, "content.log.bz2"))
+                     destination=self.content_log_path, uncompress=False)
+            self.content = create_dataframe(self.content_log_path)
 
     def refresh_content(self):
         """
@@ -623,7 +624,7 @@ class DWDContent:
                 if var not in avail_vars:
                     raise ValueError("The variable {} is not available for the {} model "
                                      "and the init_time {}. Available variables: {}"
-                            .format(var, model, init_time, avail_vars))
+                                     .format(var, model, init_time, avail_vars))
 
                 avail_level_types = self.get_avail_level_types(model=model, grid_type=grid_type,
                                                                init_time=init_time, variable=var)
@@ -638,7 +639,7 @@ class DWDContent:
                     if hour not in avail_forecast_hours:
                         raise ValueError(
                             "The forecast hour {} is not available for the variable {}. Possible values: {}"
-                            .format(hour, var, avail_forecast_hours))
+                                .format(hour, var, avail_forecast_hours))
                     for lev in levels:
                         avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_time,
                                                              variable=var, level_type=level_type)
