@@ -10,12 +10,10 @@ from enstools.core.tempdir import TempDir
 
 
 class DWDContent:
-
     # create a new temporal directory to store content.log and opendata_dwd_content.pkl
     content_path = TempDir(check_free_space=False).getpath()
 
     def __init__(self, refresh_content=False):
-
         def create_dataframe(logdata):
             """
             Creates a pandas.DataFrame from the given logdata from https://opendata.dwd.de/weather/nwp
@@ -54,7 +52,7 @@ class DWDContent:
             """
             logging.info("Creating content database with {}".format(logdata))
             content = pandas.read_csv(logdata, delimiter="|", header=None, names=["file", "size", "time"])
-            content["time"] = content["time"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
+            content["time"] = pandas.to_datetime(content["time"], format="%Y-%m-%d %H:%M:%S")
             content["size"] = content["size"].astype(int)
 
             content = content[~content.file.str.contains("snow4")]
@@ -102,11 +100,11 @@ class DWDContent:
             else:
                 logging.info("Initializing content database")
             if os.path.exists(os.path.join(DWDContent.content_path, "content.log")):
-                os.remove(os.path.join(DWDContent.content_path,"content.log"))
+                os.remove(os.path.join(DWDContent.content_path, "content.log"))
 
             download("https://opendata.dwd.de/weather/nwp/content.log.bz2",
-                     destination=os.path.join(DWDContent.content_path,"content.log.bz2"), uncompress=True)
-            self.content = create_dataframe(os.path.join(DWDContent.content_path, "content.log"))
+                     destination=os.path.join(DWDContent.content_path, "content.log.bz2"), uncompress=False)
+            self.content = create_dataframe(os.path.join(DWDContent.content_path, "content.log.bz2"))
 
     def refresh_content(self):
         """
@@ -237,7 +235,8 @@ class DWDContent:
                                    & (content["grid_type"] == grid_type)]["init_time"].drop_duplicates().values.tolist()
         avail_init_times.sort()
         avail_abs_init_times = content[(content["model"] == model)
-                                   & (content["grid_type"] == grid_type)]["abs_init_time"].drop_duplicates().values.tolist()
+                                       & (content["grid_type"] == grid_type)][
+            "abs_init_time"].drop_duplicates().values.tolist()
         avail_abs_init_times.sort()
         for one_abs in avail_abs_init_times:
             avail_init_times.append(datetime.strptime(one_abs, "%Y%m%d%H"))
@@ -329,7 +328,7 @@ class DWDContent:
                                        & (content["grid_type"] == grid_type)
                                        & self.__init_time_selection(init_time)
                                        & (content["variable"] == variable)
-                                       & (content["level_type"] == level_type)]["forecast_hour"]\
+                                       & (content["level_type"] == level_type)]["forecast_hour"] \
             .drop_duplicates().values.tolist()
         avail_forecast_times.sort()
         return avail_forecast_times
@@ -390,7 +389,7 @@ class DWDContent:
             raise ValueError(f"invalid data type for init_time: {type(init_time)}")
 
     def __get_uniq_content_line(self, model=None, grid_type=None, init_time=None, variable=None,
-                level_type=None, forecast_hour=None, level=None):
+                                level_type=None, forecast_hour=None, level=None):
         """
         Use the given parameters to find ONE entry of the content.
 
@@ -418,12 +417,12 @@ class DWDContent:
         grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
         result = content[(content["model"] == model)
-                        & self.__init_time_selection(init_time)
-                        & (content["variable"] == variable)
-                        & (content["level_type"] == level_type)
-                        & (content["forecast_hour"] == forecast_hour)
-                        & (content["level"] == level)
-                        & (content["grid_type"] == grid_type)]
+                         & self.__init_time_selection(init_time)
+                         & (content["variable"] == variable)
+                         & (content["level_type"] == level_type)
+                         & (content["forecast_hour"] == forecast_hour)
+                         & (content["level"] == level)
+                         & (content["grid_type"] == grid_type)]
 
         # raise exception if nothing was found.
         if len(result) == 0:
@@ -434,7 +433,8 @@ class DWDContent:
             logging.warning("{} entries found in content, only one expected for (model: {}, grid_type: {}, "
                             "init_time: {}, variable: {}, level_type: {}, forecast_hour: {}, level: {}), "
                             "taking the newest!"
-                            .format(len(result), model, grid_type, init_time, variable, level_type, forecast_hour, level))
+                            .format(len(result), model, grid_type, init_time, variable, level_type, forecast_hour,
+                                    level))
             result = result.sort_values(by="time", ascending=False).iloc[0]
         return result
 
@@ -466,7 +466,7 @@ class DWDContent:
             The url adress of the file.
         """
         url = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
-                level_type=level_type, forecast_hour=forecast_hour, level=level)
+                                           level_type=level_type, forecast_hour=forecast_hour, level=level)
         return url["file"].values[0]
 
     def get_filename(self, model=None, grid_type=None, init_time=None, variable=None,
@@ -497,7 +497,7 @@ class DWDContent:
             The filename of the file.
         """
         url = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
-                level_type=level_type, forecast_hour=forecast_hour, level=level)
+                                           level_type=level_type, forecast_hour=forecast_hour, level=level)
         return url["filename"].values[0]
 
     def check_url_available(self, model=None, grid_type=None, init_time=None, variable=None,
@@ -621,9 +621,9 @@ class DWDContent:
             for var in variable:
                 avail_vars = self.get_avail_vars(model=model, grid_type=grid_type, init_time=init_time)
                 if var not in avail_vars:
-                    raise ValueError(
-                        "The variable {} is not available for the {} model and the init_time {}. Available variables: {}"
-                        .format(var, model, init_time, avail_vars))
+                    raise ValueError("The variable {} is not available for the {} model "
+                                     "and the init_time {}. Available variables: {}"
+                            .format(var, model, init_time, avail_vars))
 
                 avail_level_types = self.get_avail_level_types(model=model, grid_type=grid_type,
                                                                init_time=init_time, variable=var)
@@ -636,8 +636,9 @@ class DWDContent:
                 for hour in forecast_hour:
 
                     if hour not in avail_forecast_hours:
-                        raise ValueError("The forecast hour {} is not available for the variable {}. Possible values: {}"
-                                         .format(hour, var, avail_forecast_hours))
+                        raise ValueError(
+                            "The forecast hour {} is not available for the variable {}. Possible values: {}"
+                            .format(hour, var, avail_forecast_hours))
                     for lev in levels:
                         avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_time,
                                                              variable=var, level_type=level_type)
@@ -715,7 +716,6 @@ class DWDContent:
                 names of downloaded files.
         """
 
-
         # Want to download one or more variables?
         if not isinstance(variable, (list, tuple)):
             variable = [variable]
@@ -762,8 +762,9 @@ class DWDContent:
             for hour in forecast_hour:
                 for lev in levels:
                     content_entry = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time,
-                                                      variable=var, level_type=level_type, forecast_hour=hour,
-                                                      level=lev)
+                                                                 variable=var, level_type=level_type,
+                                                                 forecast_hour=hour,
+                                                                 level=lev)
                     download_urls.append(content_entry["file"].values[0])
                     download_files.append(content_entry["filename"].values[0])
                     total_size += content_entry["size"].values[0]

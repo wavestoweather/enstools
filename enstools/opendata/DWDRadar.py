@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 from urllib.error import HTTPError
 from urllib.request import urlopen
-
 import pandas
 from enstools.core.tempdir import TempDir
 from enstools.misc import download, bytes2human
@@ -48,7 +47,7 @@ class DWDRadar:
             """
             logging.info("Creating content database with {}".format(logdata))
             content = pandas.read_csv(logdata, delimiter="|", header=None, names=["file", "size", "upload_time"])
-            content["upload_time"] = content["upload_time"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
+            content["upload_time"] = pandas.to_datetime(content["upload_time"], format="%Y-%m-%d %H:%M:%S")
             content["size"] = content["size"].astype(int)
 
             # ignore the content.log file and tar.gz files
@@ -436,7 +435,8 @@ class DWDRadar:
         download_files = []
         download_urls = []
 
-        self.check_parameters(product=product, data_time=data_time, forecast_time=forecast_time, file_format=file_format)
+        self.check_parameters(product=product, data_time=data_time,
+                              forecast_time=forecast_time, file_format=file_format)
         for dtime in data_time:
             for ftime in forecast_time:
                 download_urls.append(self.get_url(product=product, data_time=dtime,
@@ -475,4 +475,3 @@ def getDWDRadar():
     else:
         __content = DWDRadar()
         return __content
-
