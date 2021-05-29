@@ -55,7 +55,6 @@ def transfer_file(origin, destination, compression, variables_to_keep=None):
     """
     from .reader import read
     from .writer import write
-    import hdf5plugin
     dataset = read(origin, decode_times=False)
     if variables_to_keep is not None:
         # Drop the undesired variables and keep the coordinates

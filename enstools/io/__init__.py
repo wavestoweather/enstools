@@ -1,6 +1,31 @@
 """
 Reading and Writing of meteorological data
 """
+
+def __clean_HDF5_PLUGIN_PATH():
+    """
+    if the libraries from hdf5plugin are in HDF5_PLUGIN_PATH, then remove them
+    """
+    import os
+    import logging
+    if "HDF5_PLUGIN_PATH" in os.environ:
+        paths = os.environ["HDF5_PLUGIN_PATH"].split(":")
+        keep = []
+        for one_path in paths:
+            if len(one_path) == 0:
+                continue
+            if 'site-packages/hdf5plugin/plugins' in one_path:
+                logging.info(f"removed {one_path} from HDF5_PLUGIN_PATH")
+                continue
+            keep.append(one_path)
+        if len(keep) > 0:
+            os.environ["HDF5_PLUGIN_PATH"] = ":".join(keep)
+        else:
+            del os.environ["HDF5_PLUGIN_PATH"]
+
+# TODO: figure out why this is needed and remove it!
+__clean_HDF5_PLUGIN_PATH()
+
 from .file_type import get_file_type
 from .reader import read
 from .writer import write

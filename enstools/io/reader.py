@@ -100,6 +100,8 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     xarray.Dataset
             in-memory representation of the content of the input file(s)
     """
+    # we need to make sure, that we are able to read compressed files. if
+    import hdf5plugin
     # open one file, or multiple files?
     if not isinstance(filenames, (list, tuple)):
         if isinstance(filenames, six.string_types):
@@ -460,12 +462,12 @@ def __open_dataset(filename, client, worker, decode_times=True, **kwargs):
     # read the data
     if file_type in ["NC", "HDF"]:
         if kwargs.get("in_memory", False) and client is None:
-            result0 = xarray.open_dataset(filename, decode_times=decode_times)
+            result0 = xarray.open_dataset(filename, engine="h5netcdf", decode_times=decode_times)
             result = result0.compute().chunk()
             result0.close()
             result.close()
         else:
-            result = xarray.open_dataset(filename, decode_times=decode_times, chunks={})
+            result = xarray.open_dataset(filename, engine="h5netcdf", decode_times=decode_times, chunks={})
             if client is not None:
                 if worker is not None:
                     logging.debug("running on worker: %s" % worker.address)

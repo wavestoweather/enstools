@@ -93,8 +93,8 @@ class EnstoolsCompressorTestCases(unittest.TestCase):
         """
         from enstools.core.tempdir import TempDir
         # Create temporary directory in which we'll put some synthetic datasets
-        cls.input_tempdir = TempDir()
-        cls.output_tempdir = TempDir()
+        cls.input_tempdir = TempDir(check_free_space=False)
+        cls.output_tempdir = TempDir(check_free_space=False)
         create_synthetic_dataset(cls.input_tempdir.getpath())
 
     @classmethod

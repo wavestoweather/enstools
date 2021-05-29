@@ -62,6 +62,8 @@ def write(ds, filename, file_format=None, compression="lossless", compute=True):
     compute : bool 
             Dask delayed feature. Set to true to delay the file writting.
     """
+    # we need to make sure, that we are able to write compressed files. if
+    import hdf5plugin
     # if ds is a DataVariable instead of a Dataset, then convert it
     if isinstance(ds, xarray.DataArray):
         ds = ds.to_dataset()
