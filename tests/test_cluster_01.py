@@ -1,4 +1,3 @@
-import nose
 import numpy
 from enstools.clustering import prepare
 from enstools.clustering import cluster

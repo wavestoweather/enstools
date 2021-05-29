@@ -1,16 +1,26 @@
-import nose
+from numpy.testing import assert_equal
 import xarray
 import tempfile
 import numpy
 import os
 import shutil
 import enstools.io
-
-# name of the test file
-test_dir = tempfile.mkdtemp()
+import pytest
 
 
-def setup():
+@pytest.fixture
+def test_dir():
+    """
+    name of the test directoy
+    """
+    test_dir = tempfile.mkdtemp()
+    yield test_dir
+
+    # cleanup
+    shutil.rmtree(test_dir)
+
+@pytest.fixture
+def file1(test_dir):
     """
     create a file with defined content for testing
     """
@@ -22,8 +32,15 @@ def setup():
                                   },
                           dims=["time", "lon", "lat"],
                           name="noise")
-    ds.to_netcdf(os.path.join(test_dir, "01.nc"))
+    filename = os.path.join(test_dir, "01.nc")
+    ds.to_netcdf(filename)
+    return filename
 
+@pytest.fixture
+def file2(test_dir):
+    """
+    create a file with defined content for testing
+    """
     # second file
     ds = xarray.DataArray(numpy.random.rand(7, 5, 6),
                           coords={"lon": numpy.linspace(1, 5, 5),
@@ -32,39 +49,33 @@ def setup():
                                   },
                           dims=["time", "lon", "lat"],
                           name="noise")
-    ds.to_netcdf(os.path.join(test_dir, "02.nc"))
+    filename = os.path.join(test_dir, "02.nc")
+    ds.to_netcdf(filename)
+    return filename
 
 
-def teardown():
-    """
-    remove the test file created earlier
-    """
-    shutil.rmtree(test_dir)
-
-
-def test_read_single_file():
+def test_read_single_file(file1):
     """
     read one netcdf file
     """
-    ds = enstools.io.read(os.path.join(test_dir, "01.nc"))
-    nose.tools.assert_equals(ds["noise"].shape, (7, 5, 6))
-    nose.tools.assert_equals(ds["noise"].dims, ("time", "lon", "lat"))
+    ds = enstools.io.read(file1)
+    assert_equal(ds["noise"].shape, (7, 5, 6))
+    assert_equal(ds["noise"].dims, ("time", "lon", "lat"))
 
 
-def test_read_multiple_files():
+def test_read_multiple_files(file1, file2):
     """
     read two netcdf files
     """
-    ds = enstools.io.read([os.path.join(test_dir, "01.nc"),
-                           os.path.join(test_dir, "02.nc")])
-    nose.tools.assert_equals(ds["noise"].shape, (14, 5, 6))
-    nose.tools.assert_equals(ds["noise"].dims, ("time", "lon", "lat"))
+    ds = enstools.io.read([file1, file2])
+    assert_equal(ds["noise"].shape, (14, 5, 6))
+    assert_equal(ds["noise"].dims, ("time", "lon", "lat"))
     numpy.testing.assert_array_equal(ds["noise"].coords["time"], numpy.linspace(1, 14, 14))
 
     # same test with pattern
-    ds = enstools.io.read(os.path.join(test_dir, "??.nc"))
-    nose.tools.assert_equals(ds["noise"].shape, (14, 5, 6))
-    nose.tools.assert_equals(ds["noise"].dims, ("time", "lon", "lat"))
+    ds = enstools.io.read(os.path.dirname(file1) + "/??.nc")
+    assert_equal(ds["noise"].shape, (14, 5, 6))
+    assert_equal(ds["noise"].dims, ("time", "lon", "lat"))
     numpy.testing.assert_array_equal(ds["noise"].coords["time"], numpy.linspace(1, 14, 14))
 
 
