@@ -461,13 +461,17 @@ def __open_dataset(filename, client, worker, decode_times=True, **kwargs):
 
     # read the data
     if file_type in ["NC", "HDF"]:
+        # use h5netcdf to read HDF5-Files
+        engine = None
+        if file_type == "HDF":
+            engine="h5netcdf"
         if kwargs.get("in_memory", False) and client is None:
-            result0 = xarray.open_dataset(filename, engine="h5netcdf", decode_times=decode_times)
+            result0 = xarray.open_dataset(filename, engine=engine, decode_times=decode_times)
             result = result0.compute().chunk()
             result0.close()
             result.close()
         else:
-            result = xarray.open_dataset(filename, engine="h5netcdf", decode_times=decode_times, chunks={})
+            result = xarray.open_dataset(filename, engine=engine, decode_times=decode_times, chunks={})
             if client is not None:
                 if worker is not None:
                     logging.debug("running on worker: %s" % worker.address)

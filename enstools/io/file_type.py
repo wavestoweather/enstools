@@ -44,10 +44,7 @@ def get_file_type(filename, only_extension=False):
                 file_type = "NC"
             # netcdf4
             elif b"HDF" in first_bytes[0:4]:
-                if file_type_based_on_extension is not None and "NC" in file_type_based_on_extension:
-                    file_type = "NC"
-                else:
-                    file_type = "HDF"
+                file_type = "HDF"
             # grib
             elif b"GRIB" in first_bytes:
                 file_type = "GRIB"

@@ -22,7 +22,7 @@ def test_dir():
 @pytest.fixture
 def file1(test_dir):
     """
-    create a file with defined content for testing
+    create a file with defined content for testing, netcdf
     """
     # first file
     ds = xarray.DataArray(numpy.random.rand(7, 5, 6),
@@ -39,7 +39,7 @@ def file1(test_dir):
 @pytest.fixture
 def file2(test_dir):
     """
-    create a file with defined content for testing
+    create a file with defined content for testing, HDF5
     """
     # second file
     ds = xarray.DataArray(numpy.random.rand(7, 5, 6),
@@ -50,7 +50,7 @@ def file2(test_dir):
                           dims=["time", "lon", "lat"],
                           name="noise")
     filename = os.path.join(test_dir, "02.nc")
-    ds.to_netcdf(filename)
+    ds.to_netcdf(filename, engine="h5netcdf")
     return filename
 
 
