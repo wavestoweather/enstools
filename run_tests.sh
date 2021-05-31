@@ -1,8 +1,7 @@
 #!/bin/bash
 set -e
 
-# Check availability of enstools-compressor 
-enstools-compressor -h
+
 
 function usage {
     echo "arguments:"
@@ -37,6 +36,11 @@ if [[ ! -d venv ]] ; then
     pip install -e .
     pip install pytest
 fi
+
+
+# Check availability of enstools-compressor 
+enstools-compressor -h
+
 
 source venv/bin/activate
 pytest ${ignore_option}
