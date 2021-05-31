@@ -2,7 +2,5 @@ stages:
     - test
 
 test:
-    only:
-        - master@w2w/enstools
     stage: test
     script: ./run_tests.sh -r
