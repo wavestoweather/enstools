@@ -143,7 +143,7 @@ def analyze_files(file_paths, correlation_threshold=0.99999, compressor="zfp"):
         raise NotImplementedError(f"This compressor has not been implemented yet: {compressor}")
 
 
-def analyze(file_paths, correlation_threshold=0.99999, output_file=None):
+def analyze(file_paths, correlation_threshold=0.99999, output_file=None,format="yaml"):
     """
     Finds optimal compression parameters for a list of files to fulfill a correlation_threshold.
     If an output_file argument is provided it will output the json dictionary in there.
@@ -154,11 +154,23 @@ def analyze(file_paths, correlation_threshold=0.99999, output_file=None):
         % correlation_threshold)
     encoding = analyze_files(file_paths, correlation_threshold)
 
-    import json
-    if output_file:
-        print("Compression options saved in: %s " % output_file)
-        with open(output_file, "w") as outfile:
-            json.dump(encoding, outfile, indent=4, sort_keys=True)
-    else:
-        print("Compression options:")
-        print(json.dumps(encoding, indent=4, sort_keys=True))
+    if format == "json":
+        
+        import json
+
+        if output_file:
+            print("Compression options saved in: %s " % output_file)
+            with open(output_file, "w") as outfile:
+                json.dump(encoding, outfile, indent=4, sort_keys=True)
+        else:
+            print("Compression options:")
+            print(json.dumps(encoding, indent=4, sort_keys=True))
+    elif format == "yaml":
+        import yaml
+        if output_file:
+            print("Compression options saved in: %s " % output_file)
+            with open(output_file, "w") as outfile:
+                yaml.dump(encoding, outfile, sort_keys=True)
+        else:
+            print("Compression options:")
+            print(yaml.dump(encoding, indent=4, sort_keys=True))
