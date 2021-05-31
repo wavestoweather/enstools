@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Check availability of enstools-compressor 
+enstools-compressor -h
+
 function usage {
     echo "arguments:"
     echo "-r    skip tests with R"
