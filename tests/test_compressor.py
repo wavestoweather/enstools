@@ -120,6 +120,11 @@ class EnstoolsCompressorTestCases(unittest.TestCase):
         return_code = launch_bash_command(command)
         self.assertFalse(return_code)
 
+    def test_launch_command_is_working(self):
+        command = "ls -lrt"
+        return_code = launch_bash_command(command)
+        self.assertFalse(return_code)
+
     def test_command_is_available(self):
         command = "enstools-compressor -h"
         return_code = launch_bash_command(command)
