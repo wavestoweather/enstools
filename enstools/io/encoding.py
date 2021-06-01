@@ -1,3 +1,6 @@
+from numpy.core.fromnumeric import compress
+
+
 def set_encoding(ds, compression_options):
     """
     Create a dictionary with the encoding that will be passed to the hdf5 engine.
@@ -40,6 +43,14 @@ def set_encoding(ds, compression_options):
            
     
     """
+    # If compression options is None (or string None/none) return None
+    if compression_options is None:
+        return None
+    elif compression_options == "None":
+        return None
+    elif compression_options == "none":
+        return None
+    
     # Parsing the compression options
     mode, options = parse_compression_options(compression_options)
 
