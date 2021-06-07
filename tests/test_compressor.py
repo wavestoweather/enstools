@@ -224,11 +224,11 @@ class EnstoolsCompressorTestCases(unittest.TestCase):
         input_tempdir = self.input_tempdir
         output_tempdir = self.output_tempdir
         import json
-        # Check that compression works when specifying compression = lossy:sz
+        
         datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
         compression_parameters = {"default":"lossless",
                                   "temperature": "lossy:zfp:rate:3",
-                                  "precipitation": "lossy:sz:rel:.1",
+                                  "precipitation": "lossless",
                                   }
         json_file_path = input_tempdir.getpath()+"/compression.json"
         with open(json_file_path, "w") as out_file:
@@ -240,6 +240,29 @@ class EnstoolsCompressorTestCases(unittest.TestCase):
             command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
             return_code = launch_bash_command(command)
             self.assertFalse(return_code)
+
+    def test_compress_yaml_parameters(self):
+        input_tempdir = self.input_tempdir
+        output_tempdir = self.output_tempdir
+        import yaml
+        
+        datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
+        compression_parameters = {"default":"lossless",
+                                  "temperature": "lossy:zfp:rate:3",
+                                  "precipitation": "lossless",
+                                  }
+        json_file_path = input_tempdir.getpath()+"/compression.yaml"
+        with open(json_file_path, "w") as out_file:
+            yaml.dump(compression_parameters, out_file)
+        compression = json_file_path
+        for ds in datasets:
+            input_path = join(input_tempdir.getpath(), ds)
+            output_path = output_tempdir.getpath()
+            command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
+            return_code = launch_bash_command(command)
+            self.assertFalse(return_code)
+
+
 
     def test_compress_auto(self):
         input_tempdir = self.input_tempdir
