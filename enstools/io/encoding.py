@@ -523,14 +523,31 @@ def parse_sz_compression_options(arguments):
 
 
 def parse_configuration_file(filename):
-    import json
 
+    # Look for file format:
+    if filename.count(".json"):
+        file_format = "json"
+    elif filename.count(".yaml"):
+        file_format = "yaml"
+    else:
+        raise AssertionError("Unknown configuration file format, expecting json or yaml")
+
+    if file_format == "json":
+        import json
+        load_function = json.loads
+    elif file_format == "yaml":
+        import yaml
+        load_function = yaml.load
+    else:
+        raise AssertionError("Unknown configuration file format, expecting json or yaml")
+
+    
     # Initialize dictionaries
     dictionary_of_filter_ids = {}
     dictionary_of_compression_options = {}
 
     with open(filename) as f:
-        specifications = json.loads(f.read())
+        specifications = load_function(f.read())
 
     for key, options in specifications.items():
         filter_id, compression_options = filter_and_options_from_command_line_arguments(options)
@@ -538,6 +555,7 @@ def parse_configuration_file(filename):
         dictionary_of_compression_options[key] = compression_options
 
     return dictionary_of_filter_ids, dictionary_of_compression_options
+
 
 
 def encoding_description(encoding):
@@ -625,3 +643,19 @@ def check_filter_availability(filter_id):
     """
     import h5py
     return h5py.h5z.filter_avail(filter_id)
+
+def filter_availability_report():
+    if check_blosc_availability():
+        print("Filter BLOSC is available")
+    else:
+        print("Filter BLOSC is NOT available")
+    
+    if check_zfp_availability():
+        print("Filter ZFP is available")
+    else:
+        print("Filter ZFP is NOT available")
+    
+    if check_sz_availability():
+        print("Filter SZ is available")
+    else:
+        print("Filter SZ is NOT available")
