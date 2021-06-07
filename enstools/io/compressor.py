@@ -103,7 +103,7 @@ def compress(output_folder, file_paths, compression, nodes, variables_to_keep=No
     # In case of using automatic compression option, call here get_compression_parameters()
     if compression == "auto":
         from .analyzer import analyze
-        compression_parameters_path = "compression_parameters.json"
+        compression_parameters_path = "compression_parameters.yaml"
         analyze(file_paths, correlation_threshold=0.99999, output_file=compression_parameters_path)
         # Now lets continue setting compression = compression_parameters_path
         compression = compression_parameters_path
