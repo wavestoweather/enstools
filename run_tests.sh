@@ -30,6 +30,7 @@ fi
 
 # create a virtual environement and install all dependencies
 if [[ ! -d venv ]] ; then
+    module load python
     python3 -m venv --prompt enstools venv
     source venv/bin/activate
     pip install -U pip
