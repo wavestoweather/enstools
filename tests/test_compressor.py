@@ -61,280 +61,183 @@ def create_synthetic_dataset(directory):
         ds_name = "dataset_%iD.nc" % dimension
         ds.to_netcdf(join(directory, ds_name))
 
+
 def file_size(file_path):
     from pathlib import Path
     return Path(file_path).stat().st_size
 
 folders = None
 
-@pytest.fixture(autouse=True)
-def wrapper():
-    """
-    This code will be executed with all the tests
-    :return:
-    """
-    """
-    Creates two temporary directories:
-    - Input directory: Will store the synthetic data created for the test
-    - Output directory: Will store the compressed synthetic data
-    :return: Tempdir, Tempdir
-    """
-    from enstools.core.tempdir import TempDir
-    # Create temporary directory in which we'll put some synthetic datasets
-    input_tempdir = TempDir(check_free_space=False)
-    output_tempdir = TempDir(check_free_space=False)
-    create_synthetic_dataset(input_tempdir.getpath())
-    global folders
-    folders = [input_tempdir, output_tempdir]
-
-    yield
-
-    input_tempdir.cleanup()
-    output_tempdir.cleanup()
+def wrapper(cls, compression=None):
+        from enstools.io import compress
+        input_tempdir = cls.input_tempdir
+        output_tempdir = cls.output_tempdir
+        # Check that the compression without specifying compression parameters works
+        datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
+        for ds in datasets:
+            input_path = join(input_tempdir.getpath(), ds)
+            output_path = output_tempdir.getpath()
+            # Import and launch compress function
+            compress(output_path, [input_path], compression=compression, nodes=0)
 
 
-def test_dataset_exists():
-    input_tempdir, output_tempdir = folders
-    tempdir_path = input_tempdir.getpath()
-
-    datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-    for ds in datasets:
-        assert isfile(join(tempdir_path, ds))
-
-@pytest.mark.script_launch_mode('subprocess')
-def test_foo_bar(script_runner):
-    ret = script_runner.run('ls')
-    assert ret.success
-
-@pytest.mark.script_launch_mode('subprocess')
-def test_bash(script_runner):
-    input_tempdir, output_tempdir = folders
-    tempdir_path = input_tempdir.getpath()
-    command = ["ls",tempdir_path]
-    ret = script_runner.run(*command)
-    assert ret.success
-
-
-@pytest.mark.script_launch_mode('subprocess')
-def test_command_is_available(script_runner):
-    command = ["enstools-compressor","-h"]
-    ret = script_runner.run(*command)
-    assert ret.success
-
-@pytest.mark.script_launch_mode('subprocess')
-def test_compress_vanilla(script_runner):
-    input_tempdir, output_tempdir = folders
-    # Check that the compression without specifying compression parameters works
-    datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-    for ds in datasets:
-        input_path = join(input_tempdir.getpath(), ds)
-        output_path = output_tempdir.getpath()
-        #command = f"enstools-compressor compress {input_path} -o {output_path}"
-        command = ["enstools-compressor","compress",input_path,"-o",output_path]
-        ret = script_runner.run(*command)
-        assert ret.success
-
-# def test_compress_lossless(self):
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
-#     # Check that compression works when specifying compression = lossless
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-#     compression = "lossless"
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
-
-# def test_compress_lossy(self):
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
-#     # Check that compression works when specifying compression = lossless
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-#     compression = "lossy"
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
-
-# def test_compress_sz(self):
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
-#     # Check that compression works when specifying compression = lossy:sz
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-#     compression = "lossy:sz"
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
-
-# def test_compress_sz_pw_rel(self):
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
-#     # Check that compression works when specifying compression = lossy:sz
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-#     compression = "lossy:sz:pw_rel:0.1"
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
-
-# def test_compress_zfp_vanilla(self):
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
-#     # Check that compression works when specifying compression = lossy:sz
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-#     compression = "lossy:zfp"
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
-
-# def test_compress_zfp_rate_1(self):
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
-#     # Check that compression works when specifying compression = lossy:sz
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-#     compression = "lossy:zfp:rate:1"
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
-
-# def test_compress_json_parameters(self):
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
-#     import json
+class TestClass:
+    @classmethod
+    def setup_class(cls):
+        """
+        This code will be executed at the beginning of the tests.
+        We will be launching the
+        :return:
+        """
+        """
+        Creates two temporary directories:
+        - Input directory: Will store the synthetic data created for the test
+        - Output directory: Will store the compressed synthetic data
+        :return: Tempdir, Tempdir
+        """
+        from enstools.core.tempdir import TempDir
+        # Create temporary directory in which we'll put some synthetic datasets
+        cls.input_tempdir = TempDir(check_free_space=False)
+        cls.output_tempdir = TempDir(check_free_space=False)
+        create_synthetic_dataset(cls.input_tempdir.getpath())
+    @classmethod
+    def teardown_class(cls):
+        # release resources
+        cls.input_tempdir.cleanup()
+        cls.output_tempdir.cleanup()
     
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-#     compression_parameters = {"default":"lossless",
-#                                 "temperature": "lossy:zfp:rate:3",
-#                                 "precipitation": "lossless",
-#                                 }
-#     json_file_path = input_tempdir.getpath()+"/compression.json"
-#     with open(json_file_path, "w") as out_file:
-#         json.dump(compression_parameters, out_file)
-#     compression = json_file_path
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
+    def test_dataset_exists(self):
+        input_tempdir = self.input_tempdir
+        output_tempdir = self.output_tempdir
+        tempdir_path = input_tempdir.getpath()
 
-# def test_compress_yaml_parameters(self):
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
-#     import yaml
-    
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-#     compression_parameters = {"default":"lossless",
-#                                 "temperature": "lossy:zfp:rate:3",
-#                                 "precipitation": "lossless",
-#                                 }
-#     json_file_path = input_tempdir.getpath()+"/compression.yaml"
-#     with open(json_file_path, "w") as out_file:
-#         yaml.dump(compression_parameters, out_file)
-#     compression = json_file_path
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
+        datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
+        for ds in datasets:
+            assert isfile(join(tempdir_path, ds))
 
 
 
-# def test_compress_auto(self):
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
-#     # Check that compression works when specifying compression = lossy:sz
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-#     compression = "auto"
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
+    def test_compress_vanilla(self):
+        wrapper(self)
 
-# def test_compress_ratios_lossy(self):
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
-#     # Check that compression works when specifying compression = lossy:sz
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-#     compression = "lossy"
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         output_file_path = join(output_path, ds)
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
-#         initial_size = file_size(input_path)
-#         final_size = file_size(output_file_path)
-#         self.assertGreater(initial_size, final_size)
+    def test_compress_lossless(self):
+        compression = "lossless"
+        wrapper(self, compression=compression)
+        
+    def test_compress_lossy(self):
+        compression = "lossy"
+        wrapper(self, compression=compression)
 
-# def test_compress_ratios_lossless(self):
-#     # Check that compression works when specifying compression = lossy:sz
-#     input_tempdir = self.input_tempdir
-#     output_tempdir = self.output_tempdir
+    def test_compress_sz_pw_rel(self):
+        compression = "lossy:sz:pw_rel:0.1"
+        wrapper(self, compression=compression)
 
-#     datasets = ["dataset_%iD.nc" % dimension for dimension in range(2, 4)]
-#     compression = "lossless"
-#     for ds in datasets:
-#         input_path = join(input_tempdir.getpath(), ds)
-#         output_path = output_tempdir.getpath()
-#         output_file_path = join(output_path, ds)
-#         command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression}"
-#         return_code = launch_bash_command(command)
-#         self.assertFalse(return_code)
-#         initial_size = file_size(input_path)
-#         final_size = file_size(output_file_path)
-#         self.assertGreater(initial_size, final_size)
+    def test_compress_zfp_vanilla(self):
+        compression = "lossy:zfp"
+        wrapper(self, compression=compression)
 
-# #def test_compress_multinode(self):
-# #    # Check that compression works when specifying compression = lossy:sz
-# #    input_tempdir = self.input_tempdir
-# #    output_tempdir = self.output_tempdir
-
-# #    datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
-# #    compression = "lossless"
-# #    for ds in datasets:
-# #        input_path = join(input_tempdir.getpath(), ds)
-# #        output_path = output_tempdir.getpath()
-# #        output_file_path = join(output_path, ds)
-# #        command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression} -N 2"
-# #        #return_code = launch_bash_command(command)
-# #        self.assertFalse(False)
-
-# def test_filters_availability(self):
-#     from enstools.io.encoding import check_all_filters_availability
-#     self.assertTrue(check_all_filters_availability())
-
-# def test_blosc_filter_availability(self):
-#     from enstools.io.encoding import check_blosc_availability
-#     self.assertTrue(check_blosc_availability)
-
-# def test_zfp_filter_availability(self):
-#     from enstools.io.encoding import check_zfp_availability
-#     self.assertTrue(check_zfp_availability)
-
-# def test_sz_filter_availability(self):
-#     from enstools.io.encoding import check_sz_availability
-#     self.assertTrue(check_sz_availability)
+    def test_compress_zfp_rate_1(self):
+        compression = "lossy:zfp:rate:1"
+        wrapper(self, compression=compression)
+        
+    def test_compress_json_parameters(self):
+        input_tempdir = self.input_tempdir
+        import json
+        
+        datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
+        compression_parameters = {"default":"lossless",
+                                    "temperature": "lossy:zfp:rate:3",
+                                    "precipitation": "lossless",
+                                    }
+        json_file_path = input_tempdir.getpath()+"/compression.json"
+        with open(json_file_path, "w") as out_file:
+            json.dump(compression_parameters, out_file)
+        compression = json_file_path
+        wrapper(self, compression=compression)
+        
+    def test_compress_yaml_parameters(self):
+        input_tempdir = self.input_tempdir
+        import yaml
+        
+        datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
+        compression_parameters = {"default":"lossless",
+                                    "temperature": "lossy:zfp:rate:3",
+                                    "precipitation": "lossless",
+                                    }
+        yaml_file_path = input_tempdir.getpath()+"/compression.yaml"
+        with open(yaml_file_path, "w") as out_file:
+            yaml.dump(compression_parameters, out_file)
+        compression = yaml_file_path
+        wrapper(self, compression=compression)
+        
 
 
-# if __name__ == '__main__':
-#     unittest.main()
+    def test_compress_auto(self):
+        compression="auto"
+        wrapper(self, compression=compression)
+
+    def test_compress_ratios_lossy(self):
+        from enstools.io import compress
+        input_tempdir = self.input_tempdir
+        output_tempdir = self.output_tempdir
+        # Check that compression works when specifying compression = lossy:sz
+        datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
+        compression = "lossy"
+        for ds in datasets:
+            input_path = join(input_tempdir.getpath(), ds)
+            output_path = output_tempdir.getpath()
+            output_file_path = join(output_path, ds)
+            compress(output_path, [input_path], compression=compression, nodes=0)    
+            initial_size = file_size(input_path)
+            final_size = file_size(output_file_path)
+            assert initial_size > final_size
+
+    def test_compress_ratios_lossless(self):
+        from enstools.io import compress
+        # Check that compression works when specifying compression = lossy:sz
+        input_tempdir = self.input_tempdir
+        output_tempdir = self.output_tempdir
+
+        datasets = ["dataset_%iD.nc" % dimension for dimension in range(2, 4)]
+        compression = "lossless"
+        for ds in datasets:
+            input_path = join(input_tempdir.getpath(), ds)
+            output_path = output_tempdir.getpath()
+            output_file_path = join(output_path, ds)
+            compress(output_path, [input_path], compression=compression, nodes=0)    
+            initial_size = file_size(input_path)
+            final_size = file_size(output_file_path)
+            assert initial_size > final_size
+        
+    #def test_compress_multinode(self):
+    #    # Check that compression works when specifying compression = lossy:sz
+    #    input_tempdir = self.input_tempdir
+    #    output_tempdir = self.output_tempdir
+
+    #    datasets = ["dataset_%iD.nc" % dimension for dimension in range(1, 4)]
+    #    compression = "lossless"
+    #    for ds in datasets:
+    #        input_path = join(input_tempdir.getpath(), ds)
+    #        output_path = output_tempdir.getpath()
+    #        output_file_path = join(output_path, ds)
+    #        command = f"enstools-compressor compress {input_path} -o {output_path} --compression {compression} -N 2"
+    #        #return_code = launch_bash_command(command)
+    #        self.assertFalse(False)
+
+    def test_filters_availability(self):
+        from enstools.io.encoding import check_all_filters_availability
+        assert check_all_filters_availability()
+
+    def test_blosc_filter_availability(self):
+        from enstools.io.encoding import check_blosc_availability
+        assert check_blosc_availability
+
+    def test_zfp_filter_availability(self):
+        from enstools.io.encoding import check_zfp_availability
+        assert check_zfp_availability
+
+    def test_sz_filter_availability(self):
+        from enstools.io.encoding import check_sz_availability
+        assert check_sz_availability
+
+
