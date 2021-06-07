@@ -537,7 +537,8 @@ def parse_configuration_file(filename):
         load_function = json.loads
     elif file_format == "yaml":
         import yaml
-        load_function = yaml.load
+        def load_function(stream):
+             return yaml.load( stream, yaml.SafeLoader)
     else:
         raise AssertionError("Unknown configuration file format, expecting json or yaml")
 
