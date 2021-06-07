@@ -43,9 +43,6 @@ if [[ ! -d venv ]] ; then
 fi
 
 
-# Check availability of enstools-compressor 
-enstools-compressor -h
-
 
 source venv/bin/activate
 pytest ${ignore_option}
