@@ -129,7 +129,7 @@ class TestClass:
         compression = "lossy"
         wrapper(self, compression=compression)
 
-    @pytest.mark.skipif( not check_sz_availability, reason="Requires SZ")
+    @pytest.mark.skipif( not check_sz_availability(), reason="Requires SZ")
     def test_compress_sz_pw_rel(self):
         compression = "lossy:sz:pw_rel:0.1"
         wrapper(self, compression=compression)
@@ -226,6 +226,7 @@ class TestClass:
     #        #return_code = launch_bash_command(command)
     #        self.assertFalse(False)
 
+    @pytest.mark.skipif( not check_sz_availability(), reason="Requires SZ")
     def test_filters_availability(self):
         from enstools.io.encoding import check_all_filters_availability
         assert check_all_filters_availability()
