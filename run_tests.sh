@@ -39,6 +39,7 @@ if [[ ! -d venv ]] ; then
     pip install -U pip
     pip install -e .
     pip install pytest
+    pip install pytest-console-scripts
 fi
 
 
