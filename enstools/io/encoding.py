@@ -660,3 +660,30 @@ def filter_availability_report():
         print("Filter SZ is available")
     else:
         print("Filter SZ is NOT available")
+
+def check_compression_filters_availability(dataset):
+    # Check filter availability
+    import re
+    filters_in_dataset = []
+    # Check if the variables have a compression attribute
+    for var in dataset.variables:
+        if "compression" in dataset[var].attrs.keys():
+            compression_spec = dataset[var].attrs["compression"]
+            comp_id = int(re.search("id:([0-9]+)", compression_spec).group(1))
+            filters_in_dataset.append(comp_id)
+
+    # Set of filters
+    filters_in_dataset = set(filters_in_dataset)
+
+    # Check availability filter by filter
+    for filter_id in filters_in_dataset:
+        if filter_id == 32017:
+            if not check_sz_availability():
+                return False
+        elif filter_id == 32013:
+            if not check_zfp_availability():
+                return False
+        elif filter_id == 32001:
+            if not check_blosc_availability():
+                return False
+    return True
