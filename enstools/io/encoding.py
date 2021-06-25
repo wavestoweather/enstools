@@ -661,6 +661,7 @@ def filter_availability_report():
     else:
         print("Filter SZ is NOT available")
 
+
 def check_compression_filters_availability(dataset):
     # Check filter availability
     import re
@@ -669,8 +670,10 @@ def check_compression_filters_availability(dataset):
     for var in dataset.variables:
         if "compression" in dataset[var].attrs.keys():
             compression_spec = dataset[var].attrs["compression"]
-            comp_id = int(re.search("id:([0-9]+)", compression_spec).group(1))
-            filters_in_dataset.append(comp_id)
+            m = re.search("id:([0-9]+)", compression_spec)
+            if m:
+                comp_id = int(m.group(1))
+                filters_in_dataset.append(comp_id)
 
     # Set of filters
     filters_in_dataset = set(filters_in_dataset)
