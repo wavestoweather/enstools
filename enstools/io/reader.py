@@ -493,7 +493,10 @@ def __open_dataset(filename, client, worker, decode_times=True, **kwargs):
     # check for additional coordinate variables like staggered lat/lon values
     for one_name, one_var in six.iteritems(result.data_vars):
         if is_additional_coordinate_variable(one_var):
-            result.set_coords(one_name, True)
+            try:
+                result.set_coords(one_name, True)
+            except TypeError:
+                result.set_coords(one_name)
 
     # drop unused coords
     if kwargs.get("drop_unused", False):
