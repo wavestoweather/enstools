@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-
-
 function usage {
     echo "arguments:"
     echo "-r    skip tests with R"
@@ -33,16 +31,12 @@ unset PYTHONPATH
 
 # create a virtual environement and install all dependencies
 if [[ ! -d venv ]] ; then
-    module load python
     python3 -m venv --prompt enstools venv
     source venv/bin/activate
     pip install -U pip
     pip install -e .
     pip install pytest
-    pip install pytest-console-scripts
 fi
-
-
 
 source venv/bin/activate
 pytest ${ignore_option}
