@@ -27,11 +27,11 @@ if [[ ! -z $excluded_files ]] ; then
 fi
 
 # if there is a PYTHONPATH, remove it
-unset PYTHONPATH
+#unset PYTHONPATH
 
 # create a virtual environement and install all dependencies
 if [[ ! -d venv ]] ; then
-    module load python
+    module load python/3.9-2021.06 
     python3 -m venv --prompt enstools venv
     source venv/bin/activate
     pip install -U pip
