@@ -26,6 +26,9 @@ if [[ ! -z $excluded_files ]] ; then
     ignore_option="--ignore=$excluded_files"
 fi
 
+# if there is a PYTHONPATH, remove it
+unset PYTHONPATH
+
 # create a virtual environement and install all dependencies
 if [[ ! -d venv ]] ; then
     python3 -m venv --prompt enstools venv
