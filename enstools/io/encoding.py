@@ -43,6 +43,22 @@ def set_encoding(ds, compression_options):
            
     
     """
+
+    if compression_options == "default":
+        # For now, probably the more convinient option is to keep the default behaviour as not
+        # not using any compression.
+        return None
+        # In the future one option is to apply lossless compression as default if the filter is available in the system
+        # also non-python applications.
+        """ In case we consider that would be good to reestablish the lossless compression as default here we have the code:
+        if check_blosc_availability():
+            print("Using lossless compression by default")
+            compression_options = "lossless"
+        else:
+            return None
+        """
+        
+    
     # If compression options is None (or string None/none) return None
     if compression_options is None:
         return None
