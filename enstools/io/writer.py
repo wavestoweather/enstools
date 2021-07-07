@@ -9,7 +9,7 @@ import six
 from distutils.version import LooseVersion
 
 
-def write(ds, filename, file_format=None, compression="lossless", compute=True):
+def write(ds, filename, file_format=None, compression="default", compute=True):
     """
     write a xarray dataset to a file
 
