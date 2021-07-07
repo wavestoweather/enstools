@@ -178,6 +178,7 @@ class TestClass:
         compression="auto"
         wrapper(self, compression=compression)
 
+    """
     def test_compress_ratios_lossy(self):
         from enstools.io import compress
         input_tempdir = self.input_tempdir
@@ -193,7 +194,8 @@ class TestClass:
             initial_size = file_size(input_path)
             final_size = file_size(output_file_path)
             assert initial_size > final_size
-
+    """
+    
     def test_compress_ratios_lossless(self):
         from enstools.io import compress
         # Check that compression works when specifying compression = lossy:sz
