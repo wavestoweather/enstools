@@ -12,6 +12,7 @@ import glob
 from enstools.misc import has_ensemble_dim, add_ensemble_dim, is_additional_coordinate_variable, first_element, \
     has_dask_arrays, set_ensemble_member
 from enstools.core import get_client_and_worker
+from enstools.io.encoding import check_compression_filters_availability
 from .dataset import drop_unused
 from .file_type import get_file_type
 try:
@@ -253,6 +254,8 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         else:
             result = xarray.auto_combine(datasets)
 
+    
+    assert check_compression_filters_availability(result), "The dataset uses some filters that are not available."
 
     return result
 
@@ -493,7 +496,10 @@ def __open_dataset(filename, client, worker, decode_times=True, **kwargs):
     # check for additional coordinate variables like staggered lat/lon values
     for one_name, one_var in six.iteritems(result.data_vars):
         if is_additional_coordinate_variable(one_var):
-            result.set_coords(one_name, True)
+            try:
+                result.set_coords(one_name, True)
+            except TypeError:
+                result.set_coords(one_name)
 
     # drop unused coords
     if kwargs.get("drop_unused", False):
