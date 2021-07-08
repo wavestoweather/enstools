@@ -1,3 +1,6 @@
+from numpy.core.fromnumeric import compress
+
+
 def set_encoding(ds, compression_options):
     """
     Create a dictionary with the encoding that will be passed to the hdf5 engine.
@@ -40,6 +43,30 @@ def set_encoding(ds, compression_options):
            
     
     """
+
+    if compression_options == "default":
+        # For now, probably the more convinient option is to keep the default behaviour as not
+        # not using any compression.
+        return None
+        # In the future one option is to apply lossless compression as default if the filter is available in the system
+        # also non-python applications.
+        """ In case we consider that would be good to reestablish the lossless compression as default here we have the code:
+        if check_blosc_availability():
+            print("Using lossless compression by default")
+            compression_options = "lossless"
+        else:
+            return None
+        """
+        
+    
+    # If compression options is None (or string None/none) return None
+    if compression_options is None:
+        return None
+    elif compression_options == "None":
+        return None
+    elif compression_options == "none":
+        return None
+    
     # Parsing the compression options
     mode, options = parse_compression_options(compression_options)
 
@@ -512,14 +539,32 @@ def parse_sz_compression_options(arguments):
 
 
 def parse_configuration_file(filename):
-    import json
 
+    # Look for file format:
+    if filename.count(".json"):
+        file_format = "json"
+    elif filename.count(".yaml"):
+        file_format = "yaml"
+    else:
+        raise AssertionError("Unknown configuration file format, expecting json or yaml")
+
+    if file_format == "json":
+        import json
+        load_function = json.loads
+    elif file_format == "yaml":
+        import yaml
+        def load_function(stream):
+             return yaml.load( stream, yaml.SafeLoader)
+    else:
+        raise AssertionError("Unknown configuration file format, expecting json or yaml")
+
+    
     # Initialize dictionaries
     dictionary_of_filter_ids = {}
     dictionary_of_compression_options = {}
 
     with open(filename) as f:
-        specifications = json.loads(f.read())
+        specifications = load_function(f.read())
 
     for key, options in specifications.items():
         filter_id, compression_options = filter_and_options_from_command_line_arguments(options)
@@ -527,6 +572,7 @@ def parse_configuration_file(filename):
         dictionary_of_compression_options[key] = compression_options
 
     return dictionary_of_filter_ids, dictionary_of_compression_options
+
 
 
 def encoding_description(encoding):
@@ -614,3 +660,49 @@ def check_filter_availability(filter_id):
     """
     import h5py
     return h5py.h5z.filter_avail(filter_id)
+
+def filter_availability_report():
+    if check_blosc_availability():
+        print("Filter BLOSC is available")
+    else:
+        print("Filter BLOSC is NOT available")
+    
+    if check_zfp_availability():
+        print("Filter ZFP is available")
+    else:
+        print("Filter ZFP is NOT available")
+    
+    if check_sz_availability():
+        print("Filter SZ is available")
+    else:
+        print("Filter SZ is NOT available")
+
+
+def check_compression_filters_availability(dataset):
+    # Check filter availability
+    import re
+    filters_in_dataset = []
+    # Check if the variables have a compression attribute
+    for var in dataset.variables:
+        if "compression" in dataset[var].attrs.keys():
+            compression_spec = dataset[var].attrs["compression"]
+            m = re.search("id:([0-9]+)", compression_spec)
+            if m:
+                comp_id = int(m.group(1))
+                filters_in_dataset.append(comp_id)
+
+    # Set of filters
+    filters_in_dataset = set(filters_in_dataset)
+
+    # Check availability filter by filter
+    for filter_id in filters_in_dataset:
+        if filter_id == 32017:
+            if not check_sz_availability():
+                return False
+        elif filter_id == 32013:
+            if not check_zfp_availability():
+                return False
+        elif filter_id == 32001:
+            if not check_blosc_availability():
+                return False
+    return True

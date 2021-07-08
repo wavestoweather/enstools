@@ -27,7 +27,14 @@ def zfp_analyze_variable(dataset, variable_name, mode, correlation_threshold=0.9
     except ValueError:
         variable_data = dataset[variable_name]
     variable_data = np.squeeze(variable_data.values)
+    # Check if the array contains any nan
+    contains_nan = np.isnan(variable_data).any()
 
+    if contains_nan:
+        logging.debug("The data of the following variable contains NaN: %s, falling back to BLOSC compression." % variable_name)
+        return "lossless"
+    # Replace NaNs with ones
+    #variable_data[np.isnan(variable_data)] = 1
     if len(variable_data.shape) == 1:
         logging.debug("1D variable found: %s, falling back to BLOSC compression." % variable_name)
         return "lossless"
