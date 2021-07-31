@@ -20,7 +20,7 @@ from .cluster import init_cluster, get_num_available_procs, get_client_and_worke
 from .os_support import getstatusoutput
 
 # to convert enstools into a namespace package, the version is now listed here and not in the level above
-__version__ = "2021.05.a1"
+__version__ = "2021.7"
 
 
 class UnitRegistry(pint.UnitRegistry):
