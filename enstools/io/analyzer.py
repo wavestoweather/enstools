@@ -22,6 +22,8 @@ def zfp_analyze_variable(dataset, variable_name, mode, correlation_threshold=0.9
     import logging
     try:
         variable_data = dataset[variable_name].sel(time=dataset["time"][0])
+    except KeyError:
+        variable_data = dataset[variable_name]
     except IndexError:
         variable_data = dataset[variable_name]
     except ValueError:
