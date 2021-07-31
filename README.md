@@ -1,10 +1,25 @@
-# Installation using pip in local environment (recommended)
+# Ensemble Tools
+
+This package provides core functionality to Python-based tools developed within
+the framework of [Waves to Weather - Transregional Collaborative Research 
+Project (SFB/TRR165)](https://wavestoweather.de). 
+
+Shared functionality includes:
+- Clustering (`enstools.clustering`)
+- Interpolation (`enstools.interpolation`)
+- Reading and Writing data (`enstools.io`)
+- Retrieval of open data (`enstools.opendata`)
+- Post-processing (`enstools.post`)
+- Scores (`enstools.scores`)
+
+## Installation using pip in local environment
 
 At first create a new python virtual environment:
 
     python3 -m venv --prompt=enstools venv
 
-That will create a new folder `venv` containing the new environment. To use this environment, we need to activate it:
+That will create a new folder `venv` containing the new environment. To use
+this environment, we need to activate it:
 
     source venv/bin/activate
 
@@ -17,25 +32,3 @@ versions for the installation to run:
 Now we can install `enstools` in development mode into our new environment:
 
     pip install -e .
-
-# Installation of dependencies in `conda` environment (currently not supported)
-
-The `enstools` package has now full support for Python 2 and Python 3. For new developments, it is highly recommended to
-use only Python 3. Important dependencies like `numpy` will stop to support Python 2 soon.
-
-    conda create -n enstools
-    conda install -n enstools -c conda-forge numpy numba xarray dask distributed cloudpickle toolz pint nose scikit-learn eccodes cartopy decorator multipledispatch cffi cachey
-    source activate enstools
-
-# Installation in user home directory
-
-    python2 setup.py install --user
-    
-or 
-
-    python3 setup.py install --user
-
-If you want to use the `crps` function you have to install it in R once manually:
-
-1.) open R
-2.) install.packages("scoringRules")
