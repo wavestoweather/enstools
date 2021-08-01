@@ -67,7 +67,7 @@ def get_ip_address(interface=None):
         if sts != 0:
             raise OSError("unable to get list of interfaces: %s" % out)
         # extract a list of all interfaces from the output
-        interface_lines = re.split("^\d+: ", out, flags=re.MULTILINE)
+        interface_lines = re.split(r"^\d+: ", out, flags=re.MULTILINE)
         for line in interface_lines[1:]:
             iface = line.split(":", 1)[0]
             interfaces[iface] = {}
@@ -80,7 +80,7 @@ def get_ip_address(interface=None):
         sts, out = getstatusoutput("ip addr show %s" % one_interface)
         if sts != 0:
             raise OSError("unable to the ip address for interface %s" % one_interface)
-        addr_match = re.search("inet (\d+.\d+.\d+.\d+)", out)
+        addr_match = re.search(r"inet (\d+.\d+.\d+.\d+)", out)
         if addr_match is None:
             logging.debug("get_ip_address: no IP address found for interface %s" % one_interface)
             interfaces[one_interface]["ip"] = None

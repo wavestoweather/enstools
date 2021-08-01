@@ -37,7 +37,7 @@ class UnitRegistry(pint.UnitRegistry):
 
     # adapted parser for units with minus sign
     def __call__(self, *args, **kwargs):
-        return super(UnitRegistry, self).__call__(re.sub("([a-zA-Z]+)(-[0-9]+)", "\g<1>**\g<2>", args[0]))
+        return super(UnitRegistry, self).__call__(re.sub("([a-zA-Z]+)(-[0-9]+)", r"\g<1>**\g<2>", args[0]))
 
 
 # do not use the cache with dask 0.18.0: https://github.com/dask/dask/pull/3632
