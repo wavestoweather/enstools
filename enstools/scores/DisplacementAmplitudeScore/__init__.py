@@ -89,10 +89,10 @@ def das(obs, fct, factor=4, threshold=None):
     # morph obs to fct, fct-space
     morph_f, xdis_f, ydis_f, lse_f = match_pyramid(obs, fct, factor=factor)
 
-    # calculate DAS - displacement and almplitude score
+    # calculate DAS - displacement and amplitude score
     dis_max = np.sqrt(2.) * 2. ** (factor + 2.)
-    x1 = np.int(2 * 2 ** factor)
-    y2, x2 = [np.int(s - x1) for s in np.shape(obs)]
+    x1 = int(2 * 2 ** factor)
+    y2, x2 = [int(s - x1) for s in np.shape(obs)]
     das, dis, amp, rms_obs = calc_das.calc_das(obs, fct, xdis_o, ydis_o, lse_o, xdis_f, ydis_f, lse_f, dis_max,
                                                threshold=threshold, x1=x1, y1=x1, x2=x2, y2=y2)
 

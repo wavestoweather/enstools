@@ -38,7 +38,7 @@ def embed_image(im, fac=None, sRow=None, sCol=None):
     if sCol is not None:
         n = (n // int(sCol) + 1) * int(sCol)
     if m > nRows or n > nColumns:
-        im_handle = np.zeros((m, n), dtype=np.float)
+        im_handle = np.zeros((m, n), dtype=im.dtype)
         im_handle[:nRows, :nColumns] = im
         return im_handle
     return im
@@ -73,8 +73,8 @@ def map_backward(image, xdis, ydis):
 
     # seperate displacement in integer (lower value:floor() )  and float values
     # notice: displacement vectors can point in between an area of four surrounding elements
-    ixdis = np.array(np.floor(xdis), dtype='int')
-    iydis = np.array(np.floor(ydis), dtype='int')
+    ixdis = np.array(np.floor(xdis), dtype=int)
+    iydis = np.array(np.floor(ydis), dtype=int)
     fxdis = xdis - ixdis
     fydis = ydis - iydis
     fxydis = fxdis * fydis
@@ -142,8 +142,8 @@ def match_pyramid(image1, image2, factor=4, sigma=5 / 3.):
     tuple
             morphed image, x-displacement and y-displacement of each data point and least square error of morphed image.
     """
-    image1 = np.array(image1, dtype=np.float)
-    image2 = np.array(image2, dtype=np.float)
+    image1 = np.array(image1, dtype=image1.dtype)
+    image2 = np.array(image2, dtype=image2.dtype)
     oS = np.shape(image1)
 
     # make sure images have powers of 2 as sizes
@@ -152,8 +152,8 @@ def match_pyramid(image1, image2, factor=4, sigma=5 / 3.):
     f1 = im1.copy()
 
     # initialize displacement vectors
-    xdis = np.zeros(np.shape(im1), dtype=float)
-    ydis = np.zeros(np.shape(im1), dtype=float)
+    xdis = np.zeros(np.shape(im1), dtype=np.float32)
+    ydis = np.zeros(np.shape(im1), dtype=np.float32)
 
     ke = gauss_kern(2, sigma)
     zoom = ndimage.zoom  # resize and array with cubic spline interpolation with given order
@@ -161,31 +161,31 @@ def match_pyramid(image1, image2, factor=4, sigma=5 / 3.):
 
     # start pyramide
     for s in range(factor, -1, -1):
-        zoomfac = 2. ** s
+        zoomfac = 2 ** s
         n1 = downsize(f1, zoomfac)
         n2 = downsize(im2, zoomfac)
 
         xd = np.zeros(np.shape(n1), dtype=int)
         yd = np.zeros(np.shape(n1), dtype=int)
-        qu = convolve(((n1 - n2) ** 2).astype(np.float), ke, mode='nearest')
+        qu = convolve(((n1 - n2) ** 2).astype(n1.dtype), ke, mode='nearest')
 
         # search in area (-2 to 2) for best dispacement
         for i in range(-2, 3):
             for j in range(-2, 3):
                 n1s = np.roll(np.roll(n1, i, axis=1), j, axis=0)  # shift image array, wrap ends around edges
-                sm = convolve(((n1s - n2) ** 2).astype(np.float), ke, mode='nearest')
+                sm = convolve(((n1s - n2) ** 2).astype(n1s.dtype), ke, mode='nearest')
                 ind = np.where((sm < qu))
                 xd[ind] = i
                 yd[ind] = j
                 qu[ind] = sm[ind]
 
-        xdis -= zoom(convolve(xd.astype(np.float) * zoomfac, ke, mode='constant'), zoomfac,
+        xdis -= zoom(convolve(xd.astype(np.float32) * zoomfac, ke, mode='constant'), zoomfac,
                      order=1)  # resize using linear interpolation
-        ydis -= zoom(convolve(yd.astype(np.float) * zoomfac, ke, mode='constant'), zoomfac, order=1)
+        ydis -= zoom(convolve(yd.astype(np.float32) * zoomfac, ke, mode='constant'), zoomfac, order=1)
 
         f1 = map_backward(im1, xdis, ydis)
 
-    lse = convolve(qu, ke, mode='nearest')[:oS[0], :oS[1]]
+        lse = convolve(qu, ke, mode='nearest')[:oS[0], :oS[1]]
     #	lse = convolve(((f1-im2)**2).astype(np.float), gauss_kern(2,.5), mode='nearest')[:oS[0],:oS[1]]
     #	lse = ((f1-im2)**2).astype(np.float)[:oS[0],:oS[1]]
     f1 = f1[:oS[0], :oS[1]]
