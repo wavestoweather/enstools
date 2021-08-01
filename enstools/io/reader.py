@@ -13,6 +13,7 @@ from enstools.misc import has_ensemble_dim, add_ensemble_dim, is_additional_coor
     has_dask_arrays, set_ensemble_member
 from enstools.core import get_client_and_worker
 from enstools.io.encoding import check_compression_filters_availability
+from packaging import version
 from .dataset import drop_unused
 from .file_type import get_file_type
 try:
@@ -416,7 +417,12 @@ def __merge_datasets(datasets):
         # try to merge the datasets
         try:
             if hasattr(xarray, "combine_by_coords"):
-                result = xarray.combine_by_coords(list(datasets), combine_attrs='drop_conflicts')
+                # the possibility to drop conflicting attributes was added in version 0.17.0
+                if version.parse(xarray.__version__) >= version.parse('0.17.0'):
+                    combine_attrs_methode = 'drop_conflicts'
+                else:
+                    combine_attrs_methode = 'override'
+                result = xarray.combine_by_coords(list(datasets), combine_attrs=combine_attrs_methode)
             else:
                 result = xarray.auto_combine(list(datasets))
         except Exception as ex:
