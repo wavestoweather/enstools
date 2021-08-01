@@ -17,7 +17,7 @@ from decorator import decorator
 from pint import DimensionalityError
 from .cluster import init_cluster, get_num_available_procs, get_client_and_worker, all_workers_are_local, \
     RoundRobinWorkerIterator
-from .os_support import getstatusoutput
+from .os_support import getstatusoutput, get_cache_dir
 
 # to convert enstools into a namespace package, the version is now listed here and not in the level above
 __version__ = "2021.7"

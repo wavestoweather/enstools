@@ -1,17 +1,17 @@
 import logging
 import os
+from pathlib import Path
 from datetime import datetime
 from urllib.error import HTTPError
 from urllib.request import urlopen
-
 import pandas
-from enstools.core.tempdir import TempDir
 from enstools.misc import download, bytes2human
+from enstools.core import get_cache_dir
 
 
 class DWDRadar:
     # create a new temporal directory to store content.log and opendata_dwd_content.pkl
-    content_path = TempDir(check_free_space=False).getpath()
+    cache_path = get_cache_dir()
 
     def __init__(self, refresh_content=False):
 
@@ -48,7 +48,7 @@ class DWDRadar:
             """
             logging.info("Creating content database with {}".format(logdata))
             content = pandas.read_csv(logdata, delimiter="|", header=None, names=["file", "size", "upload_time"])
-            content["upload_time"] = content["upload_time"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
+            content["upload_time"] = pandas.to_datetime(content["upload_time"], format="%Y-%m-%d %H:%M:%S")
             content["size"] = content["size"].astype(int)
 
             # ignore the content.log file and tar.gz files
@@ -91,13 +91,13 @@ class DWDRadar:
 
             content["file"] = content["file"].apply(lambda x: "https://opendata.dwd.de/weather/radar" + x[1:])
 
-            content.to_pickle(os.path.join(DWDRadar.content_path, "opendata_dwd_content_radar.pkl"))
+            content.to_pickle(self.content_pkl_path)
             return content
 
-        content_pkl_path = os.path.join(DWDRadar.content_path, "opendata_dwd_content_radar.pkl")
-        if os.path.exists(content_pkl_path) and not refresh_content:
-            logging.info(f"Reading content database from {content_pkl_path}")
-            content_old = pandas.read_pickle(content_pkl_path)
+        self.content_pkl_path = os.path.join(DWDRadar.cache_path, "opendata_dwd_content_radar.pkl")
+        if os.path.exists(self.content_pkl_path) and not refresh_content:
+            logging.info(f"Reading content database from {self.content_pkl_path}")
+            content_old = pandas.read_pickle(self.content_pkl_path)
             self.content = content_old
 
         else:
@@ -105,12 +105,12 @@ class DWDRadar:
                 logging.info("Refreshing content database")
             else:
                 logging.info("Initializing content database")
-            if os.path.exists(os.path.join(DWDRadar.content_path, "content.log")):
-                os.remove(os.path.join(DWDRadar.content_path, "content.log"))
-
+            if os.path.exists(os.path.join(DWDRadar.cache_path, "content.log")):
+                os.remove(os.path.join(DWDRadar.cache_path, "content.log"))
+            self.content_log_path = os.path.join(DWDRadar.cache_path, "content_radar.log.bz2")
             download("https://opendata.dwd.de/weather/radar/content.log.bz2",
-                     destination=os.path.join(DWDRadar.content_path, "content.log.bz2"), uncompress=True)
-            self.content = create_dataframe(os.path.join(DWDRadar.content_path, "content.log"))
+                     destination=self.content_log_path, uncompress=False)
+            self.content = create_dataframe(self.content_log_path)
 
     @staticmethod
     def __scrape_pg_paah_time(filename):
@@ -436,7 +436,8 @@ class DWDRadar:
         download_files = []
         download_urls = []
 
-        self.check_parameters(product=product, data_time=data_time, forecast_time=forecast_time, file_format=file_format)
+        self.check_parameters(product=product, data_time=data_time,
+                              forecast_time=forecast_time, file_format=file_format)
         for dtime in data_time:
             for ftime in forecast_time:
                 download_urls.append(self.get_url(product=product, data_time=dtime,
@@ -475,4 +476,3 @@ def getDWDRadar():
     else:
         __content = DWDRadar()
         return __content
-

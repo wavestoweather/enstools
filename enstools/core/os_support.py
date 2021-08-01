@@ -9,6 +9,7 @@ from contextlib import closing
 from threading import Thread
 from subprocess import Popen, PIPE, STDOUT
 import logging
+import appdirs
 
 if six.PY2:
     from commands import getstatusoutput
@@ -163,6 +164,22 @@ def which(cmd):
     if sts != 0:
         raise IOError("executable not found: %s" % cmd)
     return out
+
+
+def get_cache_dir():
+    """
+    create a platform depended cache directory.
+
+    Returns
+    -------
+    str:
+            path to the cache directory.
+    """
+    cache_dir = appdirs.user_cache_dir(appname="enstools")
+    if not os.path.exists(cache_dir):
+        logging.debug(f"Created cache directory: {cache_dir}")
+        os.makedirs(cache_dir)
+    return cache_dir
 
 
 class ProcessObserver(Thread):
