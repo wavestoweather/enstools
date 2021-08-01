@@ -19,6 +19,9 @@ is recommended and not necessary to do that in a separate virtual environment.
 
 ## Preparation of a local environment
 
+The steps outlined here can be done inside of a working-copy of this,
+repository. The created directory `venv` will be ignored by git.
+
 At first create a new python virtual environment:
 
     python3 -m venv --prompt=enstools venv
@@ -42,9 +45,11 @@ especially useful if you plan to edit the code of `enstools`. Python scripts
 using the virtual environment will immediately see all your changes with the
 need to reinstall anything.
 
+    git clone https://github.com/wavestoweather/enstools.git
+    cd enstools
     pip install -e .
 
-If you have no plans to modify any code, that you can install `enstools`
-without creating a local working copy before:
+If you have no plans to modify any code, then you can install `enstools`
+without creating a local working-copy before:
 
     pip install git+https://github.com/wavestoweather/enstools.git
