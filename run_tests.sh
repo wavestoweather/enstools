@@ -3,27 +3,20 @@ set -e
 
 function usage {
     echo "arguments:"
-    echo "-r    skip tests with R"
     echo "-w    warnings are errors"
     exit 1
 }
 
 # parse the command line
 excluded_files=""
-skip_python2=false
-skip_python3=false
 extra_arguments=""
-while getopts "rh" opt ; do
+while getopts "w" opt ; do
     case $opt in
-        r)
-            echo "INFO: not running tests with R!"
-            excluded_files="tests/test_scores_scoringRules_01.py"
-            ;;
         w)
             echo "WARNING: warnings are treated like errors for debugging."
             extra_arguments="-W error"
             ;;
-        h)
+        *)
             usage
             ;;
     esac

@@ -3,4 +3,4 @@ stages:
 
 test:
     stage: test
-    script: ./run_tests.sh -r
+    script: ./run_tests.sh
