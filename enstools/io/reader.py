@@ -416,7 +416,7 @@ def __merge_datasets(datasets):
         # try to merge the datasets
         try:
             if hasattr(xarray, "combine_by_coords"):
-                result = xarray.combine_by_coords(list(datasets))
+                result = xarray.combine_by_coords(list(datasets), combine_attrs='drop_conflicts')
             else:
                 result = xarray.auto_combine(list(datasets))
         except Exception as ex:
