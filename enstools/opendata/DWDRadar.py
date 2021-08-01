@@ -6,7 +6,7 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 import pandas
 from enstools.misc import download, bytes2human
-from get_cache_dir import get_cache_dir
+from enstools.core import get_cache_dir
 
 
 class DWDRadar:

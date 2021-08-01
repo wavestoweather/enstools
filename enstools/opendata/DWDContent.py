@@ -1,12 +1,11 @@
 import logging
 import os
 import pandas
-import numpy as np
 from datetime import datetime
 from enstools.misc import download, bytes2human, concat
 from urllib.error import HTTPError
 from urllib.request import urlopen
-from get_cache_dir import get_cache_dir
+from enstools.core import get_cache_dir
 
 
 class DWDContent:

@@ -34,6 +34,7 @@ setup(name="enstools",
       namespace_packages=['enstools'],
       packages=find_packages()[1:],
       install_requires=[
+                "appdirs",
                 "numpy",
                 "xarray",
                 "dask",
