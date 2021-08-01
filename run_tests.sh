@@ -5,7 +5,7 @@ function usage {
     echo "arguments:"
     echo "-r    skip tests with R"
     echo "-w    warnings are errors"
-    exit -1
+    exit 1
 }
 
 # parse the command line
