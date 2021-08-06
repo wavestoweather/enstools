@@ -53,8 +53,12 @@ setup(name="enstools",
                 "bottleneck",
                 "pandas",
                 "h5netcdf",
+                "h5py<3",
                 "hdf5plugin",
-                "zfpy"],
+                "zfpy",
+                "numcodecs",
+                "scikit-image",
+                ],
         entry_points={
           'console_scripts': [
               'enstools-opendata=enstools.opendata.cli:main',
