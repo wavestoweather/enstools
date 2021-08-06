@@ -107,7 +107,9 @@ def set_encoding(ds, compression_options):
                     lossy_compression_options,
                     ds[variable])
                 encoding[variable]["compression_opts"] = variable_compression_options
-                encoding[variable]["chunksizes"] = ds[variable].shape
+                #FIXME: Is the following approach appropiate?
+                chunksize = tuple([_x if i != 0 else 1 for i,_x in enumerate(ds[variable].shape)])
+                encoding[variable]["chunksizes"] = chunksize
             else:
                 encoding[variable]["compression"] = lossless_filter_id
                 encoding[variable]["compression_opts"] = lossless_compression_options
@@ -172,9 +174,16 @@ def adapt_compression_options(filter_id, compression_options, variable_dataset):
         shape = variable_dataset.shape
         dim = len(shape)
         data_type = 0  # TODO: Maybe we can set this dynamically instead of having it hardcoded here.
+        
+        if variable_dataset.dtype == "float32":
+            data_type = 0
+        elif variable_dataset.dtype == "float64":
+            data_type = 1
         error_mode = compression_options[0]
         error_val = compression_options[2]
-        return (dim, data_type, *shape, error_mode, error_val, error_val, error_val)
+        chunksize = tuple([_x if i != 0 else 1 for i,_x in enumerate(variable_dataset.shape)])
+        
+        return (dim, data_type, *chunksize, error_mode, error_val, error_val, error_val, error_val)
     else:  # Other cases (Blosc?)
         return compression_options
 
@@ -300,7 +309,7 @@ def sz_encoding(compression_options):
     elif method == "rel":
         sz_mode = 1
     elif method == "pw_rel":
-        sz_mode = 2
+        sz_mode = 10
     else:
         raise NotImplementedError("Method %s has not been implemented yet" % method)
     compression_opts = (sz_mode, 0, sz_pack_error(parameter))
@@ -491,10 +500,10 @@ def parse_zfp_compression_options(arguments):
     assert len(arguments) == 4, "Compression: ZFP compression requires 4 arguments: lossy:zfp:method:value"
     try:
         if arguments[2] == "rate":
-            rate = int(arguments[3])
+            rate = float(arguments[3])
             return "lossy", ("zfp", "rate", rate)
         elif arguments[2] == "precision":
-            precision = int(arguments[3])
+            precision = float(arguments[3])
             return "lossy", ("zfp", "precision", precision)
         elif arguments[2] == "accuracy":
             accuracy = float(arguments[3])
@@ -606,7 +615,7 @@ def encoding_description(encoding):
     return descriptions
 
 
-def check_all_filters_availability(try_load_hdf5plugin=True):
+def check_all_filters_availability(try_load_hdf5plugin=False):
     """
     Function to check that all the filters of interest are available.
     :return:  bool
@@ -660,6 +669,13 @@ def check_filter_availability(filter_id):
     """
     import h5py
     return h5py.h5z.filter_avail(filter_id)
+    
+def check_libpressio_availability():
+    try:
+        from libpressio import PressioCompressor
+        return True
+    except ModuleNotFoundError as err:
+        return False
 
 def filter_availability_report():
     if check_blosc_availability():
