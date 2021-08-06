@@ -14,7 +14,7 @@ def __clean_HDF5_PLUGIN_PATH():
         for one_path in paths:
             if len(one_path) == 0:
                 continue
-            if 'site-packages/hdf5plugin/plugins' in one_path:
+            if 'h5z-sz' not in one_path:
                 logging.info(f"removed {one_path} from HDF5_PLUGIN_PATH")
                 continue
             keep.append(one_path)
@@ -33,3 +33,4 @@ from .dataset import drop_unused
 from .compressor import compress
 from .analyzer import analyze
 from .cli import main as cli
+from .evaluator import evaluate
