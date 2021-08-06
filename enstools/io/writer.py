@@ -3,7 +3,7 @@ from xarray.backends.netCDF4_ import NetCDF4DataStore
 
 from enstools.misc import has_dask_arrays
 from .file_type import get_file_type
-from .encoding import set_encoding, encoding_description
+from .encoding import set_encoding, encoding_description, check_compression_filters_availability
 import dask.array
 import six
 from distutils.version import LooseVersion
@@ -54,19 +54,25 @@ def write(ds, filename, file_format=None, compression="default", compute=True):
                 'rate'
                 'accuracy'
                 'precision'
+            For SZ we have also different compression methods available:
+                'abs'
+                'rel'
+                'pw_rel'
             Each one of this methods require an additional parameter: the rate, the precision or the accuracy.
             The examples would look like:
                 'lossy:zfp:accuracy:0.2'
                 'lossy:zfp:rate:4'
-            Another option would be to pass a configuration file as argument. (json?)
+            Another option would be to pass the path to a configuration file as argument. (yaml or json)
     compute : bool 
             Dask delayed feature. Set to true to delay the file writting.
     """
-    # we need to make sure, that we are able to write compressed files. if
-    import hdf5plugin
     # if ds is a DataVariable instead of a Dataset, then convert it
     if isinstance(ds, xarray.DataArray):
         ds = ds.to_dataset()
+    # we need to make sure that we are able to write compressed files
+    if not check_compression_filters_availability(ds):
+        print("Relying on hdf5plugin")
+        import hdf5plugin
     # select the type of file to create
     valid_formats = ["NC"]
     if file_format is not None:
