@@ -4,9 +4,9 @@
 #
 
 """
+from typing import Union, List, Tuple
 
-
-def transfer(file_paths, output_folder, compression="lossless", variables_to_keep=None):
+def transfer(file_paths:List[str], output_folder:str, compression:str="lossless", variables_to_keep:List[str]=None):
     """
     This function loops through a list of files creating delayed dask tasks to copy each one of the files while
     optionally using compression.
@@ -21,6 +21,8 @@ def transfer(file_paths, output_folder, compression="lossless", variables_to_kee
                 Path to the destination folder
     compression: string
                 Compression specification or path to json configuration file.
+    variables_to_keep: list of strings
+                In case of only wanting to keep certain variables, pass the variables to keep as a list of strings.
     """
     from dask import delayed, compute
     # Create the delayed version of the transfer_file function
@@ -38,7 +40,7 @@ def transfer(file_paths, output_folder, compression="lossless", variables_to_kee
     compute(tasks)
 
     
-def transfer_file(origin, destination, compression, variables_to_keep=None):
+def transfer_file(origin:str, destination:str, compression:str, variables_to_keep:List[str]=None):
     """
     This function will copy a dataset while optionally applying compression.
 
@@ -62,11 +64,11 @@ def transfer_file(origin, destination, compression, variables_to_keep=None):
         variables = [v for v in dataset.variables if v not in coordinates]
         variables_to_drop = [v for v in variables if v not in variables_to_keep]
         dataset = dataset.drop_vars(variables_to_drop)
-
+    
     write(dataset, destination, compression=compression)
 
 
-def destination_path(origin_path, destination_folder):
+def destination_path(origin_path:str, destination_folder:str):
     """
     Function to obtain the destination file from the source file and the destination folder.
     If the source file has GRIB format (.grb) , it will be changed to netCDF (.nc).
@@ -95,7 +97,7 @@ def destination_path(origin_path, destination_folder):
     return destination
 
 
-def compress(output_folder, file_paths, compression, nodes, variables_to_keep=None):
+def compress(output_folder:str, file_paths:List[str], compression:str, nodes:int, variables_to_keep:List[str]=None):
     """
     Copies a list of files to a destination folder, optionally applying compression.
     """
@@ -104,7 +106,8 @@ def compress(output_folder, file_paths, compression, nodes, variables_to_keep=No
     if compression == "auto":
         from .analyzer import analyze
         compression_parameters_path = "compression_parameters.yaml"
-        analyze(file_paths, correlation_threshold=0.99999, output_file=compression_parameters_path)
+        # By using thresholds = None we will be using the default values.
+        analyze(file_paths, thresholds=None, output_file=compression_parameters_path)
         # Now lets continue setting compression = compression_parameters_path
         compression = compression_parameters_path
     
@@ -120,3 +123,14 @@ def compress(output_folder, file_paths, compression, nodes, variables_to_keep=No
         # Transfer will copy the files from its origin path to the output folder,
         # using read and write functions from enstools
         transfer(file_paths, output_folder, compression, variables_to_keep=variables_to_keep)
+    
+    # We could compute compression ratios
+    from .metrics import compression_ratio
+    from os.path import join, basename
+    from pprint import pprint
+    compression_ratios = {}
+    for file_path in file_paths:
+        CR = compression_ratio(file_path, join(output_folder, basename(file_path)))
+        compression_ratios[basename(file_path)] = CR    
+    print("Compression ratios after compression:")
+    pprint(compression_ratios)
