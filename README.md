@@ -53,3 +53,14 @@ If you have no plans to modify any code, then you can install `enstools`
 without creating a local working-copy before:
 
     pip install git+https://github.com/wavestoweather/enstools.git
+
+# Acknowledgment and license
+
+Ensemble Tools (`enstools`) is a collaborative development within
+Waves to Weather (SFB/TRR165) coordinated by the subproject 
+[Z2](https://www.wavestoweather.de/research_areas/phase2/z2) and funded by the
+German Research Foundation (DFG).
+
+A full list of code contributors can [CONTRIBUTORS.md](./CONTRIBUTORS.md).
+
+The code is released under an [Apache-2.0 licence](./LICENSE).
