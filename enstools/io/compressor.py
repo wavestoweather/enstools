@@ -35,16 +35,14 @@ def transfer(file_paths: List[str], output_folder: str, compression: str = "loss
     variables_to_keep: list of strings
                 In case of only wanting to keep certain variables, pass the variables to keep as a list of strings.
     """
-    from dask import delayed, compute
-    # Create the delayed version of the transfer_file function
-    delayed_transfer_file = delayed(transfer_file)
-    # Create and fill the list of delayed tasls
+    from dask import compute
+    # Create and fill the list of tasks
     tasks = []
     for file_path in file_paths:
         new_file_path = destination_path(file_path, output_folder)
-        # Create task
-        # FIXME: Why is the delaying version not working?
-        # task = delayed_transfer_file(file_path, new_file_path, compression, variables_to_keep)
+        # Create task:
+        # The transfer file function returns a write task which hasn't been computed.
+        # It is not necessary anymore to use the delayed function.
         task = transfer_file(file_path, new_file_path, compression, variables_to_keep)
         # Add task to the list
         tasks.append(task)
