@@ -18,15 +18,20 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+
 v_char = u'\u2713'
 
-def print_green(text:str):
+
+def print_green(text: str):
     print(f"{bcolors.OKGREEN}{text}{bcolors.ENDC}")
 
-def print_red(text:str):
+
+def print_red(text: str):
     print(f"{bcolors.FAIL}{text}{bcolors.ENDC}")
 
-def evaluate(reference_path:str, target_path:str, plot:bool=False):
+
+def evaluate(reference_path: str, target_path: str, plot: bool = False):
     """
     The purpose of this routine is to obtain some metrics and plots on how similar are two datasets.
     """
@@ -41,8 +46,7 @@ def evaluate(reference_path:str, target_path:str, plot:bool=False):
     # Get list of variables
     variables = file_comparison.variables
 
-    
-    # As a temptative idea, we can rise some warnings in case some metrics are below certain thresholds:
+    # As a tentative idea, we can rise some warnings in case some metrics are below certain thresholds:
     # These thresholds could be:
     #   ssim_I < 3
     #   correlation_I < 4
@@ -52,12 +56,12 @@ def evaluate(reference_path:str, target_path:str, plot:bool=False):
         thresholds = {
             "ssim_I": 3,
             "correlation_I": 4,
-            "nrmse_I" : 2,
+            "nrmse_I": 2,
         }
         for key, value in thresholds.items():
             if metrics[key] < value:
                 yield f"{bcolors.BOLD}{key}{bcolors.ENDC} index is low: {metrics[key]:.1f}."
-        
+
     warnings = {}
     for variable in variables:
         warnings[variable] = list(checks(file_comparison[variable]))
@@ -69,14 +73,14 @@ def evaluate(reference_path:str, target_path:str, plot:bool=False):
                 print(f"\t{warning}")
         else:
             print_green(f"{variable} {v_char}")
-            
+
     print("\nSUMMARY:")
-    num_variables_with_warnings = sum([1 if len(warnings[v]) > 0 else 0 for v in variables ])
+    num_variables_with_warnings = sum([1 if len(warnings[v]) > 0 else 0 for v in variables])
     if not num_variables_with_warnings:
         print_green(f"Any variable has warnings!")
     else:
         print(f"{num_variables_with_warnings}/{len(variables)}  variables have warnings.\n\n")
-    
+
     # Produce visual reports
     if plot:
         file_comparison.make_plots()
