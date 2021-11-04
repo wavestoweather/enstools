@@ -43,7 +43,9 @@ def transfer(file_paths: List[str], output_folder: str, compression: str = "loss
     for file_path in file_paths:
         new_file_path = destination_path(file_path, output_folder)
         # Create task
-        task = delayed_transfer_file(file_path, new_file_path, compression, variables_to_keep)
+        # FIXME: Why is the delaying version not working?
+        # task = delayed_transfer_file(file_path, new_file_path, compression, variables_to_keep)
+        task = transfer_file(file_path, new_file_path, compression, variables_to_keep)
         # Add task to the list
         tasks.append(task)
 
