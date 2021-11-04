@@ -126,6 +126,7 @@ class TestClass:
             input_path = join(input_tempdir.getpath(), ds)
             analyze(file_paths=[input_path], compressor="zfp")
 
+    @pytest.mark.skipif( not check_libpressio_availability(), reason="Requires libpressio")
     def test_sz_analyzer(self):
         from enstools.io import analyze
         input_tempdir = self.input_tempdir
