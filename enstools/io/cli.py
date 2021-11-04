@@ -122,10 +122,12 @@ def main():
     parser_analyzer.add_argument("--output", "-o", dest="output", default=None, type=str,
                                  help="Path to the file where the configuration will be saved."
                                       "If not provided will be print in the stdout.")
-    parser_analyzer.add_argument("--compressor", "-c", dest="compressor", default="zfp", type=str,
-                                 help="Which compressor will be used. Options are zfp and sz.")
+    parser_analyzer.add_argument("--compressor", "-c", dest="compressor", default=None, type=str,
+                                 help="Which compressor will be used. Options are zfp, sz or all.")
     parser_analyzer.add_argument("--mode", "-m", dest="mode", default=None, type=str,
-                                 help="Which mode will be used. The options depend on the compressor. For sz: abs, rel, pw_rel. For zfp: accuracy, rate, precision.")
+                                 help="Which mode will be used. The options depend on the compressor. For sz: abs, rel, pw_rel. For zfp: accuracy, rate, precision. Also it is possible to use 'all'")
+    parser_analyzer.add_argument("--grid", "-g", dest="grid", default=None, type=str,
+                                 help="Path to the file containing grid information.")
     parser_analyzer.add_argument("files", type=str, nargs="+",
                                  help='List of files to compress. Multiple files and regex patterns are allowed.')
     parser_analyzer.set_defaults(which='analyzer')
@@ -173,12 +175,14 @@ def main():
         compress(output_folder, file_paths, compression, nodes, variables_to_keep=variables)
     elif args.which == "analyzer":
         file_paths = args.files
+        grid = args.grid
         # Compression options
         correlation = args.correlation
         ssim = args.ssim
         nrmse = args.nrmse
         compressor = args.compressor
         mode = args.mode
+
         # Thresholds
         thresholds = {
                         "correlation_I": correlation,
@@ -188,7 +192,7 @@ def main():
         # Output filename
         output_file = args.output
         from enstools.io import analyze
-        analyze(file_paths, output_file, thresholds, compressor=compressor, mode=mode)
+        analyze(file_paths, output_file, thresholds, compressor=compressor, mode=mode, grid=grid)
     elif args.which == "evaluator":
         reference_file_path = args.reference_file
         target_file_path = args.target_file
