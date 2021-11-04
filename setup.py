@@ -58,8 +58,9 @@ setup(name="enstools",
                 "zfpy",
                 "numcodecs",
                 "scikit-image",
+                "scipy",
                 ],
-        entry_points={
+      entry_points={
           'console_scripts': [
               'enstools-opendata=enstools.opendata.cli:main',
               'enstools-compressor=enstools.io:cli'
