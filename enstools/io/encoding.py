@@ -1,4 +1,3 @@
-from numpy.core.fromnumeric import compress
 
 
 def set_encoding(ds, compression_options):
@@ -45,20 +44,20 @@ def set_encoding(ds, compression_options):
     """
 
     if compression_options == "default":
-        # For now, probably the more convinient option is to keep the default behaviour as not
+        # For now, probably the more convenient option is to keep the default behaviour as not
         # not using any compression.
-        return None
         # In the future one option is to apply lossless compression as default if the filter is available in the system
         # also non-python applications.
-        """ In case we consider that would be good to reestablish the lossless compression as default here we have the code:
+        """ 
+        In case we consider that would be good to reestablish the lossless compression as default here we have the code:
         if check_blosc_availability():
             print("Using lossless compression by default")
             compression_options = "lossless"
         else:
             return None
         """
-        
-    
+        return None
+
     # If compression options is None (or string None/none) return None
     if compression_options is None:
         return None
@@ -66,7 +65,7 @@ def set_encoding(ds, compression_options):
         return None
     elif compression_options == "none":
         return None
-    
+
     # Parsing the compression options
     mode, options = parse_compression_options(compression_options)
 
@@ -107,8 +106,8 @@ def set_encoding(ds, compression_options):
                     lossy_compression_options,
                     ds[variable])
                 encoding[variable]["compression_opts"] = variable_compression_options
-                #FIXME: Is the following approach appropiate?
-                chunksize = tuple([_x if i != 0 else 1 for i,_x in enumerate(ds[variable].shape)])
+                # FIXME: Is the following approach appropriate? Would be an approach based on dimension name better?
+                chunksize = tuple([_x if i != 0 else 1 for i, _x in enumerate(ds[variable].shape)])
                 encoding[variable]["chunksizes"] = chunksize
             else:
                 encoding[variable]["compression"] = lossless_filter_id
@@ -149,7 +148,9 @@ def set_encoding(ds, compression_options):
             encoding[variable]["compression"] = filter_id
             variable_compression_options = adapt_compression_options(filter_id, compression_options, ds[variable])
             encoding[variable]["compression_opts"] = variable_compression_options
-            encoding[variable]["chunksizes"] = ds[variable].shape
+            # FIXME:Is the following approach appropriate? Would be an approach based on dimension name better?
+            chunksize = tuple([_x if i != 0 else 1 for i, _x in enumerate(ds[variable].shape)])
+            encoding[variable]["chunksizes"] = chunksize
 
     else:
         return None
@@ -174,15 +175,15 @@ def adapt_compression_options(filter_id, compression_options, variable_dataset):
         shape = variable_dataset.shape
         dim = len(shape)
         data_type = 0  # TODO: Maybe we can set this dynamically instead of having it hardcoded here.
-        
+
         if variable_dataset.dtype == "float32":
             data_type = 0
         elif variable_dataset.dtype == "float64":
             data_type = 1
         error_mode = compression_options[0]
         error_val = compression_options[2]
-        chunksize = tuple([_x if i != 0 else 1 for i,_x in enumerate(variable_dataset.shape)])
-        
+        chunksize = tuple([_x if i != 0 else 1 for i, _x in enumerate(variable_dataset.shape)])
+
         return (dim, data_type, *chunksize, error_mode, error_val, error_val, error_val, error_val)
     else:  # Other cases (Blosc?)
         return compression_options
@@ -449,7 +450,7 @@ def parse_lossless_compression_options(arguments):
         except ValueError:
             raise AssertionError(
                 "Compression: Invalid value '%s' for compression level. Must be a value between 1 and 9" % arguments[2])
-        assert 1 <= compression_level <= 9,\
+        assert 1 <= compression_level <= 9, \
             "Compression: Invalid value '%s' for compression level. Must be a value between 1 and 9" % arguments[2]
     else:
         raise AssertionError("Compression: Wrong number of arguments in %s" % ":".join(arguments))
@@ -548,7 +549,6 @@ def parse_sz_compression_options(arguments):
 
 
 def parse_configuration_file(filename):
-
     # Look for file format:
     if filename.count(".json"):
         file_format = "json"
@@ -563,11 +563,10 @@ def parse_configuration_file(filename):
     elif file_format == "yaml":
         import yaml
         def load_function(stream):
-             return yaml.load( stream, yaml.SafeLoader)
+            return yaml.load(stream, yaml.SafeLoader)
     else:
         raise AssertionError("Unknown configuration file format, expecting json or yaml")
 
-    
     # Initialize dictionaries
     dictionary_of_filter_ids = {}
     dictionary_of_compression_options = {}
@@ -581,7 +580,6 @@ def parse_configuration_file(filename):
         dictionary_of_compression_options[key] = compression_options
 
     return dictionary_of_filter_ids, dictionary_of_compression_options
-
 
 
 def encoding_description(encoding):
@@ -669,7 +667,8 @@ def check_filter_availability(filter_id):
     """
     import h5py
     return h5py.h5z.filter_avail(filter_id)
-    
+
+
 def check_libpressio_availability():
     try:
         from libpressio import PressioCompressor
@@ -677,17 +676,18 @@ def check_libpressio_availability():
     except ModuleNotFoundError as err:
         return False
 
+
 def filter_availability_report():
     if check_blosc_availability():
         print("Filter BLOSC is available")
     else:
         print("Filter BLOSC is NOT available")
-    
+
     if check_zfp_availability():
         print("Filter ZFP is available")
     else:
         print("Filter ZFP is NOT available")
-    
+
     if check_sz_availability():
         print("Filter SZ is available")
     else:
