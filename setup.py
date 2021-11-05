@@ -61,6 +61,8 @@ setup(name="enstools",
                 "scikit-image",
                 "scikit-learn",
                 "scipy",
+                "plotly",
+                "bokeh"
                 ],
       entry_points={
           'console_scripts': [
