@@ -25,16 +25,15 @@ if [[ ! -z $excluded_files ]] ; then
     ignore_option="--ignore=$excluded_files"
 fi
 
-# if there is a PYTHONPATH, remove it
-unset PYTHONPATH
 
 # create a virtual environement and install all dependencies
 if [[ ! -d venv ]] ; then
     python3 -m venv --prompt enstools venv
     source venv/bin/activate
     pip install -U pip
+    pip install wheel
     pip install -e .
-    pip install pytest
+    pip install --force-reinstall pytest
 fi
 
 source venv/bin/activate

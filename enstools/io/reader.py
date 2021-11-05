@@ -12,8 +12,8 @@ import glob
 from enstools.misc import has_ensemble_dim, add_ensemble_dim, is_additional_coordinate_variable, first_element, \
     has_dask_arrays, set_ensemble_member
 from enstools.core import get_client_and_worker
-from enstools.io.encoding import check_compression_filters_availability
 from packaging import version
+from enstools.io.encoding import check_compression_filters_availability, check_all_filters_availability
 from .dataset import drop_unused
 from .file_type import get_file_type
 try:
@@ -102,8 +102,10 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     xarray.Dataset
             in-memory representation of the content of the input file(s)
     """
-    # we need to make sure, that we are able to read compressed files. if
-    import hdf5plugin
+    # we need to make sure that we are able to read compressed files
+    if not check_all_filters_availability():
+        import hdf5plugin
+    
     # open one file, or multiple files?
     if not isinstance(filenames, (list, tuple)):
         if isinstance(filenames, six.string_types):

@@ -4,10 +4,10 @@ Sorted by the number of commits.
 
 - Robert Redl
 - Oriol Tintó
+- T. Bardachova
 - B. Giebl
 - Florian Baur
 - Manuel Klar
-- Tatsiana Bardachova
 - Joachim Eichhorn
 - Kevin Bachmann
 - Sebastian Lerch
