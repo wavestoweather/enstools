@@ -7,6 +7,7 @@ from .encoding import set_encoding, encoding_description, check_compression_filt
 import dask.array
 import six
 from distutils.version import LooseVersion
+from os import rename
 
 
 def write(ds, filename, file_format=None, compression="default", compute=True):
@@ -92,14 +93,18 @@ def write(ds, filename, file_format=None, compression="default", compute=True):
 
     # write a netcdf file
     if selected_format == "NC":
-        #"""
-        #print(encoding)
+        # We can do the trick of changing the name to filename.tmp and changing it back after the process is completed
+        # but only if we execute the task here ( i.e. compute==True).
+        if compute:
+            final_filename = filename
+            filename = f"{filename}.tmp"
         task = ds.to_netcdf(filename, engine="h5netcdf", encoding=encoding, compute=compute)
-        # ds.to_netcdf(filename)
+        if compute:
+            rename(filename, final_filename)
         return task
-        #"""
+
         """
-        #Old workaround (neet to be sure that its not needed anymore)
+        #Old workaround (need to be sure that its not needed anymore)
         # are there dask arrays in the dataset? if so, write the file variable by variable
         if not has_dask_arrays(ds):
             ds.to_netcdf(filename)
