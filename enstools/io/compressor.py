@@ -156,7 +156,8 @@ def compress(file_paths: List[str], output_folder: str,  compression: str, nodes
     # In case of using automatic compression option, call here get_compression_parameters()
     if compression == "auto":
         from .analyzer import analyze
-        compression_parameters_path = "compression_parameters.yaml"
+        import os
+        compression_parameters_path = os.path.join(output_folder, "compression_parameters.yaml")
         # By using thresholds = None we will be using the default values.
         analyze(file_paths, thresholds=None, output_file=compression_parameters_path)
         # Now lets continue setting compression = compression_parameters_path

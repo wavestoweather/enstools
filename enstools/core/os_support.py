@@ -9,6 +9,7 @@ from contextlib import closing
 from threading import Thread
 from subprocess import Popen, PIPE, STDOUT
 import logging
+import appdirs
 
 if six.PY2:
     from commands import getstatusoutput
@@ -66,7 +67,7 @@ def get_ip_address(interface=None):
         if sts != 0:
             raise OSError("unable to get list of interfaces: %s" % out)
         # extract a list of all interfaces from the output
-        interface_lines = re.split("^\d+: ", out, flags=re.MULTILINE)
+        interface_lines = re.split(r"^\d+: ", out, flags=re.MULTILINE)
         for line in interface_lines[1:]:
             iface = line.split(":", 1)[0]
             interfaces[iface] = {}
@@ -79,7 +80,7 @@ def get_ip_address(interface=None):
         sts, out = getstatusoutput("ip addr show %s" % one_interface)
         if sts != 0:
             raise OSError("unable to the ip address for interface %s" % one_interface)
-        addr_match = re.search("inet (\d+.\d+.\d+.\d+)", out)
+        addr_match = re.search(r"inet (\d+.\d+.\d+.\d+)", out)
         if addr_match is None:
             logging.debug("get_ip_address: no IP address found for interface %s" % one_interface)
             interfaces[one_interface]["ip"] = None
@@ -163,6 +164,22 @@ def which(cmd):
     if sts != 0:
         raise IOError("executable not found: %s" % cmd)
     return out
+
+
+def get_cache_dir():
+    """
+    create a platform depended cache directory.
+
+    Returns
+    -------
+    str:
+            path to the cache directory.
+    """
+    cache_dir = appdirs.user_cache_dir(appname="enstools")
+    if not os.path.exists(cache_dir):
+        logging.debug(f"Created cache directory: {cache_dir}")
+        os.makedirs(cache_dir)
+    return cache_dir
 
 
 class ProcessObserver(Thread):

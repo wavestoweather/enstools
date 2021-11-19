@@ -1,10 +1,33 @@
-# Installation using pip in local environment (recommended)
+# Ensemble Tools
+
+This package provides core functionality to Python-based tools developed within
+the framework of [Waves to Weather - Transregional Collaborative Research 
+Project (SFB/TRR165)](https://wavestoweather.de). 
+
+Shared functionality includes:
+- Clustering (`enstools.clustering`)
+- Interpolation (`enstools.interpolation`)
+- Reading and Writing data (`enstools.io`)
+- Retrieval of open data (`enstools.opendata`)
+- Post-processing (`enstools.post`)
+- Scores (`enstools.scores`)
+
+# Installation using pip
+
+`pip` is the easiest way to install `enstools` along with all dependencies. It
+is recommended and not necessary to do that in a separate virtual environment. 
+
+## Preparation of a local environment
+
+The steps outlined here can be done inside of a working-copy of this,
+repository. The created directory `venv` will be ignored by git.
 
 At first create a new python virtual environment:
 
     python3 -m venv --prompt=enstools venv
 
-That will create a new folder `venv` containing the new environment. To use this environment, we need to activate it:
+That will create a new folder `venv` containing the new environment. To use
+this environment, we need to activate it:
 
     source venv/bin/activate
 
@@ -14,28 +37,30 @@ versions for the installation to run:
 
     pip install --upgrade pip wheel
 
-Now we can install `enstools` in development mode into our new environment:
+## Installation
 
+For development, you can create a clone of this repository and install that
+local copy in development mode into your virtual environment. This is 
+especially useful if you plan to edit the code of `enstools`. Python scripts
+using the virtual environment will immediately see all your changes with the
+need to reinstall anything.
+
+    git clone https://github.com/wavestoweather/enstools.git
+    cd enstools
     pip install -e .
 
-# Installation of dependencies in `conda` environment (currently not supported)
+If you have no plans to modify any code, then you can install `enstools`
+without creating a local working-copy before:
 
-The `enstools` package has now full support for Python 2 and Python 3. For new developments, it is highly recommended to
-use only Python 3. Important dependencies like `numpy` will stop to support Python 2 soon.
+    pip install git+https://github.com/wavestoweather/enstools.git
 
-    conda create -n enstools
-    conda install -n enstools -c conda-forge numpy numba xarray dask distributed cloudpickle toolz pint nose scikit-learn eccodes cartopy decorator multipledispatch cffi cachey
-    source activate enstools
+# Acknowledgment and license
 
-# Installation in user home directory
+Ensemble Tools (`enstools`) is a collaborative development within
+Waves to Weather (SFB/TRR165) coordinated by the subproject 
+[Z2](https://www.wavestoweather.de/research_areas/phase2/z2) and funded by the
+German Research Foundation (DFG).
 
-    python2 setup.py install --user
-    
-or 
+A full list of code contributors can [CONTRIBUTORS.md](./CONTRIBUTORS.md).
 
-    python3 setup.py install --user
-
-If you want to use the `crps` function you have to install it in R once manually:
-
-1.) open R
-2.) install.packages("scoringRules")
+The code is released under an [Apache-2.0 licence](./LICENSE).

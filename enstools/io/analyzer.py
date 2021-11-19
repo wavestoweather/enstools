@@ -184,6 +184,8 @@ def zfp_analyze_variable(dataset: DataArray, variable_name: str, compressor_name
     import logging
     try:
         variable_data = dataset[variable_name].sel(time=dataset["time"][0])
+    except KeyError:
+        variable_data = dataset[variable_name]
     except IndexError:
         variable_data = dataset[variable_name]
     except ValueError:

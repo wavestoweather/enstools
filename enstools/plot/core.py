@@ -211,7 +211,7 @@ def __get_triangulation(projection, transformation, lon, lat, calculate_mask=Tru
     return tri
 
 
-def get_coordinates_from_xarray(variable, lon_name=None, lat_name=None, create_mesh=True, only_spatial_dims=True):
+def get_coordinates_from_xarray(variable, lon_name=None, lat_name=None, create_mesh=True, only_spatial_dims=True, rad2deg=True):
     """
     get coordinate arrays from a xarray object
 
@@ -225,6 +225,9 @@ def get_coordinates_from_xarray(variable, lon_name=None, lat_name=None, create_m
 
     lat_name : str
             name of the latitude coordinate
+
+    rad2deg: bool
+            convert radian to degrees. True by default.
 
     Returns
     -------
@@ -260,12 +263,13 @@ def get_coordinates_from_xarray(variable, lon_name=None, lat_name=None, create_m
             raise ValueError("not longitude coordinate found, checked names: %s" % ", ".join(__lon_names))
 
     # check the units of the coordinates
-    if isinstance(lon, xarray.DataArray):
-        if "units" in lon.attrs and lon.attrs["units"] == "radian":
-            lon = np.rad2deg(lon)
-    if isinstance(lat, xarray.DataArray):
-        if "units" in lat.attrs and lat.attrs["units"] == "radian":
-            lat = np.rad2deg(lat)
+    if rad2deg:
+        if isinstance(lon, xarray.DataArray):
+            if "units" in lon.attrs and lon.attrs["units"] == "radian":
+                lon = np.rad2deg(lon)
+        if isinstance(lat, xarray.DataArray):
+            if "units" in lat.attrs and lat.attrs["units"] == "radian":
+                lat = np.rad2deg(lat)
 
     # check the dimensions, only the dimensions of lon and lat are allowed
     if only_spatial_dims:

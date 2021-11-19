@@ -106,7 +106,7 @@ def calc_das(obs, fct,
         cond_o = np.where((obs > threshold))
         cond_f = np.where((fct > threshold))
     else:
-        cond_o = np.empty(obs.shape, dtype=np.bool)
+        cond_o = np.empty(obs.shape, dtype=bool)
         cond_o[:] = True
         cond_f = cond_o
     n_obs = np.size(obs[cond_o])
