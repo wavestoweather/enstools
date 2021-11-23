@@ -65,7 +65,7 @@ def write(ds, filename, file_format=None, compression="default", compute=True):
                 'lossy:zfp:rate:4'
             Another option would be to pass the path to a configuration file as argument. (yaml or json)
     compute : bool 
-            Dask delayed feature. Set to true to delay the file writting.
+            Dask delayed feature. Set to true to delay the file writing.
     """
     # if ds is a DataVariable instead of a Dataset, then convert it
     if isinstance(ds, xarray.DataArray):
@@ -84,10 +84,10 @@ def write(ds, filename, file_format=None, compression="default", compute=True):
         raise ValueError("the format '%s' is not (yet) supported!" % selected_format)
 
     # Encoding
-    encoding = set_encoding(ds, compression)
+    encoding, descriptions = set_encoding(ds, compression)
+
     # In case of using an encoding, we'll add an attribute to the file indicating that the file has been compressed.
     if encoding is not None:
-        descriptions = encoding_description(encoding)
         for variable, description in descriptions.items():
             ds[variable].attrs["compression"] = description
 

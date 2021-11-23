@@ -1,3 +1,8 @@
+compressor_labels = {
+    32001: "BLOSC",
+    32013: "ZFP",
+    32017: "SZ",
+}
 
 
 def set_encoding(ds, compression_options):
@@ -43,6 +48,8 @@ def set_encoding(ds, compression_options):
     
     """
 
+    descriptions = {}
+
     if compression_options == "default":
         # For now, probably the more convenient option is to keep the default behaviour as not
         # not using any compression.
@@ -56,15 +63,15 @@ def set_encoding(ds, compression_options):
         else:
             return None
         """
-        return None
+        return None, None
 
     # If compression options is None (or string None/none) return None
     if compression_options is None:
-        return None
+        return None, None
     elif compression_options == "None":
-        return None
+        return None, None
     elif compression_options == "none":
-        return None
+        return None, None
 
     # Parsing the compression options
     mode, options = parse_compression_options(compression_options)
@@ -86,17 +93,19 @@ def set_encoding(ds, compression_options):
     # If using a single mode for all the variables, find the corresponding filter_id
     # and options and fill the encoding dictionary with the information.
     if mode is None:
-        return None
+        return None, None
     elif mode == "lossless":
         for variable in variables:
+            descriptions[variable] = "Lossless-ly compressed using BLOSC (id:32001)"
             encoding[variable] = {}
             encoding[variable]["compression"] = lossless_filter_id
             encoding[variable]["compression_opts"] = lossless_compression_options
 
     elif mode == "lossy":
         lossy_filter_id, lossy_compression_options = lossy_encoding(options)
-
         for variable in variables:
+            descriptions[
+                variable] = f"Lossy compressed using {compression_options} ({compressor_labels[lossy_filter_id]} id:{lossy_filter_id})"
             encoding[variable] = {}
             if len(ds[variable].shape) > 1 and variable in data_variables:
                 encoding[variable]["compression"] = lossy_filter_id
@@ -117,14 +126,19 @@ def set_encoding(ds, compression_options):
     elif mode == "file":
         filename = options[0]
         # Read the file to get the per variable specifications
-        dictionary_of_filter_ids, dictionary_of_compression_options = parse_configuration_file(filename)
+        variable_specifications = parse_configuration_file(filename)
+        dictionary_of_filter_ids, dictionary_of_compression_options = \
+            from_specification_to_dictionaries_of_filters_and_options(variable_specifications)
 
         # Check if there's a default defined, otherwise use BLOSC encoding with default arguments
         try:
             default_id = dictionary_of_filter_ids["default"]
             default_options = dictionary_of_compression_options["default"]
+            default_description = f"Compressed using ({compressor_labels[default_id]} id:{default_id})"
+
         except KeyError:
             default_id, default_options = blosc_encoding()
+            default_description = "Lossless-ly compressed using BLOSC (id:32001)"
 
         # Loop through variables and use the custom parameters if exist and otherwise the default ones
         for variable in variables:
@@ -132,16 +146,21 @@ def set_encoding(ds, compression_options):
             if variable in coordinates:
                 filter_id = default_id
                 compression_options = default_options
+                descriptions[variable] = default_description
             elif len(ds[variable].shape) < 3:
                 filter_id = default_id
                 compression_options = default_options
+                descriptions[variable] = default_description
             else:
                 try:
                     filter_id = dictionary_of_filter_ids[variable]
                     compression_options = dictionary_of_compression_options[variable]
+                    descriptions[
+                        variable] = f"Compressed using {variable_specifications[variable]} ({compressor_labels[filter_id]} id:{filter_id})"
                 except KeyError:
                     filter_id = default_id
                     compression_options = default_options
+                    descriptions[variable] = default_description
 
             # Fill the encoding dictionary
             encoding[variable] = {}
@@ -153,9 +172,9 @@ def set_encoding(ds, compression_options):
             encoding[variable]["chunksizes"] = chunksize
 
     else:
-        return None
+        return None, None
 
-    return encoding
+    return encoding, descriptions
 
 
 def adapt_compression_options(filter_id, compression_options, variable_dataset):
@@ -562,18 +581,22 @@ def parse_configuration_file(filename):
         load_function = json.loads
     elif file_format == "yaml":
         import yaml
+
         def load_function(stream):
             return yaml.load(stream, yaml.SafeLoader)
     else:
         raise AssertionError("Unknown configuration file format, expecting json or yaml")
 
-    # Initialize dictionaries
-    dictionary_of_filter_ids = {}
-    dictionary_of_compression_options = {}
-
     with open(filename) as f:
         specifications = load_function(f.read())
 
+    return specifications
+
+
+def from_specification_to_dictionaries_of_filters_and_options(specifications: dict):
+    # Initialize dictionaries
+    dictionary_of_filter_ids = {}
+    dictionary_of_compression_options = {}
     for key, options in specifications.items():
         filter_id, compression_options = filter_and_options_from_command_line_arguments(options)
         dictionary_of_filter_ids[key] = filter_id
