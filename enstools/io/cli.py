@@ -172,7 +172,7 @@ def main():
             variables = variables.split(",")
         # Import and launch compress function
         from enstools.io import compress
-        compress(output_folder, file_paths, compression, nodes, variables_to_keep=variables)
+        compress(file_paths, output_folder, compression, nodes, variables_to_keep=variables)
     elif args.which == "analyzer":
         file_paths = args.files
         grid = args.grid
