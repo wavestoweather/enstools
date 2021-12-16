@@ -151,12 +151,9 @@ def main():
         parser.print_help()
         exit(0)
     elif args.which == "compressor":
-        from os.path import isdir, realpath
-        from os import access, W_OK
+        from os.path import realpath
         # Read the output folder from the command line and assert that it exists and has write permissions.
         output_folder = realpath(args.output_folder)
-        assert isdir(output_folder), "The provided folder does not exist"
-        assert access(output_folder, W_OK), "The output folder provided does not have write permissions"
 
         file_paths = args.files
         file_paths = sum(file_paths, [])
