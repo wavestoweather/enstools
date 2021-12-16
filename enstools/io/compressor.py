@@ -150,7 +150,7 @@ def destination_path(origin_path: str, destination_folder: str):
 
 
 def compress(file_paths: Union[List[str], str], output: str, compression: str, nodes: int = 0,
-             variables_to_keep: List[str] = None):
+             variables_to_keep: List[str] = None, show_compression_ratios=False):
     """
     Copies a list of files to a destination folder, optionally applying compression.
     """
@@ -186,7 +186,8 @@ def compress(file_paths: Union[List[str], str], output: str, compression: str, n
 
     end_time = time.time()
 
-    check_compression_ratios(file_paths, output)
+    if show_compression_ratios:
+        check_compression_ratios(file_paths, output)
 
     return end_time - init_time
 
