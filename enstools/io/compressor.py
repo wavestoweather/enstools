@@ -6,7 +6,7 @@
 """
 from typing import Union, List, Tuple
 from os.path import isfile, isdir, basename
-from os import rename
+from os import rename, access, W_OK
 import time
 
 
@@ -51,6 +51,8 @@ def transfer(file_paths: Union[List[str], str], output: str, compression: str = 
     elif len(file_paths) > 1:
         # In case of having more than one file, check that output corresponds to a directory
         assert isdir(output), "For multiple files, the output parameter should be a directory"
+        assert access(output, W_OK), "The output folder provided does not have write permissions"
+
         transfer_multiple_files(
                                 file_paths=file_paths,
                                 output=output,
@@ -213,7 +215,6 @@ def check_compression_ratios(file_paths: Union[List[str], str], output: str):
         file_name = basename(file_path)
         file_name = fix_filename(file_name)
         new_file_path = join(output, file_name)
-        print(new_file_path, isfile(new_file_path))
         if isfile(new_file_path):
             CR = compression_ratio(file_path, new_file_path)
             compression_ratios[basename(file_path)] = CR
