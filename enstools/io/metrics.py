@@ -408,6 +408,7 @@ class DataArrayMetrics:
         make_radar_chart(variable_name, selected_metrics, selected_values, ax)
         if not isdir(output_folder):
             makedirs(output_folder)
+        plt.tight_layout()
         plt.savefig(join(output_folder, f"report_{variable_name}.png"))
         plt.close("all")
 
