@@ -103,7 +103,16 @@ def set_encoding(ds, compression_options):
 
     elif mode == "lossy":
         lossy_filter_id, lossy_compression_options = lossy_encoding(options)
-        for variable in variables:
+
+        # Set coordinates compression to lossless
+        for coord in coordinates:
+            descriptions[coord] = "Lossless-ly compressed using BLOSC (id:32001)"
+            encoding[coord] = {}
+            encoding[coord]["compression"] = lossless_filter_id
+            encoding[coord]["compression_opts"] = lossless_compression_options
+
+        # Set variables compression and description
+        for variable in data_variables:
             descriptions[
                 variable] = f"Lossy compressed using {compression_options} ({compressor_labels[lossy_filter_id]} id:{lossy_filter_id})"
             encoding[variable] = {}
