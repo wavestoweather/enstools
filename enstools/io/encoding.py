@@ -1,3 +1,7 @@
+from typing import List, Union, Tuple
+import numpy as np
+import xarray
+
 compressor_labels = {
     32001: "BLOSC",
     32013: "ZFP",
@@ -80,6 +84,7 @@ def set_encoding(ds, compression_options):
     variables = [var for var in ds.variables]
     coordinates = [v for v in ds.coords]
     data_variables = [v for v in ds.variables if v not in coordinates]
+    excluded_variables = []
 
     # Initialize encoding dictionary
     encoding = {}
@@ -104,12 +109,18 @@ def set_encoding(ds, compression_options):
     elif mode == "lossy":
         lossy_filter_id, lossy_compression_options = lossy_encoding(options)
 
+        # TODO: Fix this to do a proper type selection, right now only float32 can use lossy compression safely
+        for variable in data_variables:
+            if not np.issubdtype(ds[variable].dtype, np.float32):
+                data_variables.remove(variable)
+                excluded_variables.append(variable)
+
         # Set coordinates compression to lossless
-        for coord in coordinates:
-            descriptions[coord] = "Lossless-ly compressed using BLOSC (id:32001)"
-            encoding[coord] = {}
-            encoding[coord]["compression"] = lossless_filter_id
-            encoding[coord]["compression_opts"] = lossless_compression_options
+        for variable in coordinates + excluded_variables:
+            descriptions[variable] = "Lossless-ly compressed using BLOSC (id:32001)"
+            encoding[variable] = {}
+            encoding[variable]["compression"] = lossless_filter_id
+            encoding[variable]["compression_opts"] = lossless_compression_options
 
         # Set variables compression and description
         for variable in data_variables:
@@ -186,7 +197,7 @@ def set_encoding(ds, compression_options):
     return encoding, descriptions
 
 
-def adapt_compression_options(filter_id, compression_options, variable_dataset):
+def adapt_compression_options(filter_id: int, compression_options: tuple, variable_dataset: xarray.DataArray) -> tuple:
     """
     In the case of SZ (filter_id == 32017) we need to adapt the compression options to include things related with
     the dimensions of the variable being dealt with.
@@ -202,7 +213,8 @@ def adapt_compression_options(filter_id, compression_options, variable_dataset):
         # Compression_opts have to include dimensions of data and shape.
         shape = variable_dataset.shape
         dim = len(shape)
-        data_type = 0  # TODO: Maybe we can set this dynamically instead of having it hardcoded here.
+        # TODO: We have to set the type dynamically instead of having it hardcoded here. Also for integers.
+        data_type = 0
 
         if variable_dataset.dtype == "float32":
             data_type = 0
@@ -236,7 +248,7 @@ def filter_and_options_from_command_line_arguments(string):
         return lossy_encoding(options)
 
 
-def blosc_encoding(compressor="lz4", clevel=9):
+def blosc_encoding(compressor: str = "lz4", clevel: int = 9) -> Tuple[int, tuple]:
     """
     The function will return the BLOSC_is and the compression options .
 
@@ -278,7 +290,17 @@ def blosc_encoding(compressor="lz4", clevel=9):
     return blosc_filter_id, compression_opts
 
 
-def lossy_encoding(compression_options):
+def lossy_encoding(compression_options: List[str]) -> Union[int, tuple]:
+    """
+     Returns the filter id and a tuple with the encoding that will be passed to the hdf5 engine.
+     Its a wrapper that will select the proper function to use: zfp_encoding or sz_encoding
+
+    Parameters
+    ----------
+    compression_options: list
+        list of compression options
+    """
+
     if compression_options[0] == "zfp":
         return zfp_encoding(compression_options)
     elif compression_options[0] == "sz":
@@ -287,13 +309,15 @@ def lossy_encoding(compression_options):
         raise NotImplementedError
 
 
-def zfp_encoding(compression_options):
+def zfp_encoding(compression_options: List[str]) -> Union[int, tuple]:
     """
     Create a dictionary with the encoding that will be passed to the hdf5 engine, to use the ZFP filter.
     One and only of the method options need to be provided: rate, precision or accuracy.
     Parameters
     ----------
     compression_options: list of strings
+
+    :returns: filter_id, compression_opts
     """
     assert check_zfp_availability(), "Attempting to use ZFP filter which is not available."
     # The uniq filter id given by HDF5 
@@ -317,13 +341,16 @@ def zfp_encoding(compression_options):
     return zfp_filter_id, compression_opts
 
 
-def sz_encoding(compression_options):
+def sz_encoding(compression_options: List[str]) -> Union[int, tuple]:
     """
     Create a dictionary with the encoding that will be passed to the hdf5 engine, to use the ZFP filter.
     One and only of the method options need to be provided: rate, precision or accuracy.
     Parameters
     ----------
     compression_options: list of strings
+
+    :returns: sz_filter_id, compression_opts
+    :rtype: int, dict
     """
     assert check_sz_availability(), "Attempting to use SZ filter which is not available."
     # The unique filter id given by HDF5
@@ -345,16 +372,19 @@ def sz_encoding(compression_options):
     return sz_filter_id, compression_opts
 
 
-def sz_pack_error(error):
+def sz_pack_error(error: float) -> int:
     from struct import pack, unpack
     return unpack('I', pack('<f', error))[0]  # Pack as IEEE 754 single
 
 
 # Some functions to define the compression_opts array that will be passed to the filter
-def zfp_rate_opts(rate):
+def zfp_rate_opts(rate) -> tuple:
     """Create compression options for ZFP in fixed-rate mode
 
     The float rate parameter is the number of compressed bits per value.
+    Parameters:
+        :rate: : float
+    :rtype: tuple
     """
     zfp_mode_rate = 1
     from struct import pack, unpack
@@ -368,6 +398,10 @@ def zfp_precision_opts(precision):
     """Create a compression options for ZFP in fixed-precision mode
 
     The float precision parameter is the number of uncompressed bits per value.
+
+        Parameters:
+        :precision: : float
+    :rtype: tuple
     """
     zfp_mode_precision = 2
     return zfp_mode_precision, 0, precision, 0, 0, 0
@@ -376,7 +410,11 @@ def zfp_precision_opts(precision):
 def zfp_accuracy_opts(accuracy):
     """Create compression options for ZFP in fixed-accuracy mode
 
-    The float accuracy parameter is the absolute error tolarance (e.g. 0.001).
+    The float accuracy parameter is the absolute error tolerance (e.g. 0.001).
+
+        Parameters:
+        :accuracy: : float
+        :rtype: tuple
     """
     zfp_mode_accuracy = 3
     from struct import pack, unpack
@@ -386,7 +424,7 @@ def zfp_accuracy_opts(accuracy):
     return zfp_mode_accuracy, 0, high, low, 0, 0
 
 
-def zfp_expert_opts(minbits, maxbits, maxprec, minexp):
+def zfp_expert_opts(minbits, maxbits, maxprec, minexp) -> tuple:
     """Create compression options for ZFP in "expert" mode
 
     See the ZFP docs for the meaning of the parameters.
@@ -395,10 +433,11 @@ def zfp_expert_opts(minbits, maxbits, maxprec, minexp):
     return zfp_mode_expert, 0, minbits, maxbits, maxprec, minexp
 
 
-def zfp_reversible():
+def zfp_reversible() -> tuple:
     """Create compression options for ZFP in reversible mode
 
     It should result in lossless compression.
+    :rtype: tuple
     """
     zfp_mode_reversible = 5
     return zfp_mode_reversible, 0, 0, 0, 0, 0
@@ -407,7 +446,7 @@ def zfp_reversible():
 # Functions to parse the compression options,
 # to give more flexibility and allow a way to pass custom compression options
 # TODO: Move to a different file?
-def parse_compression_options(string):
+def parse_compression_options(string: str) -> tuple:
     from os.path import isfile
     """
     Function to parse compression options
@@ -441,7 +480,7 @@ def parse_compression_options(string):
         raise AssertionError("Compression: The argument should be lossless/lossy/or a path to a file.")
 
 
-def parse_lossless_compression_options(arguments):
+def parse_lossless_compression_options(arguments: List[str]):
     """
     Function to parse compression options for the lossless case
     Input
@@ -485,7 +524,7 @@ def parse_lossless_compression_options(arguments):
     return "lossless", (backend, compression_level)
 
 
-def parse_lossy_compression_options(arguments):
+def parse_lossy_compression_options(arguments: List[str]):
     """
     Function to parse compression options for the lossy case
     Input
@@ -511,7 +550,7 @@ def parse_lossy_compression_options(arguments):
             raise AssertionError("Compression: Unknown lossy compressor: %s" % arguments[1])
 
 
-def parse_zfp_compression_options(arguments):
+def parse_zfp_compression_options(arguments: List[str]):
     """
     Function to parse compression options for the ZFP compressor
     Input
@@ -543,7 +582,7 @@ def parse_zfp_compression_options(arguments):
         raise AssertionError("Compression: Invalid value '%s' for ZFP" % arguments[3])
 
 
-def parse_sz_compression_options(arguments):
+def parse_sz_compression_options(arguments: List[str]):
     """
     Function to parse compression options for the SZ compressor
     Input
@@ -576,7 +615,18 @@ def parse_sz_compression_options(arguments):
         raise AssertionError("Compression: Invalid value '%s' for SZ" % arguments[3])
 
 
-def parse_configuration_file(filename):
+def parse_configuration_file(filename: str) -> dict:
+    """
+    Function to parse a compression configuration file
+    Input
+    -----
+    filename: str
+        path fo the file that contains compression specifications.
+
+    Output
+    -----
+    specifications : dict
+    """
     # Look for file format:
     if filename.count(".json"):
         file_format = "json"
@@ -602,7 +652,7 @@ def parse_configuration_file(filename):
     return specifications
 
 
-def from_specification_to_dictionaries_of_filters_and_options(specifications: dict):
+def from_specification_to_dictionaries_of_filters_and_options(specifications: dict) -> Tuple[dict, dict]:
     # Initialize dictionaries
     dictionary_of_filter_ids = {}
     dictionary_of_compression_options = {}
@@ -614,7 +664,7 @@ def from_specification_to_dictionaries_of_filters_and_options(specifications: di
     return dictionary_of_filter_ids, dictionary_of_compression_options
 
 
-def encoding_description(encoding):
+def encoding_description(encoding: dict):
     """
     Function to create a meaningful description that will be added as variable attribute into the netcdf file.
     Input:
