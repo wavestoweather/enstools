@@ -322,7 +322,7 @@ def analyze_files(file_paths: List[str], thresholds: dict, compressor: str = Non
         multimode = True  # Try between the different compressor methods to select the better performing one.
     else:
         multimode = False
-    from .reader import read
+    from enstools.io import read
 
     if grid:
         grid_ds = read(grid)
