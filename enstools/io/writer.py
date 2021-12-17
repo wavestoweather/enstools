@@ -1,16 +1,16 @@
 import xarray
 from xarray.backends.netCDF4_ import NetCDF4DataStore
 
-from enstools.misc import has_dask_arrays
 from .file_type import get_file_type
-from .encoding import set_encoding, encoding_description, check_compression_filters_availability
+from enstools.io.compression import define_encoding, set_compression_attributes, check_compression_filters_availability
 import dask.array
 import six
 from distutils.version import LooseVersion
 from os import rename
+from typing import Union
 
 
-def write(ds, filename, file_format=None, compression="default", compute=True):
+def write(ds, filename, file_format=None, compression: Union[str, dict] = "default", compute=True):
     """
     write a xarray dataset to a file
 
@@ -73,7 +73,6 @@ def write(ds, filename, file_format=None, compression="default", compute=True):
     # we need to make sure that we are able to write compressed files
     if not check_compression_filters_availability(ds):
         print("Relying on hdf5plugin")
-        import hdf5plugin
     # select the type of file to create
     valid_formats = ["NC"]
     if file_format is not None:
@@ -83,13 +82,10 @@ def write(ds, filename, file_format=None, compression="default", compute=True):
     if selected_format not in valid_formats:
         raise ValueError("the format '%s' is not (yet) supported!" % selected_format)
 
-    # Encoding
-    encoding, descriptions = set_encoding(ds, compression)
+    # If a compression variable has been provided, define the proper encoding for HDF5 filters:
+    encoding, descriptions = define_encoding(dataset=ds, compression=compression)
 
-    # In case of using an encoding, we'll add an attribute to the file indicating that the file has been compressed.
-    if encoding is not None:
-        for variable, description in descriptions.items():
-            ds[variable].attrs["compression"] = description
+    set_compression_attributes(dataset=ds, descriptions=descriptions)
 
     # write a netcdf file
     if selected_format == "NC":
