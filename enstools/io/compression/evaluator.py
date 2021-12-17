@@ -4,8 +4,7 @@
 #
 
 """
-from .reader import read
-from .metrics import DataArrayMetrics, DatasetMetrics
+from enstools.io.compression.metrics import DataArrayMetrics, DatasetMetrics
 
 
 class bcolors:

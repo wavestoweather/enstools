@@ -4,8 +4,8 @@
 #
 
 """
-from typing import Union, List, Tuple
-from os.path import isfile, isdir, basename
+from typing import Union, List
+from os.path import isfile, isdir
 from os import rename, access, W_OK
 import time
 
@@ -61,7 +61,7 @@ def transfer(file_paths: Union[List[str], str], output: str, compression: str = 
                                 )
 
 
-def transfer_multiple_files(file_paths: Union[List[str],str], output: str, compression: str = "lossless",
+def transfer_multiple_files(file_paths: Union[List[str], str], output: str, compression: str = "lossless",
                             variables_to_keep: List[str] = None):
     from dask import compute
     # Create and fill the list of tasks
@@ -108,8 +108,7 @@ def transfer_file(origin: str, destination: str, compression: str, variables_to_
     compression: string
             compression specification or path to json configuration file
     """
-    from .reader import read
-    from .writer import write
+    from enstools.io import read, write
     dataset = read(origin, decode_times=False)
     if variables_to_keep is not None:
         # Drop the undesired variables and keep the coordinates
@@ -149,7 +148,7 @@ def destination_path(origin_path: str, destination_folder: str):
     return destination
 
 
-def compress(file_paths: Union[List[str], str], output: str, compression: str, nodes: int = 0,
+def compress(file_paths: Union[List[str], str], output: str, compression: Union[str, None], nodes: int = 0,
              variables_to_keep: List[str] = None, show_compression_ratios=False):
     """
     Copies a list of files to a destination folder, optionally applying compression.
@@ -207,6 +206,8 @@ def check_compression_ratios(file_paths: Union[List[str], str], output: str):
             new_file_path = join(output, file_name)
         elif isfile(output):
             new_file_path = output
+        else:
+            raise NotImplementedError
         CR = compression_ratio(file_path, new_file_path)
         print(f"Compression ratios after compression:\nCR: {CR:.1f}")
         return

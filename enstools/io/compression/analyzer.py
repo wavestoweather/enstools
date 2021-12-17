@@ -6,12 +6,12 @@
 
 """
 
-from .metrics import DataArrayMetrics
+from enstools.io.compression.metrics import DataArrayMetrics
 from pprint import pprint
 import numpy as np
 from xarray import DataArray, Dataset
 from typing import Union, List, Tuple
-from .encoding import check_libpressio_availability
+from enstools.io.compression import check_libpressio_availability
 from sys import getsizeof
 
 compression_modes = {
