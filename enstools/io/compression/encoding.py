@@ -100,6 +100,8 @@ def define_variable_specifications(dataset: xarray.Dataset, compression: Union[s
         return define_variable_specifications_lossless(dataset, compression)
     elif compression.count("lossy"):
         return define_variable_specifications_lossy(dataset, compression)
+    elif compression == "default":
+        return define_variable_specifications_none(dataset)
     else:
         raise NotImplementedError
 
