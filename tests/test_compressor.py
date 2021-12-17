@@ -1,6 +1,6 @@
 from os.path import isfile, join
 import pytest
-from enstools.io.encoding import check_sz_availability, check_libpressio_availability
+from enstools.io.compression import check_sz_availability, check_libpressio_availability
 
 
 def create_synthetic_dataset(directory):
@@ -270,15 +270,15 @@ class TestClass:
 
     @pytest.mark.skipif(not check_sz_availability(), reason="Requires SZ")
     def test_filters_availability(self):
-        from enstools.io.encoding import check_all_filters_availability
+        from enstools.io.compression import check_all_filters_availability
         assert check_all_filters_availability()
 
     def test_blosc_filter_availability(self):
-        from enstools.io.encoding import check_blosc_availability
+        from enstools.io.compression import check_blosc_availability
         assert check_blosc_availability
 
     def test_zfp_filter_availability(self):
-        from enstools.io.encoding import check_zfp_availability
+        from enstools.io.compression import check_zfp_availability
         assert check_zfp_availability
 
     def test_specify_single_file_output_name(self):
