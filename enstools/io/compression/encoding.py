@@ -197,9 +197,13 @@ def define_compression_options(dataset: xarray.Dataset, variable_specifications:
         else:
             raise NotImplementedError
 
+        # Fix to get chunksizes
+        chunksize = tuple([_x if i != 0 else 1 for i, _x in enumerate(dataset[variable].shape)])
+
         compression_options[variable] = {
             "compression": filter_id,
             "compression_opts": parsed_options,
+            "chunksizes": chunksize,
         }
     return compression_options
 
