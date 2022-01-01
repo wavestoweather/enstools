@@ -15,7 +15,10 @@ import plotly.figure_factory as ff
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, Legend
 
+from ...core import check_arguments
 
+
+@check_arguments(dims={'variable': ('lat', 'lon')})
 def interactive_contours(variable, lon=None, lat=None, **kwargs):
     """
     Creates a plot of interactive contours.
@@ -216,13 +219,14 @@ def interactive_contours(variable, lon=None, lat=None, **kwargs):
     return fig
 
 
-def interactive_streamlines(data_horizontal, data_vertical, lon=None, lat=None, **kwargs):
+@check_arguments(dims={'variable_u': ('lat', 'lon'), 'variable_v': ('lat', 'lon')})
+def interactive_streamlines(variable_u, variable_v, lon=None, lat=None, **kwargs):
     """
     Creates a plot of interactive streamlines or vectors.
 
     Parameters
     ----------
-    data_horizontal, data_vertical : xarray
+    variable_u, variable_v : xarray.DataArray
         u- and v-component of streamline data.
         
     lon : xarray.DataArray or np.ndarray or str
@@ -289,13 +293,13 @@ def interactive_streamlines(data_horizontal, data_vertical, lon=None, lat=None, 
         raise ValueError(f"unsupported map resolution: {map_resolution}! map resolution must be an instance of: '110m', '50m' or '10m'.")
         
     # get the coordinates
-    lon, lat = get_coordinates_from_xarray(data_horizontal, lon, lat, rad2deg=False)
+    lon, lat = get_coordinates_from_xarray(variable_u, lon, lat, rad2deg=False)
 
     # interpolate to regular lat-lon grid if on icosahedral
-    if data_horizontal.ndim == 1 and lon.ndim == 1 and lat.ndim == 1:
-        data_horizontal = _backend.icosahedral_to_regular_coords(data_horizontal, clon=lon, clat=lat)
-        data_vertical = _backend.icosahedral_to_regular_coords(data_vertical, clon=lon, clat=lat)
-        lon, lat = get_coordinates_from_xarray(data_horizontal, create_mesh=False)
+    if variable_u.ndim == 1 and lon.ndim == 1 and lat.ndim == 1:
+        variable_u = _backend.icosahedral_to_regular_coords(variable_u, clon=lon, clat=lat)
+        variable_v = _backend.icosahedral_to_regular_coords(variable_v, clon=lon, clat=lat)
+        lon, lat = get_coordinates_from_xarray(variable_u, create_mesh=False)
 
     # define figure parameters
     color = "black"
@@ -319,18 +323,21 @@ def interactive_streamlines(data_horizontal, data_vertical, lon=None, lat=None, 
     density = kwargs.pop("density", 2)
     scale = kwargs.pop("scale", 0.02)
     if line_type == Stream.LINE:
-        streamlines = _backend.get_streamline_data(lon, lat, data_horizontal, data_vertical, density)
+        streamlines = _backend.get_streamline_data(lon, lat, variable_u, variable_v, density)
         
     # reduce a number of grid cells for vectors and get reference arrow data
     elif line_type == Stream.VECTOR:
-        lons, lats, us, vs = _backend.reduce_vector_data(lon, lat, data_horizontal, data_vertical, density)
-        
+        lons, lats, us, vs = _backend.reduce_vector_data(lon, lat, variable_u, variable_v, density)
+
         # increase range of Y-axis for placing of a reference arrow 
         lat1_map_arrow = abs(0.1*(lat1_map-lat0_map))
         lat1_map = lat1_map + lat1_map_arrow
         
         ref_arrow = _backend.get_reference_arrow_data(us, vs)
-        ref_arrow_string= (str(ref_arrow) + ' ' + data_horizontal.units)
+        if hasattr(variable_u, 'units'):
+            ref_arrow_string = (str(ref_arrow) + ' ' + variable_u.units)
+        else:
+            ref_arrow_string = str(ref_arrow)
         
     else:
         raise ValueError(f"unsupported lines type: {line_type}! line type must be an instance of Stream Enum: LINE or VECTOR.")

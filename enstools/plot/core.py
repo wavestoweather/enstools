@@ -10,6 +10,8 @@ from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 from mpl_toolkits.axes_grid1.axes_size import AxesY, Fraction
 from numba import jit
 from multipledispatch import dispatch
+
+from enstools.core import check_arguments
 from enstools.misc import point_in_polygon
 import xarray
 import six
@@ -290,6 +292,7 @@ def get_coordinates_from_xarray(variable, lon_name=None, lat_name=None, create_m
     return lon, lat
 
 
+@check_arguments(dims={'variable': ('lat', 'lon')})
 def contour(variable, lon=None, lat=None, **kwargs):
     """
     Create a plot from an xarray variable that includes coordinates.
