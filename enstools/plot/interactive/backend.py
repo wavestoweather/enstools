@@ -171,7 +171,7 @@ class InteractiveBackend(metaclass=ABCMeta):
                 if geom.geom_type == 'LineString':
                     paths.append(list(geom.coords))
                 else:
-                    for g in geom:
+                    for g in geom.geoms:
                         paths.append(list(g.coords))
                     
         elif feature == 'borders':
@@ -179,7 +179,7 @@ class InteractiveBackend(metaclass=ABCMeta):
                 if geom.geom_type == 'LineString':
                     paths.append(list(geom.coords))
                 else:
-                    for g in geom:
+                    for g in geom.geoms:
                         paths.append(list(g.coords))
                     
         else:
@@ -389,10 +389,10 @@ class InteractiveBackend(metaclass=ABCMeta):
 
         Parameters
         ----------
-        x, y : xarray
+        x, y : xarray.DataArray
             Arrays contain X- or Y-coordinates of grid cells.
 
-        u, v : xarray
+        u, v : xarray.DataArray
             2-dimensional arrays contain values of horizontal or vertical components of a variable.
             
         density : float
@@ -408,8 +408,16 @@ class InteractiveBackend(metaclass=ABCMeta):
         """
         
         # reduce a number of vectors
-        nlon = int(density*30)           
-        nlat = int(density*30)     
+        nlon = int(density*30)
+        nlat = int(density*30)
+        if nlon > x.size and nlat > y.size:
+            # no need for reduction
+            lons, lats = np.meshgrid(x, y)
+            return lons, lats, np.asarray(u), np.asarray(v)
+        if nlon > x.size:
+            nlon = x.size
+        if nlat > y.size:
+            nlat = y.size
         
         # create new arrays for a reduced number of vectors
         lon = np.zeros(nlon)
@@ -462,21 +470,11 @@ class InteractiveBackend(metaclass=ABCMeta):
             Value of a reference arrow.
         """
         
-        # referance arrow = arrow with maximum lenght 
-        speed = np.sqrt(us*us + vs*vs)
-        max_temp = 0
-        x_temp = 0
-        y_temp = 0
-        
-        for i in range(speed.shape[0]):
-            for j in range(speed.shape[1]):
-                if speed[i,j] >= max_temp:
-                    max_temp = speed[i,j]
-                    x_temp = i
-                    y_temp = j
-                    
+        # reference arrow = arrow with maximum length
+        speed_max = np.max(np.sqrt(us**2 + vs**2))
+
         # round and make a reference arrow multiple of 5            
-        ref_arrow = int(round(speed[x_temp, y_temp]/5.0)*5.0)
+        ref_arrow = int(np.round(speed_max/5.0)*5.0)
         
         return ref_arrow
     
