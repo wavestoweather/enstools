@@ -471,7 +471,7 @@ class InteractiveBackend(metaclass=ABCMeta):
         """
         
         # reference arrow = arrow with maximum length
-        speed_max = np.max(np.sqrt(us**2 + vs**2))
+        speed_max = np.nanmax(np.sqrt(us**2 + vs**2))
 
         # round and make a reference arrow multiple of 5            
         ref_arrow = int(np.round(speed_max/5.0)*5.0)
