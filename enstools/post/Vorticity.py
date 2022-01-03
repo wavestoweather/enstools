@@ -53,13 +53,13 @@ def __vorticity(u, v, lon, lat, fill_value):
     for y in range(1, u.shape[0]-1):
         for x in range(1, u.shape[1]-1):
             # any missing values?
-            if (u[y,x] == fill_value or u[y,x+1] == fill_value or u[y,x-1] == fill_value
-                or u[y+1,x] == fill_value or u[y-1,x] == fill_value
-                or v[y,x] == fill_value or v[y,x+1] == fill_value or v[y,x-1] == fill_value
-                or v[y+1,x] == fill_value or v[y-1,x] == fill_value):
-                vor[y,x] = fill_value
-                shear[y,x] = fill_value
-                curve[y,x] = fill_value
+            if np.isnan(u[y,x]) or np.isnan(u[y,x+1]) or np.isnan(u[y,x-1]) \
+                or np.isnan(u[y+1,x]) or np.isnan(u[y-1,x]) \
+                or np.isnan(v[y,x]) or np.isnan(v[y,x+1]) or np.isnan(v[y,x-1]) \
+                or np.isnan(v[y+1,x]) or np.isnan(v[y-1,x]):
+                vor[y,x] = np.NaN
+                shear[y,x] = np.NaN
+                curve[y,x] = np.NaN
             
             # distance on globe
             dx = distance(lat[y], lat[y], lon[x+1], lon[x-1], input_in_radian=False)
@@ -113,16 +113,22 @@ def __vorticity(u, v, lon, lat, fill_value):
             shear[y,x] = (v_a-v_b) / dx - (u_c-u_d) / dy
     
     # fill values at the borders
-    vor[0,:] = fill_value
-    vor[-1,:] = fill_value
-    vor[:,0] = fill_value
-    vor[:,-1] = fill_value
+    vor[0,:] = np.NaN
+    vor[-1,:] = np.NaN
+    vor[:,0] = np.NaN
+    vor[:,-1] = np.NaN
     
-    shear[0,:] = fill_value
-    shear[-1,:] = fill_value
-    shear[:,0] = fill_value
-    shear[:,-1] = fill_value
+    shear[0,:] = np.NaN
+    shear[-1,:] = np.NaN
+    shear[:,0] = np.NaN
+    shear[:,-1] = np.NaN
     
     # calculate curvature-vorticity 
-    curve = np.where((vor != fill_value) & (shear != fill_value), vor-shear, fill_value)
+    curve = np.where(np.logical_or(np.isnan(vor), np.isnan(shear)), np.NaN, vor-shear)
+
+    # replace fill values if something different from NaN is used
+    if not np.isnan(fill_value):
+        vor = np.where(np.isnan(vor), fill_value, vor)
+        shear = np.where(np.isnan(shear), fill_value, shear)
+        curve = np.where(np.isnan(curve), fill_value, curve)
     return vor, shear, curve
