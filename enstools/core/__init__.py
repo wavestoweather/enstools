@@ -71,7 +71,7 @@ def set_behavior(check_arguments_convert=None, check_arguments_strict=None, chec
             if true, automatic unit conversion takes place
 
     check_arguments_strict : bool
-            if true, missing unit information cause an exception
+            if true, missing unit or dimension information cause an exception
 
     """
     if check_arguments_convert is not None:
@@ -142,7 +142,7 @@ def __shapes_are_equal(shape1, shape2, named_dim_length):
     bool
             True, if both shapes are identical
     """
-    if len(shape1) < len(shape2):
+    if len(shape1) != len(shape2):
         return False
     for i in range(len(shape2)):
         if type(shape2[i]) == str:
@@ -295,8 +295,8 @@ def check_arguments(units={}, dims={}, shape={}):
 
                 # no xarray, unable to check dimensions
                 else:
-                    msg = "Argument '%s' is no dimension name information!" % arg_names[iarg]
-                    if __default_settings["check_arguments:reorder"] or __default_settings["check_arguments:strict"]:
+                    msg = "Argument '%s' has no dimension name information!" % arg_names[iarg]
+                    if __default_settings["check_arguments:reorder"] and __default_settings["check_arguments:strict"]:
                         raise ValueError(msg)
                     else:
                         logging.warning(msg)
