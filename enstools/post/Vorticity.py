@@ -5,10 +5,10 @@ from enstools.misc import distance
 from numba import njit
 
 
-@check_arguments(dims={'u': ('lat', 'lon'), 'v': ('lat', 'lon')})
+@check_arguments(dims={'u': ('lat', 'lon'), 'v': ('lat', 'lon')}, shape={'lon': (0,), 'lat': (0,)})
 def vorticity(u, v, lon, lat, fill_value=np.NaN):
     """
-    Calculate vorticity and its components shear and curvature on a regular lat-lon-grid.
+    Calculate relative vorticity and its components shear and curvature on a regular lat-lon-grid.
 
     Parameters
     ----------
@@ -32,12 +32,33 @@ def vorticity(u, v, lon, lat, fill_value=np.NaN):
     vorticity, shear_vorticity, curve_vorticity: xarray.DataArray
     """
     # perform the actual calculation with numba
-    vor, shear, curve = __vorticity(u.values, v.values, lon.values, lat.values, fill_value)
+    vor, shear, curve = __vorticity(np.asarray(u), np.asarray(v), np.asarray(lon), np.asarray(lat), fill_value)
 
     # convert result in xarray.DataArrays
-    vor = xarray.DataArray(vor, coords=[lat, lon], dims=('lat', 'lon'))
-    shear = xarray.DataArray(shear, coords=[lat, lon], dims=('lat', 'lon'))
-    curve = xarray.DataArray(curve, coords=[lat, lon], dims=('lat', 'lon'))
+    vor = xarray.DataArray(
+        vor, coords=[lat, lon], dims=('lat', 'lon'),
+        name="relative_vorticity",
+        attrs={
+            "standard_name": "atmosphere_upward_relative_vorticity",
+            "units": "s-1"
+        }
+    )
+    shear = xarray.DataArray(
+        shear, coords=[lat, lon], dims=('lat', 'lon'),
+        name="shear_vorticity",
+        attrs={
+            "standard_name": "shear_component_of_atmosphere_upward_relative_vorticity",
+            "units": "s-1"
+        }
+    )
+    curve = xarray.DataArray(
+        curve, coords=[lat, lon], dims=('lat', 'lon'),
+        name="curve_vorticity",
+        attrs={
+            "standard_name": "curvature_component_atmosphere_upward_relative_vorticity",
+            "units": "s-1"
+        }
+    )
     return vor, shear, curve
 
 
