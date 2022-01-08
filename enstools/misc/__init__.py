@@ -544,4 +544,22 @@ def bytes2human(n, format='%(value).1f %(symbol)s', symbols='iec'):
     return format % dict(symbol=symbols[0], value=n)
 
 
+@jit(nopython=True)
+def isfill(value, fill_value):
+    """
+    check if a given value is the fill value. Work for numbers and NaN.
 
+    Parameters
+    ----------
+    value: float
+    fill_value: float
+
+    Returns
+    -------
+    bool:
+        True if the value is the fill_value
+    """
+    if np.isnan(fill_value):
+        return np.isnan(value)
+    else:
+        return value == fill_value
