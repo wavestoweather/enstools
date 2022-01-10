@@ -48,6 +48,8 @@ class DataArrayMetrics:
     """
     available_metrics = [
         "accumulated_difference",
+        "max_diff",
+        "max_rel_diff",
         "mse",
         "rmse",
         "nrmse",
@@ -117,6 +119,10 @@ class DataArrayMetrics:
         """
         if method == "accumulated_difference":
             return self.accumulated_difference()
+        elif method == "max_diff":
+            return self.maximum_absolute_difference()
+        elif method == "max_rel_diff":
+            return self.maximum_relative_difference()     
         elif method == "range_I":
             return self.range_index()
         elif method == "mse":
@@ -163,6 +169,15 @@ class DataArrayMetrics:
     def accumulated_difference(self):
         # Sum the individual errors
         return float(np.sum(self.difference))
+
+    def maximum_absolute_difference(self):
+        return -np.log10(np.max(np.abs(self.difference)))
+
+    def maximum_relative_difference(self):
+        abs_ref =np.abs(self.reference_values)
+        indices =  abs_ref > 0.
+
+        return -np.log10(np.max(np.abs(self.difference[indices])/abs_ref[indices]))
 
     def range_index(self):
         """
@@ -334,6 +349,7 @@ class DataArrayMetrics:
         ssim = [self.compute_ssim_slice(target[sl], reference[sl]) for sl in slices]
         mean_ssim = np.mean(ssim)
         return float(mean_ssim)
+    
 
     def plot_summary(self, output_folder: str = "report"):
         import matplotlib.pyplot as plt
