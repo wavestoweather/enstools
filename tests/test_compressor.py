@@ -305,3 +305,13 @@ class TestClass:
             # Import and launch compress function
             compress(input_path, output_filename, compression="lossless", nodes=0)
 
+    def test_significant_bits_analysis(self):
+        from enstools.io.compression.significant_bits import analyze_file_significant_bits
+        input_tempdir = self.input_tempdir
+        # Check that the compression without specifying compression parameters works
+        datasets = ["dataset_%iD.nc" % dimension for dimension in range(3, 4)]
+        for ds in datasets:
+            input_path = join(input_tempdir.getpath(), ds)
+            # Import and launch compress function
+            analyze_file_significant_bits(input_path)
+

@@ -9,7 +9,7 @@ import numpy as np
 import xarray
 
 
-def get_uint_type_by_bit_length(bits):
+def get_uint_type_by_bit_length(bits: int) -> type:
     """
     Returns the numpy data type that corresponds to a unsigned integer with a certain number of bits.
     """
@@ -25,7 +25,7 @@ def get_uint_type_by_bit_length(bits):
         raise NotImplementedError(f"mask_generator does not have this number of bits implemented: {bits}")
 
 
-def mask_generator(bits=32, ones=9):
+def mask_generator(bits: int = 32, ones: int = 9):
     """
     This function returns a mask of type unsigned int, which has the number of bits specified by the input variable bits 
     and has the number of ones specified by the input variable ones.
@@ -49,7 +49,7 @@ def mask_generator(bits=32, ones=9):
     return mask_type(mask)
 
 
-def single_bit_mask(position=0, bits=32):
+def single_bit_mask(position: int = 0, bits: int = 32):
     """
     It generates a mask that has a single 1 to the specified position.
     """
@@ -63,7 +63,7 @@ def single_bit_mask(position=0, bits=32):
     return mask_type(shifted)
 
 
-def apply_mask(array: np.ndarray, mask):
+def apply_mask(array: np.array, mask: np.integer) -> np.array:
     """
     Apply the mask to a given array.
     """
@@ -81,42 +81,6 @@ def apply_mask(array: np.ndarray, mask):
 
     # Return the masked array with the proper type.
     return masked_array.view(array.dtype)
-
-
-def keep_significant_bits(array: np.ndarray, significant_bits=0, round_to_nearest=True):
-    """
-    Create and apply a mask with number of ones given by the input variable significant_bits.
-
-    Rounding is controlled by round_to_nearest input variable.
-    """
-
-    bits = array.typesize * 8
-    int_type = get_uint_type_by_bit_length(bits)
-
-    # round_to_nearest = True
-    if round_to_nearest:
-        # Get the mask for the first discarded value
-        next_bit_mask = single_bit_mask(position=significant_bits, bits=bits)
-
-        # Apply the mask
-        next_bit_value = apply_mask(array, next_bit_mask)
-
-        # Shift left
-        next_bit_value = np.left_shift(next_bit_value.view(dtype=int_type), 1)
-
-        # Apply or
-        new_array = np.bitwise_or(array.view(dtype=int_type), next_bit_value).view(dtype=array.dtype)
-
-        # Reasign
-        array = new_array[:]
-
-    # Create mask
-    mask = mask_generator(bits=bits, ones=significant_bits)
-    # Apply mask
-    pruned = apply_mask(array, mask)
-    assert len(pruned) == len(array)
-
-    return pruned
 
 
 def binary_representation(array: np.ndarray):
@@ -144,7 +108,7 @@ def binary_representation(array: np.ndarray):
         raise err
 
 
-def bit_in_position(array, position):
+def bit_in_position(array: np.array, position: int) -> np.array:
     assert array.ndim == 1
 
     # The number of bits per value its equal to the array type size in bytes multiplied by 8
@@ -159,12 +123,12 @@ def bit_in_position(array, position):
     return np.uint8(x)
 
 
-def bit_count(array, position):
+def bit_count(array: np.array, position: int):
     x = bit_in_position(array, position=position)
     return np.sum(x)
 
 
-def bit_probabilities(array):
+def bit_probabilities(array: np.array):
     # The number of bits per value its equal to the array type size in bytes multiplied by 8
     byte_length = array.dtype.itemsize
     bit_length = byte_length * 8
@@ -173,7 +137,7 @@ def bit_probabilities(array):
     counted_bits = [bit_count(array, pos) for pos in _bits]
     return [c / (len(array)) for c in counted_bits]
 
-
+#TODO: Need to better document and explain what these functions are, after a month I don't even remember myself what it is.
 def entropy_(p):
     s = 0.
     z = 0.
@@ -187,7 +151,7 @@ def entropy__(p, base):
     return entropy_(p) / np.log(base)
 
 
-def bitpattern_entropy_per_bit(array):
+def bitpattern_entropy_per_bit(array: np.array):
     probabilities = bit_probabilities(array)
     return [entropy__([p, 1 - p], base=2) for p in probabilities]
 
@@ -196,7 +160,7 @@ def bitpattern_entropy(A):
     return new_entropy(A)
 
 
-def new_entropy(array):
+def new_entropy(array: np.array):
     unique, counts = np.unique(array, return_counts=True)
     probabilities = counts / array.size
     p = probabilities
@@ -204,7 +168,7 @@ def new_entropy(array):
     return E
 
 
-def bit_conditional_count(array):
+def bit_conditional_count(array: np.array):
     l_not = np.logical_not
 
     as_bool = array.astype(np.bool)
@@ -224,7 +188,7 @@ def bit_conditional_count(array):
     return counter
 
 
-def bit_mutual_information(array):
+def bit_mutual_information(array: np.array):
     counter = bit_conditional_count(array)
     probabilities = counter / array.size
     p = probabilities
@@ -251,7 +215,7 @@ def bit_mutual_information(array):
     return mutual_information
 
 
-def array_mutual_information(array):
+def array_mutual_information(array: np.array):
     """
     Given an array, look for the mutual information in each bit position.
     Returns a list of the mutual information in each bit.
@@ -263,11 +227,37 @@ def array_mutual_information(array):
         bits = bit_in_position(array, position=pos)
         mutual_information[pos] = bit_mutual_information(bits)
 
+    mutual_information = filter_insignificant_values(mutual_information, array.size)
+
     return mutual_information
 
 
-def analyze_file_significant_bits(file_path):
-    # analyze(file_paths, output_file, thresholds, compressor=compressor, mode=mode, grid=grid)
+def filter_insignificant_values(mutual_information_list, number_of_elements):
+    # FIXME: Get rid of insignificant values
+    # In the code created by the author of the paper they use this:
+    """
+    if set_zero_insignificant
+        p = binom_confidence(N,confidence)  # get chance p for 1 (or 0) from binom distr
+        I₀ = 1 - entropy([p,1-p],2)         # free entropy of random [bit]
+        I[I .<= I₀] .= 0                    # set insignficant to zero
+    end
+    """
+
+    I0 = minimum_meaningful_value(number_of_elements)
+    return [v if v > I0 else 0. for v in mutual_information_list]
+
+
+def binom_confidence(number_of_elements, confidence):
+    from scipy.stats import binom
+    return binom.ppf(confidence, number_of_elements, .5) / number_of_elements
+    
+
+def minimum_meaningful_value(number_of_elements, confidence=0.99):
+    p = binom_confidence(number_of_elements=number_of_elements, confidence=confidence)
+    return 1. - entropy__([p, 1 - p], 2)
+
+
+def analyze_file_significant_bits(file_path) -> dict:
     from enstools.io import read
 
     # Open file
@@ -277,16 +267,17 @@ def analyze_file_significant_bits(file_path):
     variables = [var for var in dataset.variables if var not in dataset.coords]
 
     # Analyze variable per variable
+    results = {}
     for variable in variables:
-        # if variable != "tot_prec": continue
-        analyze_variable_significant_bits(dataset[variable])
+        exp_info, mantissa_info, nsb = analyze_variable_significant_bits(dataset[variable])
+        results[variable] = nsb
+    
+    return results
 
 
 def analyze_variable_significant_bits(data_array: xarray.DataArray):
     data_array = data_array.squeeze()
 
-    var_name = data_array.name
-    print(f"Variable:{var_name}")
     assert data_array.ndim >= 3
 
     # We will compute the mutual information on the first frame and the last frame
@@ -319,62 +310,64 @@ def analyze_variable_significant_bits(data_array: xarray.DataArray):
             frame_data = frame.values.ravel()
             frame_data = fix_repetition(frame_data)
             tmp_mi = array_mutual_information(frame_data)
-            print(f"{sum(tmp_mi):.2f}")
-            mutual_information_report(tmp_mi, var_name)
             if sum(tmp_mi) >= max_info:
                 max_info = sum(tmp_mi)
                 max_mutual_info = tmp_mi
         first_frame_mi = max_mutual_info
     mi = first_frame_mi
-    mutual_information_report(mi, var_name)
+    exponent_information, mantissa_information, nsb = mutual_information_report(mi, first_frame_data.size)
+    return exponent_information, mantissa_information, nsb
 
 
-def mutual_information_report(mutual_information_list, name=""):
-    # import matplotlib.pyplot as plt
+def mutual_information_report(mutual_information_list, n):
     bits = len(mutual_information_list)
 
+    # Take the exponent and mantissa bits depending on the total number of bits
     if bits == 32:
         first_mantissa_bit = 10
     elif bits == 64:
         first_mantissa_bit = 12
+    else:
+        raise NotImplementedError
 
     exponent = slice(1, first_mantissa_bit)
-    mantissa = slice(first_mantissa_bit, bits + 1)
+    mantissa = slice(first_mantissa_bit, bits)
 
+    # Get bit sign (not used...)
     sign_bit = mutual_information_list[0]
 
+    # Get exponent bits
     exponent_bits = mutual_information_list[exponent]
+    # Get total information in exponent bits
+    exponent_information = sum(exponent_bits)
+
+    # Get mantissa bits
     mantissa_bits = mutual_information_list[mantissa]
 
-    # FIXME: Get rid of insignificant values
-    # In the code created by the author of the paper they use this:
-    """
-    if set_zero_insignificant
-        p = binom_confidence(N,confidence)  # get chance p for 1 (or 0) from binom distr
-        I₀ = 1 - entropy([p,1-p],2)         # free entropy of random [bit]
-        I[I .<= I₀] .= 0                    # set insignficant to zero
-    end
-    """
+    # Remove information below the threshold
+    threshold = minimum_meaningful_value(n)
+    for index, bit_information in enumerate(mantissa_bits):
+        if bit_information < threshold:
+            mantissa_bits[index] = 0.
 
-    print(f"Exponent information:{sum(exponent_bits):.1f}")
-    print(f"Mantissa information:{sum(mantissa_bits):.1f}")
+    # Get total information from the mantissa
+    mantissa_information = sum(mantissa_bits)
 
-    mantissa_info = sum(mantissa_bits)
+    # Set the percentage of information to preserve
+    preserved_information_pct = .99
+    preserved_information_threshold = mantissa_information * preserved_information_pct
 
-    preserved_information = .99
-
-    cumulated = 0.0
-    index = 0
-    while cumulated < mantissa_info * preserved_information:
-        try:
-            cumulated += mantissa_bits[index]
-            index += 1
-        except IndexError:
-            break
-    print(f"NSB:{index}")
-    # plt.bar(range(len(mantissa_bits)), mantissa_bits)
-    # plt.savefig(f"mantissa_information_{name}.png")
-    # plt.clf()
+    # Get accumulated information up to certain bit
+    accumulated = [mantissa_bits[0]]
+    for bit_information in mantissa_bits[1:]:
+        accumulated.append(accumulated[-1]+bit_information)
+    
+    accumulated_over_threshold = accumulated > preserved_information_threshold
+    
+    # Get number of significant bits that fullfill mantaining the defined threshold.
+    number_of_significant_mantissa_bits = accumulated_over_threshold.tolist().index(True)
+    number_of_significant_bits = first_mantissa_bit + number_of_significant_mantissa_bits
+    return exponent_information, mantissa_information, number_of_significant_bits
 
 
 def fix_repetition(array: np.array) -> np.array:
