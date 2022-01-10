@@ -35,5 +35,6 @@ from .dataset import drop_unused
 from enstools.io.compression.compressor import compress
 from enstools.io.compression.analyzer import analyze
 from enstools.io.compression.evaluator import evaluate
+from enstools.io.compression.significant_bits import analyze_file_significant_bits
 from .cli import main as cli
 
