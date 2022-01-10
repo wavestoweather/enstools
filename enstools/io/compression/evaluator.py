@@ -56,6 +56,7 @@ def evaluate(reference_path: str, target_path: str, plot: bool = False):
             "ssim_I": 3,
             "correlation_I": 4,
             "nrmse_I": 2,
+            "max_rel_diff":10000000,
         }
         for key, value in thresholds.items():
             if metrics[key] < value:
