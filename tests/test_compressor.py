@@ -315,3 +315,13 @@ class TestClass:
             # Import and launch compress function
             analyze_file_significant_bits(input_path)
 
+    def test_prune(self):
+        from enstools.io.compression.pruner import pruner
+        input_tempdir = self.input_tempdir
+        output_tempdir = self.output_tempdir
+        # Check that the compression without specifying compression parameters works
+        datasets = ["dataset_%iD.nc" % dimension for dimension in range(3, 4)]
+        for ds in datasets:
+            input_path = join(input_tempdir.getpath(), ds)
+            # Import and launch compress function
+            pruner(input_path, output_tempdir.getpath())
