@@ -22,14 +22,18 @@ if __name__ == "__main__":
     # download the 24h forecast from today 00 UTC.
     today = datetime.now().date()
     tp_file = "icon-eu_europe_regular-lat-lon_single-level_%s00_024_TOT_PREC.grib2" % today.strftime("%Y%m%d")
+
     download("http://opendata.dwd.de/weather/nwp/icon-eu/grib/00/tot_prec/%s.bz2" % tp_file,
              "%s/%s.bz2" % (args.data, tp_file))
 
     # read the grib file
     grib = enstools.io.read("%s/%s" % (args.data, tp_file))
 
+    # variables names (depending on availability of DWD grib definitions)
+    tp_name = "tp" if not "TOT_PREC" in grib else "TOT_PREC"
+
     # create a basic contour plot and show or save it
-    fig, ax = enstools.plot.contour(grib["TOT_PREC"][0, :, :], coastlines="50m")
+    fig, ax = enstools.plot.contour(grib[tp_name][0, :, :], coastlines="50m")
     if args.save is None:
         plt.show()
     else:
