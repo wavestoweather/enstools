@@ -35,32 +35,41 @@ retrieve_nwp(variable=["t"],
              dest="data",
              merge_files=False)
 
-retrieve_nwp(variable=["t"],
-             model="cosmo-d2",
-             grid_type="regular-lat-lon",
-             level_type="pressure",
-             init_time=0,
-             levels=[1000, 950, 975],
-             forecast_hour=[0],
-             dest="data",
-             merge_files=True)
+try:
+    retrieve_nwp(variable=["t"],
+                 model="cosmo-d2",
+                 grid_type="regular-lat-lon",
+                 level_type="pressure",
+                 init_time=0,
+                 levels=[1000, 950, 975],
+                 forecast_hour=[0],
+                 dest="data",
+                 merge_files=True)
+except ValueError:
+    print("The request of variable t for the model cosmo-d2 does no longer work")
+
+try:
+    # This is an invalid request:
+    retrieve_nwp(variable=["td"],  # Variable td is not available in icon-eps
+                 model="icon-eps",
+                 level_type="pressure",
+                 init_time=0,
+                 forecast_hour=[0, 1, 2, 3, 4],
+                 dest="data",
+                 merge_files=False)
+except ValueError:
+    print("As expected, the request of the td variable for icon-eps failed")
+
 
 # This is an invalid request:
-retrieve_nwp(variable=["td"],  # Variable td is not available in icon-eps
-             model="icon-eps",
-             level_type="pressure",
-             init_time=0,
-             forecast_hour=[0, 1, 2, 3, 4],
-             dest="data",
-             merge_files=False)
-
-
-# This is an invalid request:
-retrieve_nwp(variable=["t"],
-             model="ICON-EU",
-             level_type="pressure",
-             init_time=0,
-             levels=[1000, 951, 900],  # level 951 is not available supposed to fail
-             forecast_hour=[0],
-             dest="data",
-             merge_files=False)
+try:
+    retrieve_nwp(variable=["t"],
+                 model="ICON-EU",
+                 level_type="pressure",
+                 init_time=0,
+                 levels=[1000, 951, 900],  # level 951 is not available supposed to fail
+                 forecast_hour=[0],
+                 dest="data",
+                 merge_files=False)
+except ValueError:
+    print("As expected, the request of the t variable at level 951 for icon-eu failed")
