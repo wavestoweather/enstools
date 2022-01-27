@@ -3,7 +3,8 @@ import xarray
 import numpy as np
 from enstools.io.compression import significant_bits
 from enstools.io.compression.significant_bits import get_uint_type_by_bit_length, single_bit_mask, apply_mask, mask_generator
-from enstools.io import read, write
+from enstools.io.compression.compressor import drop_variables
+
 
 def prune_numpy_array(array: np.array, significant_bits=0, round_to_nearest=True):
     """
@@ -40,7 +41,12 @@ def prune_numpy_array(array: np.array, significant_bits=0, round_to_nearest=True
 
     return pruned
 
-def pruner(file_paths, output, significant_bit_info=None):
+
+def pruner(file_paths, output, significant_bit_info=None, variables_to_keep=None):
+    """
+    Apply bit prunning to a list of files.
+
+    """
     from enstools.io.compression.compressor import destination_path
     from os.path import isdir
     from os import rename, access, W_OK
@@ -56,29 +62,43 @@ def pruner(file_paths, output, significant_bit_info=None):
     elif len(file_paths) == 1:
         file_path = file_paths[0]
         new_file_path = destination_path(file_path, output) if isdir(output) else output
-        prune_file(file_path, new_file_path, significant_bit_info=significant_bit_info)
+        prune_file(file_path, new_file_path, significant_bit_info=significant_bit_info, variables_to_keep=variables_to_keep)
     elif len(file_paths) > 1:
         # In case of having more than one file, check that output corresponds to a directory
         assert isdir(output), "For multiple files, the output parameter should be a directory"
         assert access(output, W_OK), "The output folder provided does not have write permissions"
-
+        for file_path in file_paths:    
+            new_file_path = destination_path(file_path, output)
+            prune_file(file_path, new_file_path, significant_bit_info=significant_bit_info, variables_to_keep=variables_to_keep)
         
 
-def prune_file(file_path, destination, significant_bit_info=None):
+def prune_file(file_path, destination, significant_bit_info=None, variables_to_keep=None):
+    """
+    Apply bit pruning to a file. 
+    """
+    from enstools.io import read, write
     print(f"{file_path} -> {destination}")
-    ds = read(file_path)
+    dataset = read(file_path)
+
+    if variables_to_keep is not None:
+        drop_variables(dataset, variables_to_keep)
+
     if significant_bit_info is None:
         from enstools.io.compression.significant_bits import analyze_file_significant_bits
         significant_bits_dictionary = analyze_file_significant_bits(file_path)
-    elif isfile(significant_bit_info):
-        
-        significant_bits_dictionary = {}
-    prune_dataset(ds, significant_bits_dictionary)
+    else:
+        significant_bits_dictionary = significant_bit_info
+    print(significant_bits_dictionary)
+    prune_dataset(dataset, significant_bits_dictionary)
 
     # After pruning the file we save it to the new destination.
-    write(ds, destination, compression="lossless")
+    write(dataset, destination, compression="lossless")
+
 
 def prune_dataset(dataset: xarray.Dataset, significant_bits_dictionary: dict):
+    """
+    Apply bit pruning to a dataset.
+    """
     variables = [ v for v in dataset.variables if v not in dataset.coords]
 
     for variable in variables:
@@ -89,5 +109,9 @@ def prune_dataset(dataset: xarray.Dataset, significant_bits_dictionary: dict):
             continue
         prune_data_array(dataset[variable], significant_bits)
 
+
 def prune_data_array(data_array: xarray.DataArray, significant_bits: int):
+    """
+    Apply pruning to a Data Array.
+    """
     data_array.values = prune_numpy_array(data_array.values, significant_bits=significant_bits)
