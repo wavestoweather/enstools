@@ -10,6 +10,19 @@ from os import rename, access, W_OK
 import time
 
 
+def drop_variables(dataset, variables_to_keep: list):
+    """
+    Drop all the variables that are not in list variables_to_keep.
+    Keeps the coordinates.
+    """
+    # Drop the undesired variables and keep the coordinates
+    coordinates = [v for v in dataset.coords]
+    variables = [v for v in dataset.variables if v not in coordinates]
+    variables_to_drop = [v for v in variables if v not in variables_to_keep]
+    dataset = dataset.drop_vars(variables_to_drop)
+
+
+
 def fix_filename(file_name):
     cases = [".grib2", ".grb"]
     for case in cases:
@@ -111,12 +124,7 @@ def transfer_file(origin: str, destination: str, compression: str, variables_to_
     from enstools.io import read, write
     dataset = read(origin, decode_times=False)
     if variables_to_keep is not None:
-        # Drop the undesired variables and keep the coordinates
-        coordinates = [v for v in dataset.coords]
-        variables = [v for v in dataset.variables if v not in coordinates]
-        variables_to_drop = [v for v in variables if v not in variables_to_keep]
-        dataset = dataset.drop_vars(variables_to_drop)
-
+        drop_variables(dataset, variables_to_keep)
     return write(dataset, destination, file_format="NC", compression=compression, compute=compute)
 
 
