@@ -32,6 +32,8 @@ if [[ ! -d venv ]] ; then
     source venv/bin/activate
     pip install -U pip
     pip install wheel
+    # TODO: This workaround should allow us to install the proper dependencies even with the latest version of pip.
+    pip install cartopy==0.19.0.post1
     pip install -e .
     pip install --force-reinstall pytest
 fi
