@@ -5,6 +5,9 @@ if [[ ! -d venv ]] ; then
     python3 -m venv --prompt enstools venv
     source venv/bin/activate
     pip install -U pip
+    # TODO: This workaround should allow us to install the proper dependencies even with the latest version of pip.
+    pip install cartopy==0.19.0.post1
+
     pip install wheel
     pip install -e .
     pip install --force-reinstall pytest
