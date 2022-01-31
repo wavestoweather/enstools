@@ -10,7 +10,7 @@ from os import rename
 from typing import Union
 
 
-def write(ds, filename, file_format=None, compression: Union[str, dict] = "default", compute=True):
+def write(ds, filename, file_format=None, compression: Union[str, dict] = "default", compute=True, engine="h5netcdf", format="NETCDF4"):
     """
     write a xarray dataset to a file
 
@@ -87,6 +87,17 @@ def write(ds, filename, file_format=None, compression: Union[str, dict] = "defau
 
     set_compression_attributes(dataset=ds, descriptions=descriptions)
 
+    if format == "NETCDF4_CLASSIC" and engine == "h5netcdf":
+        raise AssertionError(f"enstools.io.write:: Format {format} and engine {engine} are not compatible. If format {format} is needed, the suggested engine is NETCDF4")
+
+    if engine == "netcdf4":
+        if compression not in [None, "default"]:
+            print(encoding)
+            print("Using netcdf4 engine. Setting encoding to None")
+        encoding = None
+        
+        
+
     # write a netcdf file
     if selected_format == "NC":
         # We can do the trick of changing the name to filename.tmp and changing it back after the process is completed
@@ -94,7 +105,7 @@ def write(ds, filename, file_format=None, compression: Union[str, dict] = "defau
         if compute:
             final_filename = filename
             filename = f"{filename}.tmp"
-        task = ds.to_netcdf(filename, engine="h5netcdf", encoding=encoding, compute=compute)
+        task = ds.to_netcdf(filename, engine=engine, encoding=encoding, compute=compute, format=format)
         if compute:
             rename(filename, final_filename)
         return task
