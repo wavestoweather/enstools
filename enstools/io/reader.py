@@ -7,13 +7,12 @@ import six
 import os
 import re
 import numpy as np
-from multipledispatch import dispatch
 import glob
-from enstools.misc import has_ensemble_dim, add_ensemble_dim, is_additional_coordinate_variable, first_element, \
-    has_dask_arrays, set_ensemble_member
+from enstools.misc import add_ensemble_dim, is_additional_coordinate_variable, first_element, \
+    set_ensemble_member
 from enstools.core import get_client_and_worker
 from packaging import version
-from enstools.io.encoding import check_compression_filters_availability, check_all_filters_availability
+from enstools.io.compression import check_compression_filters_availability, check_all_filters_availability
 from .dataset import drop_unused
 from .file_type import get_file_type
 try:

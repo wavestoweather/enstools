@@ -1,9 +1,9 @@
 from os.path import isfile
 import numpy as np
-from scipy.stats.stats import pearsonr
+from scipy.stats.stats import pearsonr, ks_2samp
 from typing import Union
 from enstools.io import read
-from xarray import DataArray
+from xarray import DataArray, Dataset
 from pathlib import Path
 import logging
 import math
@@ -48,6 +48,8 @@ class DataArrayMetrics:
     """
     available_metrics = [
         "accumulated_difference",
+        "max_diff",
+        "max_rel_diff",
         "mse",
         "rmse",
         "nrmse",
@@ -58,6 +60,8 @@ class DataArrayMetrics:
         "ssim",
         "ssim_I",
         "gradient",
+        "ks",
+        "ks_I",
     ]
 
     def __init__(self, reference: Union[DataArray, np.ndarray], target: Union[DataArray, np.ndarray]) -> None:
@@ -117,6 +121,10 @@ class DataArrayMetrics:
         """
         if method == "accumulated_difference":
             return self.accumulated_difference()
+        elif method == "max_diff":
+            return self.maximum_absolute_difference()
+        elif method == "max_rel_diff":
+            return self.maximum_relative_difference()     
         elif method == "range_I":
             return self.range_index()
         elif method == "mse":
@@ -153,6 +161,11 @@ class DataArrayMetrics:
                 return np.inf
             else:
                 return - np.log10(1 - ssim)
+        elif method == "ks":
+            statistic, pvalue = self.compute_ks()
+            return pvalue
+        elif method == "ks_I":
+            return -np.log10(1 - self["ks"]) if 1. > self["ks"] else np.inf
         elif method == "gradient":
             raise NotImplementedError("Method gradient not implemented")
             # return self.compute_gradient_error()
@@ -163,6 +176,15 @@ class DataArrayMetrics:
     def accumulated_difference(self):
         # Sum the individual errors
         return float(np.sum(self.difference))
+
+    def maximum_absolute_difference(self):
+        return -np.log10(np.max(np.abs(self.difference)))
+
+    def maximum_relative_difference(self):
+        abs_ref =np.abs(self.reference_values)
+        indices =  abs_ref > 0.
+
+        return -np.log10(np.max(np.abs(self.difference[indices])/abs_ref[indices]))
 
     def range_index(self):
         """
@@ -335,6 +357,13 @@ class DataArrayMetrics:
         mean_ssim = np.mean(ssim)
         return float(mean_ssim)
 
+    def compute_ks(self):    
+        #scipy.stats.ks_2samp(data1, data2, alternative='two-sided', mode='auto'
+        target = self.target_values
+        reference = self.reference_values
+        results = ks_2samp(target.ravel(), reference.ravel(), alternative='two-sided', mode='auto')
+        return results
+    
     def plot_summary(self, output_folder: str = "report"):
         import matplotlib.pyplot as plt
         import matplotlib as mpl
@@ -408,22 +437,36 @@ class DataArrayMetrics:
         make_radar_chart(variable_name, selected_metrics, selected_values, ax)
         if not isdir(output_folder):
             makedirs(output_folder)
+        plt.tight_layout()
         plt.savefig(join(output_folder, f"report_{variable_name}.png"))
         plt.close("all")
 
 
 class DatasetMetrics:
-    def __init__(self, reference_path: str, target_path: str) -> None:
+    def __init__(self, reference: Union[str, Dataset], target: Union[str, Dataset]) -> None:
         # Check that files exist and save them
-        assert isfile(reference_path), f"Path {reference_path} its not a valid file."
-        assert isfile(target_path), f"Path {target_path} its not a valid file."
 
-        self.reference_path = reference_path
-        self.target_path = target_path
+        if not isinstance(reference, Dataset):
+            assert isfile(reference), f"Path {reference} its not a valid file."
 
-        # Read files
-        self.reference = read(self.reference_path)
-        self.target = read(self.target_path)
+            self.reference_path = reference
+
+            # Read files
+            self.reference = read(self.reference_path)
+        else:
+            # Read files
+            self.reference = reference
+        
+        if not isinstance(target, Dataset):
+            assert isfile(target), f"Path {target} its not a valid file."
+
+            self.target_path = target
+
+            # Read files
+            self.target = read(self.target_path)
+        else:
+            self.target = target
+
 
         # Get variables
         self.coords = [v for v in self.reference.coords]

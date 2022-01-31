@@ -1,15 +1,16 @@
 import xarray
 from xarray.backends.netCDF4_ import NetCDF4DataStore
 
-from enstools.misc import has_dask_arrays
 from .file_type import get_file_type
-from .encoding import set_encoding, encoding_description, check_compression_filters_availability
+from enstools.io.compression import define_encoding, set_compression_attributes, check_compression_filters_availability
 import dask.array
 import six
 from distutils.version import LooseVersion
+from os import rename
+from typing import Union
 
 
-def write(ds, filename, file_format=None, compression="default", compute=True):
+def write(ds, filename, file_format=None, compression: Union[str, dict] = "default", compute=True, engine="h5netcdf", format="NETCDF4"):
     """
     write a xarray dataset to a file
 
@@ -64,7 +65,7 @@ def write(ds, filename, file_format=None, compression="default", compute=True):
                 'lossy:zfp:rate:4'
             Another option would be to pass the path to a configuration file as argument. (yaml or json)
     compute : bool 
-            Dask delayed feature. Set to true to delay the file writting.
+            Dask delayed feature. Set to true to delay the file writing.
     """
     # if ds is a DataVariable instead of a Dataset, then convert it
     if isinstance(ds, xarray.DataArray):
@@ -72,7 +73,6 @@ def write(ds, filename, file_format=None, compression="default", compute=True):
     # we need to make sure that we are able to write compressed files
     if not check_compression_filters_availability(ds):
         print("Relying on hdf5plugin")
-        import hdf5plugin
     # select the type of file to create
     valid_formats = ["NC"]
     if file_format is not None:
@@ -82,24 +82,36 @@ def write(ds, filename, file_format=None, compression="default", compute=True):
     if selected_format not in valid_formats:
         raise ValueError("the format '%s' is not (yet) supported!" % selected_format)
 
-    # Encoding
-    encoding = set_encoding(ds, compression)
-    # In case of using an encoding, we'll add an attribute to the file indicating that the file has been compressed.
-    if encoding is not None:
-        descriptions = encoding_description(encoding)
-        for variable, description in descriptions.items():
-            ds[variable].attrs["compression"] = description
+    # If a compression variable has been provided, define the proper encoding for HDF5 filters:
+    encoding, descriptions = define_encoding(dataset=ds, compression=compression)
+
+    set_compression_attributes(dataset=ds, descriptions=descriptions)
+
+    if format == "NETCDF4_CLASSIC" and engine == "h5netcdf":
+        raise AssertionError(f"enstools.io.write:: Format {format} and engine {engine} are not compatible. If format {format} is needed, the suggested engine is NETCDF4")
+
+    if engine == "netcdf4":
+        if compression not in [None, "default"]:
+            print(encoding)
+            print("Using netcdf4 engine. Setting encoding to None")
+        encoding = None
+        
+        
 
     # write a netcdf file
     if selected_format == "NC":
-        #"""
-        #print(encoding)
-        task = ds.to_netcdf(filename, engine="h5netcdf", encoding=encoding, compute=compute)
-        # ds.to_netcdf(filename)
+        # We can do the trick of changing the name to filename.tmp and changing it back after the process is completed
+        # but only if we execute the task here ( i.e. compute==True).
+        if compute:
+            final_filename = filename
+            filename = f"{filename}.tmp"
+        task = ds.to_netcdf(filename, engine=engine, encoding=encoding, compute=compute, format=format)
+        if compute:
+            rename(filename, final_filename)
         return task
-        #"""
+
         """
-        #Old workaround (neet to be sure that its not needed anymore)
+        #Old workaround (need to be sure that its not needed anymore)
         # are there dask arrays in the dataset? if so, write the file variable by variable
         if not has_dask_arrays(ds):
             ds.to_netcdf(filename)

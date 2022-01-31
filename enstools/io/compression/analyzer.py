@@ -6,12 +6,12 @@
 
 """
 
-from .metrics import DataArrayMetrics
+from enstools.io.compression.metrics import DataArrayMetrics
 from pprint import pprint
 import numpy as np
 from xarray import DataArray, Dataset
 from typing import Union, List, Tuple
-from .encoding import check_libpressio_availability
+from enstools.io.compression import check_libpressio_availability
 from sys import getsizeof
 
 compression_modes = {
@@ -36,9 +36,10 @@ def check_thresholds(recovered_data: np.ndarray, reference_data: Union[np.ndarra
     metrics = DataArrayMetrics(reference_data, recovered_data)
     for metric, target in thresholds.items():
         result = metrics[metric]
+        logging.debug(f"{metric}: {result} -> {target}")
+
         # Depending on the method, the threshold its a lower or an upper bound
-        if metric in ["correlation_I", "ssim_I", "nrmse_I"]:
-            logging.debug(f"{metric}: {result} -> {target}")
+        if metric in ["correlation_I", "ssim_I", "nrmse_I", "ks_I", "ks"]:
             if result < target:
                 return False
         else:
@@ -197,12 +198,12 @@ def zfp_analyze_variable(dataset: DataArray, variable_name: str, compressor_name
     if contains_nan:
         logging.debug(
             "The data of the following variable contains NaN: %s, falling back to BLOSC compression." % variable_name)
-        return "lossless"
+        return "lossless", 1.0
     # Replace NaNs with ones
     # variable_data[np.isnan(variable_data)] = 1
     if len(variable_data.shape) == 1:
         logging.debug("1D variable found: %s, falling back to BLOSC compression." % variable_name)
-        return "lossless"
+        return "lossless", 1.0
 
     original_size = variable_data.size * variable_data.itemsize
     recovered_data = None
@@ -236,7 +237,7 @@ def search_parameters(compressor: str, mode: str, data_values: np.ndarray):
     """
     if compressor == "zfp":
         if mode == "rate":
-            parameter = 2  # Starting value
+            parameter = 1.  # Starting value
 
             def step(x):
                 return x + .25
@@ -322,7 +323,7 @@ def analyze_files(file_paths: List[str], thresholds: dict, compressor: str = Non
         multimode = True  # Try between the different compressor methods to select the better performing one.
     else:
         multimode = False
-    from .reader import read
+    from enstools.io import read
 
     if grid:
         grid_ds = read(grid)
@@ -362,6 +363,7 @@ def analyze_files(file_paths: List[str], thresholds: dict, compressor: str = Non
                 print(f"{var} Selected->{selected_encoding}  CR:{highest_compression_ratio:.1f}")
                 encoding[var] = selected_encoding
             else:
+
                 variable_encoding, compression_ratio = analysis_function(dataset,
                                                                          variable_name=var,
                                                                          compressor_name=compressor,
@@ -388,7 +390,7 @@ def analyze(file_paths: List[str], output_file: str = None, thresholds: dict = N
         }
 
     print(
-        f"\nAnalyzing files to determine optimal compression options for compressor {compressor}"
+        f"\nAnalyzing files to determine optimal compression options for compressor {compressor} "
         f"with mode {mode} to fulfill the following thresholds:")
     pprint(thresholds)
     print()
@@ -412,3 +414,5 @@ def analyze(file_paths: List[str], output_file: str = None, thresholds: dict = N
         else:
             print("Compression options:")
             print(yaml.dump(encoding, indent=4, sort_keys=True))
+    
+    return encoding

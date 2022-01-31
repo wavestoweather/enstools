@@ -69,94 +69,37 @@ Last but not least, now it is possible to automatically find which are the compr
 
 """
 
+# For each possible usage (compress, analyze, ...) we will define a function to add the corresponding command line arguments to the parser and another one to manage the call
 
-def expand_paths(string:str):
-    import glob
-    from os.path import realpath
-    """
-    Small function to expand the file paths
-    """
-    files = glob.glob(string)
-    return [realpath(f) for f in files]
-
-
-def main():
-    # Create parser
+###############################
+# Compressor
+def add_subparser_compressor(subparsers):
     import argparse
 
-    # Create the top-level parser
-    parser = argparse.ArgumentParser()
-    parser.set_defaults(which=None)
-    subparsers = parser.add_subparsers(help='Select between the different enstools utilities')
-
-    # Create the parser for the "compressor" command
-    parser_compressor = subparsers.add_parser('compress', help='Compress help',
+    subparser = subparsers.add_parser('compress', help='Compress help',
                                               formatter_class=argparse.RawDescriptionHelpFormatter,
                                               description=compressor_help_text)
-    parser_compressor.add_argument("files", type=expand_paths, nargs='*',
+    subparser.add_argument("files", type=expand_paths, nargs='*',
                                    help="Path to file/files that will be compressed."
                                         "Multiple files and regex patterns are allowed.")
-    parser_compressor.add_argument("-o", '--output-folder', type=str, dest="output_folder", default=None, required=True)
-    parser_compressor.add_argument('--compression', type=str, dest="compression", default="lossless",
+    subparser.add_argument("-o", '--output', type=str, dest="output", default=None, required=True)
+    subparser.add_argument('--compression', type=str, dest="compression", default="lossless",
                                    help="""
         Specifications about the compression options. Default is: %(default)s""")
-    parser_compressor.add_argument("--nodes", "-N", dest="nodes", default=0, type=int,
+    subparser.add_argument("--nodes", "-N", dest="nodes", default=0, type=int,
                                    help="This parameter can be used to allocate additional nodes in the cluster"
                                         "to speed-up the computation.")
-    parser_compressor.add_argument("--variables", dest="variables", default=None, type=str,
+    subparser.add_argument("--variables", dest="variables", default=None, type=str,
                                    help="List of variables to be kept. The other variables will be dropped."
                                         "Must be a list of comma separated values: i.e. vor,temp,qv"
                                         "Default=None")
 
-    parser_compressor.set_defaults(which='compressor')
+    subparser.set_defaults(which='compressor')
 
-    # Create the parser for the "analyzer" command
-    parser_analyzer = subparsers.add_parser('analyze', help='Analyze help',
-                                            formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser_analyzer.add_argument("--correlation", dest="correlation", default=5., type=float,
-                                 help="Correlation Index threshold. Default=%(default)s")
-    parser_analyzer.add_argument("--ssim", dest="ssim", default=3., type=float,
-                                 help="SSIM Index threshold. Default=%(default)s")
-    parser_analyzer.add_argument("--nrsme", dest="nrmse", default=2, type=float,
-                                 help="Normalized RMSE index threshold. Default=%(default)s")
-    parser_analyzer.add_argument("--output", "-o", dest="output", default=None, type=str,
-                                 help="Path to the file where the configuration will be saved."
-                                      "If not provided will be print in the stdout.")
-    parser_analyzer.add_argument("--compressor", "-c", dest="compressor", default=None, type=str,
-                                 help="Which compressor will be used. Options are zfp, sz or all.")
-    parser_analyzer.add_argument("--mode", "-m", dest="mode", default=None, type=str,
-                                 help="Which mode will be used. The options depend on the compressor. For sz: abs, rel, pw_rel. For zfp: accuracy, rate, precision. Also it is possible to use 'all'")
-    parser_analyzer.add_argument("--grid", "-g", dest="grid", default=None, type=str,
-                                 help="Path to the file containing grid information.")
-    parser_analyzer.add_argument("files", type=str, nargs="+",
-                                 help='List of files to compress. Multiple files and regex patterns are allowed.')
-    parser_analyzer.set_defaults(which='analyzer')
-
-    # Create the parser for the "evaluator" command
-    parser_evaluator = subparsers.add_parser('evaluate', help='Evaluate help',
-                                            formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser_evaluator.add_argument("--reference","-r", dest="reference_file", default=None, type=str,
-                                 help="Path to reference file. Default=%(default)s", required=True)
-    parser_evaluator.add_argument("--target", "-t", dest="target_file", default=None, type=str,
-                                 help="Path to target file", required=True)
-    parser_evaluator.add_argument("--plot", dest="plot", default=False, action='store_true',
-                                 help="Produce evaluation plots. Default=%(default)s")
-    parser_evaluator.set_defaults(which='evaluator')
-
-    # Parse the command line arguments
-    args = parser.parse_args()
-
-    # Process options acording to the selected option
-    if args.which is None:
-        parser.print_help()
-        exit(0)
-    elif args.which == "compressor":
-        from os.path import isdir, realpath
-        from os import access, W_OK
+def call_compressor(args):
+        from os.path import realpath
         # Read the output folder from the command line and assert that it exists and has write permissions.
-        output_folder = realpath(args.output_folder)
-        assert isdir(output_folder), "The provided folder does not exist"
-        assert access(output_folder, W_OK), "The output folder provided does not have write permissions"
+        output = realpath(args.output)
 
         file_paths = args.files
         file_paths = sum(file_paths, [])
@@ -172,33 +115,187 @@ def main():
             variables = variables.split(",")
         # Import and launch compress function
         from enstools.io import compress
-        compress(output_folder, file_paths, compression, nodes, variables_to_keep=variables)
+        compress(file_paths, output, compression, nodes, variables_to_keep=variables)
+
+###############################
+# Analyzer
+
+def add_subparser_analyzer(subparsers):
+    import argparse
+
+    subparser = subparsers.add_parser('analyze', help='Analyze help',
+                                            formatter_class=argparse.RawDescriptionHelpFormatter)
+    subparser.add_argument("--correlation", dest="correlation", default=5., type=float,
+                                 help="Correlation Index threshold. Default=%(default)s")
+    subparser.add_argument("--ssim", dest="ssim", default=3., type=float,
+                                 help="SSIM Index threshold. Default=%(default)s")
+    subparser.add_argument("--nrsme", dest="nrmse", default=2, type=float,
+                                 help="Normalized RMSE index threshold. Default=%(default)s")
+    subparser.add_argument("--output", "-o", dest="output", default=None, type=str,
+                                 help="Path to the file where the configuration will be saved."
+                                      "If not provided will be print in the stdout.")
+    subparser.add_argument("--compressor", "-c", dest="compressor", default=None, type=str,
+                                 help="Which compressor will be used. Options are zfp, sz or all.")
+    subparser.add_argument("--mode", "-m", dest="mode", default=None, type=str,
+                                 help="Which mode will be used. The options depend on the compressor. For sz: abs, rel, pw_rel. For zfp: accuracy, rate, precision. Also it is possible to use 'all'")
+    subparser.add_argument("--grid", "-g", dest="grid", default=None, type=str,
+                                 help="Path to the file containing grid information.")
+    subparser.add_argument("files", type=str, nargs="+",
+                                 help='List of files to compress. Multiple files and regex patterns are allowed.')
+    subparser.set_defaults(which='analyzer')
+
+def call_analyzer(args):
+    file_paths = args.files
+    grid = args.grid
+    # Compression options
+    correlation = args.correlation
+    ssim = args.ssim
+    nrmse = args.nrmse
+    compressor = args.compressor
+    mode = args.mode
+
+    # Thresholds
+    thresholds = {
+                    "correlation_I": correlation,
+                    "ssim_I": ssim,
+                    "nrmse_I": nrmse,
+                    }
+    # Output filename
+    output_file = args.output
+    from enstools.io import analyze
+    analyze(file_paths, output_file, thresholds, compressor=compressor, mode=mode, grid=grid)
+
+###############################
+# Find significand bits
+
+def add_subparser_significand(subparsers):
+    import argparse
+
+    subparser = subparsers.add_parser('significand', help='Analyze significand bits',
+                                            formatter_class=argparse.RawDescriptionHelpFormatter)
+    subparser.add_argument("--output", "-o", dest="output", default=None, type=str,
+                                 help="Path to the file where the configuration will be saved."
+                                      "If not provided will be print in the stdout.")
+    subparser.add_argument("--grid", "-g", dest="grid", default=None, type=str,
+                                 help="Path to the file containing grid information.")
+    subparser.add_argument("files", type=str, nargs="+",
+                                 help='List of files to compress. Multiple files and regex patterns are allowed.')
+    subparser.set_defaults(which='significand')
+
+def call_significand(args):
+    from enstools.io import analyze_file_significant_bits
+    file_paths = args.files
+
+    for file_path in file_paths:
+        analyze_file_significant_bits(file_path)
+
+###############################
+# Evaluator
+
+def add_subsubparser(subparsers):
+    import argparse
+    subparser = subparsers.add_parser('evaluate', help='Evaluate help',
+                                            formatter_class=argparse.RawDescriptionHelpFormatter)
+    subparser.add_argument("--reference","-r", dest="reference_file", default=None, type=str,
+                                 help="Path to reference file. Default=%(default)s", required=True)
+    subparser.add_argument("--target", "-t", dest="target_file", default=None, type=str,
+                                 help="Path to target file", required=True)
+    subparser.add_argument("--plot", dest="plot", default=False, action='store_true',
+                                 help="Produce evaluation plots. Default=%(default)s")
+    subparser.set_defaults(which='evaluator')
+
+def call_evaluator(args):
+            reference_file_path = args.reference_file
+            target_file_path = args.target_file
+            plot = args.plot
+
+            from enstools.io import evaluate
+            evaluate(reference_file_path, target_file_path, plot=plot)
+
+
+###############################
+# Pruner
+
+def add_subparser_pruner(subparsers):
+    import argparse
+    subparser = subparsers.add_parser('prune', help='Evaluate help',
+                                            formatter_class=argparse.RawDescriptionHelpFormatter)
+    subparser.add_argument("files", type=str, nargs="+",
+                       help='List of files to compress. Multiple files and regex patterns are allowed.')
+    subparser.add_argument("-o", '--output', type=str, dest="output", default=None, required=True)
+    subparser.set_defaults(which='pruner')
+
+
+def call_pruner(args):
+    from enstools.io.compression.pruner import pruner
+    file_paths = args.files
+    output = args.output
+
+    pruner(file_paths, output)
+
+
+
+###############################
+
+def add_subparsers(parser):
+    """
+    Add the different subparsers.
+    """
+
+    subparsers = parser.add_subparsers(help='Select between the different enstools utilities')
+
+    # Create the parser for the "compressor" command
+    add_subparser_compressor(subparsers)
+    # Create the parser for the "analyzer" command
+    add_subparser_analyzer(subparsers)
+    # Create the parser for the "significand" command
+    add_subparser_significand(subparsers)
+    # Create the parser for the "evaluator" command
+    add_subsubparser(subparsers)
+    # Create the parser for the "pruner" command
+    add_subparser_pruner(subparsers)
+    # To add an additional subparser, just create a function like the ones above and add the call here.
+
+
+
+def expand_paths(string:str):
+    import glob
+    from os.path import realpath
+    """
+    Small function to expand the file paths
+    """
+    files = glob.glob(string)
+    return [realpath(f) for f in files]
+
+###############################
+
+def main():
+    # Create parser
+    import argparse
+
+    # Create the top-level parser
+    parser = argparse.ArgumentParser()
+    parser.set_defaults(which=None)
+    
+    # Add the different subparsers.
+    # If willing to add new parser, this is the function where to look at.
+    add_subparsers(parser)
+    # Parse the command line arguments
+    args = parser.parse_args()
+
+    # Process options acording to the selected option
+    if args.which is None:
+        parser.print_help()
+        exit(0)
+    elif args.which == "compressor":
+        call_compressor(args)
     elif args.which == "analyzer":
-        file_paths = args.files
-        grid = args.grid
-        # Compression options
-        correlation = args.correlation
-        ssim = args.ssim
-        nrmse = args.nrmse
-        compressor = args.compressor
-        mode = args.mode
-
-        # Thresholds
-        thresholds = {
-                        "correlation_I": correlation,
-                        "ssim_I": ssim,
-                        "nrmse_I": nrmse,
-                       }
-        # Output filename
-        output_file = args.output
-        from enstools.io import analyze
-        analyze(file_paths, output_file, thresholds, compressor=compressor, mode=mode, grid=grid)
+        call_analyzer(args)
+    elif args.which == "significand":
+        call_significand(args)
     elif args.which == "evaluator":
-        reference_file_path = args.reference_file
-        target_file_path = args.target_file
-        plot = args.plot
-
-        from enstools.io import evaluate
-        evaluate(reference_file_path, target_file_path, plot=plot)
+        call_evaluator(args)
+    elif args.which == "pruner":
+        call_pruner(args)
     else:
         raise NotImplementedError

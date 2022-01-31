@@ -4,8 +4,7 @@
 #
 
 """
-from .reader import read
-from .metrics import DataArrayMetrics, DatasetMetrics
+from enstools.io.compression.metrics import DataArrayMetrics, DatasetMetrics
 
 
 class bcolors:
@@ -31,17 +30,18 @@ def print_red(text: str):
     print(f"{bcolors.FAIL}{text}{bcolors.ENDC}")
 
 
-def evaluate(reference_path: str, target_path: str, plot: bool = False):
+def evaluate(reference_path: str, target_path: str, plot: bool = False, create_gradients=False):
     """
     The purpose of this routine is to obtain some metrics and plots on how similar are two datasets.
     """
 
     file_comparison = DatasetMetrics(reference_path, target_path)
 
-    # Compute gradients and add it as new variables
-    file_comparison.create_gradients()
-    # Compute second order gradients and add it as new variables
-    file_comparison.create_second_order_gradients()
+    if create_gradients:
+        # Compute gradients and add it as new variables
+        file_comparison.create_gradients()
+        # Compute second order gradients and add it as new variables
+        file_comparison.create_second_order_gradients()
 
     # Get list of variables
     variables = file_comparison.variables
@@ -57,6 +57,8 @@ def evaluate(reference_path: str, target_path: str, plot: bool = False):
             "ssim_I": 3,
             "correlation_I": 4,
             "nrmse_I": 2,
+            # "max_rel_diff": 10000000,
+            "ks_I": 2,
         }
         for key, value in thresholds.items():
             if metrics[key] < value:
