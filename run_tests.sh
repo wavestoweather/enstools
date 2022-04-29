@@ -32,8 +32,15 @@ if [[ ! -d venv ]] ; then
     source venv/bin/activate
     pip install -U pip
     pip install wheel
-    # TODO: This workaround should allow us to install the proper dependencies even with the latest version of pip.
-    pip install cartopy==0.19.0.post1
+
+    # In ubuntu 22.04 proj >8.0 is available which allows us to install cartopy >= 0.20 but not
+    # Previous versions
+    # We'll check ubuntu's version and in case its previous to 22.04 we'll preinstall cartopy 0.19
+    source /etc/os-release
+    if (( $(echo "${VERSION_ID} < 22.04" |bc -l) )); then
+        pip install cartopy==0.19.0.post1
+    fi
+	    
     pip install -e .
     pip install --force-reinstall pytest
 fi
