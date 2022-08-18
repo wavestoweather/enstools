@@ -52,7 +52,7 @@ def drop_unused(ds):
         for one_coord_name in coords_to_remove:
             if one_coord_name in ds.indexes:
                 ds = ds.reset_index(one_coord_name, drop=True)
-            if one_coord_name in ds.coords:
+            elif one_coord_name in ds.coords:
                 ds = ds.reset_coords(one_coord_name, drop=True)
 
     # remove unused dimensions
