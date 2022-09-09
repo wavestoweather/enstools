@@ -2,8 +2,8 @@
 
 Sorted by the number of commits.
 
-- Robert Redl
 - Oriol Tintó
+- Robert Redl
 - T. Bardachova
 - B. Giebl
 - Florian Baur
