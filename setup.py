@@ -56,18 +56,18 @@ setup(name="enstools",
                 "h5netcdf",
                 "h5py",
                 "hdf5plugin",
-                "zfpy",
                 "numcodecs",
                 "scikit-image",
                 "scikit-learn",
                 "scipy",
                 "plotly",
-                "bokeh"
+                "bokeh",
+                "statsmodels",
+                "dataclasses",
                 ],
       entry_points={
           'console_scripts': [
               'enstools-opendata=enstools.opendata.cli:main',
-              'enstools-compressor=enstools.io:cli'
               ],
         },
       )

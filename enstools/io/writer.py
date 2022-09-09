@@ -1,16 +1,23 @@
-import xarray
-from xarray.backends.netCDF4_ import NetCDF4DataStore
-
-from .file_type import get_file_type
-from enstools.io.compression import define_encoding, set_compression_attributes, check_compression_filters_availability
-import dask.array
-import six
 from distutils.version import LooseVersion
 from os import rename
 from typing import Union
 
+import dask.array
+import six
+import xarray
+from xarray.backends.netCDF4_ import NetCDF4DataStore
 
-def write(ds, filename, file_format=None, compression: Union[str, dict] = "default", compute=True, engine="h5netcdf", format="NETCDF4"):
+try:
+    from enstools.encoding import FilterEncodingForXarray, check_dataset_filters_availability
+    encoding_available = True
+except ModuleNotFoundError:
+    encoding_available = False
+
+from .file_type import get_file_type
+
+
+def write(ds, filename, file_format=None, compression: Union[str, dict, None] = None,
+          compute=True, engine="h5netcdf", format="NETCDF4"):
     """
     write a xarray dataset to a file
 
@@ -27,11 +34,13 @@ def write(ds, filename, file_format=None, compression: Union[str, dict] = "defau
             
     compression : string
             Used to specify the compression mode and optionally additional arguments.
+            The parameter follows the rules defined in enstools-encoding.
+            (https://gitlab.physik.uni-muenchen.de/w2w/enstools-encoding.git)
             
             To apply lossless compression we can just use:
                 "lossless"
             Or we can select the backend and the compression level using the following syntax:
-                "lossless:backend:compression_level"
+                "lossless,backend,compression_level"
             The backend can be one of:
                     'blosclz' 
                     'lz4' (default)
@@ -41,10 +50,10 @@ def write(ds, filename, file_format=None, compression: Union[str, dict] = "defau
                     'zstd'
             and the compression level must be an integer from 1 to 9 (default is 9).
             Few examples:
-                "lossless:zstd:4"
-                "lossless:lz4:9"
-                "lossless:snappy:1"
-            Using "lossless" without additional arguments would be equivalent to "lossless:lz4:9"
+                "lossless,zstd,4"
+                "lossless,lz4,9"
+                "lossless,snappy,1"
+            Using "lossless" without additional arguments would be equivalent to "lossless,lz4,9"
             
             For lossy compression, we might be able to pass more arguments:
                 "lossy"
@@ -61,18 +70,24 @@ def write(ds, filename, file_format=None, compression: Union[str, dict] = "defau
                 'pw_rel'
             Each one of this methods require an additional parameter: the rate, the precision or the accuracy.
             The examples would look like:
-                'lossy:zfp:accuracy:0.2'
-                'lossy:zfp:rate:4'
-            Another option would be to pass the path to a configuration file as argument. (yaml or json)
+                'lossy,zfp,accuracy,0.2'
+                'lossy,zfp,rate,4'
+            There are also few features that target datasets with multiple variables.
+            One can write a different specification for different variables by using a
+            list of space separated specifications:
+
+            'var1:lossy,zfp,rate,4.0 var2:lossy,sz,abs,0.1'
+
+            For more details see the corresponding documentation.
+
+            Another option would be to pass the path to a YAML configuration file as argument.
     compute : bool 
             Dask delayed feature. Set to true to delay the file writing.
     """
     # if ds is a DataVariable instead of a Dataset, then convert it
     if isinstance(ds, xarray.DataArray):
         ds = ds.to_dataset()
-    # we need to make sure that we are able to write compressed files
-    if not check_compression_filters_availability(ds):
-        print("Relying on hdf5plugin")
+
     # select the type of file to create
     valid_formats = ["NC"]
     if file_format is not None:
@@ -82,21 +97,26 @@ def write(ds, filename, file_format=None, compression: Union[str, dict] = "defau
     if selected_format not in valid_formats:
         raise ValueError("the format '%s' is not (yet) supported!" % selected_format)
 
-    # If a compression variable has been provided, define the proper encoding for HDF5 filters:
-    encoding, descriptions = define_encoding(dataset=ds, compression=compression)
+    if compression is not None:
+        help_message = "To use the compression argument please install enstools-encoding:\n" \
+                       "pip install @ git+https://github.com/wavestoweather/enstools-encoding.git"
+        assert encoding_available, ModuleNotFoundError(help_message)
+        # If a compression variable has been provided, define the proper encoding for HDF5 filters:
+        dataset_encoding = FilterEncodingForXarray(dataset=ds, compression=compression)
+        dataset_encoding.add_metadata()
+    else:
+        dataset_encoding = None
 
-    set_compression_attributes(dataset=ds, descriptions=descriptions)
 
     if format == "NETCDF4_CLASSIC" and engine == "h5netcdf":
-        raise AssertionError(f"enstools.io.write:: Format {format} and engine {engine} are not compatible. If format {format} is needed, the suggested engine is NETCDF4")
+        raise AssertionError(
+            f"enstools.io.write:: Format {format} and engine {engine} are not compatible."
+            f"If format {format} is needed, the suggested engine is NETCDF4")
 
     if engine == "netcdf4":
         if compression not in [None, "default"]:
-            print(encoding)
-            print("Using netcdf4 engine. Setting encoding to None")
-        encoding = None
-        
-        
+            logging.warning("Using netcdf4 engine. Setting encoding to None")
+            dataset_encoding = None
 
     # write a netcdf file
     if selected_format == "NC":
@@ -105,7 +125,7 @@ def write(ds, filename, file_format=None, compression: Union[str, dict] = "defau
         if compute:
             final_filename = filename
             filename = f"{filename}.tmp"
-        task = ds.to_netcdf(filename, engine=engine, encoding=encoding, compute=compute, format=format)
+        task = ds.to_netcdf(filename, engine=engine, encoding=dataset_encoding, compute=compute, format=format)
         if compute:
             rename(filename, final_filename)
         return task
@@ -156,4 +176,3 @@ def __to_netcdf(ds, filename):
 
     # close the file
     nc.close()
-

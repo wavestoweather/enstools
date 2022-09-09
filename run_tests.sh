@@ -31,7 +31,12 @@ if [[ ! -d venv ]] ; then
     python3 -m venv --prompt enstools venv
     source venv/bin/activate
     pip install -U pip
-    pip install wheel
+
+    # In case of having hdf5 available in the system, 
+    # install h5py without using precompiled binaries
+    if [ ! -z  $(command -v h5copy ) ]; then
+        pip install h5py --no-binary h5py
+    fi
 
     # In ubuntu 22.04 proj >8.0 is available which allows us to install cartopy >= 0.20 but not
     # Previous versions
@@ -42,7 +47,7 @@ if [[ ! -d venv ]] ; then
     fi
 	    
     pip install -e .
-    pip install --force-reinstall pytest
+    pip install --force-reinstall pytest pytest-mock
 fi
 
 source venv/bin/activate

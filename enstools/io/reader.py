@@ -12,7 +12,13 @@ from enstools.misc import add_ensemble_dim, is_additional_coordinate_variable, f
     set_ensemble_member
 from enstools.core import get_client_and_worker
 from packaging import version
-from enstools.io.compression import check_compression_filters_availability, check_all_filters_availability
+
+
+try:
+    from enstools.encoding import check_dataset_filters_availability, check_filters_availability
+    enstools_encoding_available = True
+except ModuleNotFoundError:
+    enstools_encoding_available = False
 from .dataset import drop_unused
 from .file_type import get_file_type
 try:
@@ -61,7 +67,7 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
 
     Parameters
     ----------
-    filenames : list of str or tuple of str
+    filenames : list of str or tuple of str or str
             names of individual files or filename pattern
 
     merge_same_size_dim : bool
@@ -101,10 +107,11 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
     xarray.Dataset
             in-memory representation of the content of the input file(s)
     """
-    # we need to make sure that we are able to read compressed files
-    if not check_all_filters_availability():
-        import hdf5plugin
-    
+    if enstools_encoding_available:
+        # we need to make sure that we are able to read compressed files
+        if not check_filters_availability():
+            import hdf5plugin
+
     # open one file, or multiple files?
     if not isinstance(filenames, (list, tuple)):
         if isinstance(filenames, six.string_types):
@@ -256,8 +263,8 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         else:
             result = xarray.auto_combine(datasets)
 
-    
-    assert check_compression_filters_availability(result), "The dataset uses some filters that are not available."
+    if enstools_encoding_available:
+        assert check_dataset_filters_availability(result), "The dataset uses some filters that are not available."
 
     return result
 

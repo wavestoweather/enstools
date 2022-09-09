@@ -66,7 +66,7 @@ class BatchJob():
         #       Possibly related: https://github.com/dask/distributed/issues/1321
 
         # set memory limit to 90% of the total system memory
-        mem_per_worker = int(self.memory_per_node * 0.9)
+        mem_per_worker = int(self.memory_per_node * 0.9) / self.ntasks
         logging.debug("memory limit per worker: %db" % mem_per_worker)
 
         # create the cluster by starting the client
@@ -82,7 +82,7 @@ class BatchJob():
                                          memory_limit=mem_per_worker)
         """
         self.cluster = distributed.LocalCluster(n_workers=self.ntasks,
-                                         local_dir=self.local_dir,
+                                         local_directory=self.local_dir,
                                          silence_logs=logging.WARN,
                                          threads_per_worker=1,
                                          memory_limit=mem_per_worker)
