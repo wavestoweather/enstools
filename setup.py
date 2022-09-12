@@ -1,11 +1,11 @@
-# install the ensemble tools
+# Install the ensemble tools
 from setuptools import setup, find_packages
 import re
 import sys
 
 # Use the Readme file as long description.
 try:
-    with open("Readme.md", "r") as f:
+    with open("README.md", "r") as f:
         long_description = f.read()
 except FileNotFoundError:
     long_description = ""
@@ -26,12 +26,18 @@ def get_version():
             if match is not None:
                 return match.group(1)
 
+def find_enstools_packages():
+    """
+    Find the packages inside the enstools folder.
+    """
+
+    return [f'enstools.{p}' for p in (find_packages('enstools'))]
+
 
 # only print the version and exit?
 if len(sys.argv) == 2 and sys.argv[1] == "--get-version":
     print(get_version())
     exit()
-
 
 # perform the actual install operation
 setup(name="enstools",
@@ -41,57 +47,42 @@ setup(name="enstools",
       long_description=long_description,
       long_description_content_type='text/markdown',
       url="https://github.com/wavestoweather/enstools",
-      namespace_packages=['enstools'],
-      packages=[
-          'enstools.scores',
-          'enstools.clustering',
-          'enstools.filters',
-          'enstools.post',
-          'enstools.misc',
-          'enstools.interpolation',
-          'enstools.core',
-          'enstools.io',
-          'enstools.opendata',
-          'enstools.plot',
-          'enstools.scores.DisplacementAmplitudeScore',
-          'enstools.io.eccodes',
-          'enstools.plot.interactive',
-      ],
+      packages=['enstools', *find_enstools_packages()],
       install_requires=[
-                "appdirs",
-                "numpy",
-                "xarray",
-                "cftime",
-                "dask",
-                "distributed",
-                "cloudpickle",
-                "colorama",
-                "numba",
-                "toolz",
-                "pint",
-                "cartopy",
-                "matplotlib",
-                "decorator",
-                "multipledispatch",
-                "cachey",
-                "cffi",
-                "pandas",
-                "packaging",
-                "h5netcdf",
-                "h5py",
-                "hdf5plugin",
-                "numcodecs",
-                "scikit-image",
-                "scikit-learn",
-                "scipy",
-                "plotly",
-                "bokeh",
-                "statsmodels",
-                "dataclasses",
-                ],
+          "appdirs",
+          "numpy",
+          "xarray",
+          "cftime",
+          "dask",
+          "distributed",
+          "cloudpickle",
+          "colorama",
+          "numba",
+          "toolz",
+          "pint",
+          "cartopy",
+          "matplotlib",
+          "decorator",
+          "multipledispatch",
+          "cachey",
+          "cffi",
+          "pandas",
+          "packaging",
+          "h5netcdf",
+          "h5py",
+          "hdf5plugin",
+          "numcodecs",
+          "scikit-image",
+          "scikit-learn",
+          "scipy",
+          "plotly",
+          "bokeh",
+          "statsmodels",
+          "dataclasses",
+      ],
       entry_points={
           'console_scripts': [
               'enstools-opendata=enstools.opendata.cli:main',
-              ],
-        },
+          ],
+      },
       )
