@@ -3,6 +3,13 @@ from setuptools import setup, find_packages
 import re
 import sys
 
+# Use the Readme file as long description.
+try:
+    with open("Readme.md", "r") as f:
+        long_description = f.read()
+except FileNotFoundError:
+    long_description = ""
+
 
 def get_version():
     """
@@ -31,6 +38,9 @@ setup(name="enstools",
       version=get_version(),
       author="Robert Redl et al.",
       author_email="robert.redl@lmu.de",
+      long_description=long_description,
+      long_description_content_type='text/markdown',
+      url="https://github.com/wavestoweather/enstools",
       namespace_packages=['enstools'],
       packages=find_packages()[1:],
       install_requires=[
