@@ -2,6 +2,7 @@
 from setuptools import setup, find_packages
 import re
 import sys
+import os.path
 
 # Use the Readme file as long description.
 try:
@@ -31,7 +32,7 @@ def find_enstools_packages():
     Find the packages inside the enstools folder.
     """
 
-    return [f'enstools.{p}' for p in (find_packages('enstools'))]
+    return [f'enstools.{p}' for p in (find_packages(f'{os.path.dirname(__file__)}/enstools'))]
 
 
 # only print the version and exit?
