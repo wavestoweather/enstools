@@ -15,7 +15,7 @@ from packaging import version
 
 
 try:
-    from enstools.encoding import check_dataset_filters_availability, check_filters_availability
+    from enstools.encoding.api import check_dataset_filters_availability, check_filters_availability
     enstools_encoding_available = True
 except ModuleNotFoundError:
     enstools_encoding_available = False

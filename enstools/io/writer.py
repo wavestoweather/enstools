@@ -8,7 +8,7 @@ import xarray
 from xarray.backends.netCDF4_ import NetCDF4DataStore
 
 try:
-    from enstools.encoding import FilterEncodingForXarray, check_dataset_filters_availability
+    from enstools.encoding.api import FilterEncodingForXarray, check_dataset_filters_availability
     encoding_available = True
 except ModuleNotFoundError:
     encoding_available = False
