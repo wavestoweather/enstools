@@ -8,32 +8,36 @@ import os
 import re
 import numpy as np
 import glob
+from typing import Union, Tuple, List
+from pathlib import Path
+from .paths import clean_paths
 from enstools.misc import add_ensemble_dim, is_additional_coordinate_variable, first_element, \
     set_ensemble_member
 from enstools.core import get_client_and_worker
 from packaging import version
 
-
 try:
     from enstools.encoding.api import check_dataset_filters_availability, check_filters_availability
+
     enstools_encoding_available = True
 except ModuleNotFoundError:
     enstools_encoding_available = False
 from .dataset import drop_unused
 from .file_type import get_file_type
+
 try:
     from .eccodes import read_grib_file
 except ImportError:
     pass
 
 
-def __read_one_file(filename, constant=None, decode_times=True, **kwargs):
+def __read_one_file(filename: Path, constant=None, decode_times=True, **kwargs):
     """
     Read one or more input files
 
     Parameters
     ----------
-    filename : str
+    filename : Path object
             name of one individual file of unix shell-like file name pattern for multiple files
 
     constant : str
@@ -47,10 +51,8 @@ def __read_one_file(filename, constant=None, decode_times=True, **kwargs):
     xarray.Dataset
             in-memory representation of the content of the input file(s)
     """
-    # is the filename a pattern?
-    files = expand_file_pattern(filename)
-    if len(files) > 1 or constant is not None:
-        return read(files, constant=constant, **kwargs)
+    if constant is not None:
+        return read(filename, constant=constant, **kwargs)
     else:
         # are we inside of a worker and is a distributed client available?
         client, worker = get_client_and_worker()
@@ -60,8 +62,15 @@ def __read_one_file(filename, constant=None, decode_times=True, **kwargs):
         return __open_dataset(filename, client, worker, decode_times=decode_times, **kwargs)
 
 
-def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=False, member_by_filename=None,
-         decode_times=True, **kwargs):
+def read(
+        filenames: Union[List[str], Tuple[str], str, Path, List[Path]],
+        constant=None,
+        merge_same_size_dim=False,
+        members_by_folder=False,
+        member_by_filename=None,
+        decode_times=True,
+        **kwargs,
+):
     """
     Read multiple input files
 
@@ -112,12 +121,8 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         if not check_filters_availability():
             import hdf5plugin
 
-    # open one file, or multiple files?
-    if not isinstance(filenames, (list, tuple)):
-        if isinstance(filenames, six.string_types):
-            filenames = [filenames]
-        else:
-            raise NotImplementedError("unsupported type of argument: %s" % type(filenames))
+    filenames = clean_paths(filenames)
+
     # Hint: the \\\ the the docstring for member_by_filename is only included because the html-documentation is
     # otherwise not rendered correctly.
     # create at first a list of all input files
@@ -130,21 +135,13 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         kwargs["create_ens_dim"] = True
     for filename in filenames:
         # is the filename a pattern?
-        files = expand_file_pattern(filename)
-        for one_file in files:
-            one_file = os.path.abspath(one_file)
-            datasets.append(dask.delayed(__read_one_file)(one_file, decode_times=decode_times, **kwargs))
-            expanded_filenames.append(one_file)
-            parent = os.path.dirname(one_file)
-            if not parent in parent_folders:
-                parent_folders.append(parent)
+        one_file = os.path.abspath(filename)
+        datasets.append(dask.delayed(__read_one_file)(filename, decode_times=decode_times, **kwargs))
+        expanded_filenames.append(filename)
+        parent = os.path.dirname(filename)
+        if not parent in parent_folders:
+            parent_folders.append(parent)
 
-    # read all the files in parallel
-    # FIXME: issue #6: repairing coordinates inside of __open_dataset is causing an error in python3
-    #if six.PY3:
-    #    get = dask.get
-    #else:
-    #    get = dask.multiprocessing.get
     datasets = dask.compute(*datasets, traverse=False)
 
     # are there ensemble members in different folders?
@@ -181,7 +178,9 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         if len(incomplete_folders) > 0:
             incomplete_folders.sort()
             for folder in incomplete_folders:
-                logging.warning("The ensemble member in folder '%s' seems to be incomplete with only %d of %d files.This member will not be part of the merged dataset.", folder, n_files_per_folder[folder], max_files)
+                logging.warning(
+                    "The ensemble member in folder '%s' seems to be incomplete with only %d of %d files.This member will not be part of the merged dataset.",
+                    folder, n_files_per_folder[folder], max_files)
             new_datasets = []
             for ids in range(len(datasets)):
                 if os.path.dirname(expanded_filenames[ids]) not in incomplete_folders:
@@ -199,7 +198,8 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
             # find the member information within the filename
             match = re.search(member_by_filename, os.path.basename(expanded_filenames[ids]))
             if match is None:
-                raise IOError("pattern for ensemble member ('%s') information not found in filename '%s'" % (member_by_filename, os.path.basename(expanded_filenames[ids])))
+                raise IOError("pattern for ensemble member ('%s') information not found in filename '%s'" % (
+                    member_by_filename, os.path.basename(expanded_filenames[ids])))
             member = int(match.group(1))
 
             # create missing ensemble dimension
@@ -225,7 +225,9 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         if len(incomplete_members) > 0:
             incomplete_members.sort()
             for member in incomplete_members:
-                logging.warning("The ensemble member '%s' seems to be incomplete with only %d of %d files. This member will not be part of the merged dataset.", member, n_files_per_member[member], max_files)
+                logging.warning(
+                    "The ensemble member '%s' seems to be incomplete with only %d of %d files. This member will not be part of the merged dataset.",
+                    member, n_files_per_member[member], max_files)
             new_datasets = []
             for ids in range(len(datasets)):
                 member = int(re.search(member_by_filename, os.path.basename(expanded_filenames[ids])).group(1))
@@ -250,7 +252,8 @@ def read(filenames, constant=None, merge_same_size_dim=False, members_by_folder=
         # remove variables also present in the non constant data
         for one_var in constant_data.data_vars:
             if one_var in result or one_var.lower() in result or one_var.upper() in result:
-                logging.warning("variable '%s' in constant and non-constant data => renamed to '%s_constant'!", one_var, one_var)
+                logging.warning("variable '%s' in constant and non-constant data => renamed to '%s_constant'!", one_var,
+                                one_var)
                 constant_data = constant_data.rename({one_var: "%s_constant" % one_var})
         # rename dimensions?
         if merge_same_size_dim:
@@ -356,7 +359,9 @@ def __merge_datasets(datasets):
     all_coords = set()
     for ds in datasets:
         for coord in ds.coords.keys():
-            if coord not in all_coords and (np.issubdtype(ds.coords[coord].dtype, np.number) or np.issubdtype(ds.coords[coord].dtype, np.datetime64)):
+            if coord not in all_coords and (
+                    np.issubdtype(ds.coords[coord].dtype, np.number) or np.issubdtype(ds.coords[coord].dtype,
+                                                                                      np.datetime64)):
                 all_coords.add(coord)
     # filter for coordinates present in all files
     coords_in_all_files = OrderedDict()
@@ -437,7 +442,7 @@ def __merge_datasets(datasets):
             logging.error("merging the following datasets automatically failed:")
             for one_ds in datasets:
                 logging.error("%s", one_ds)
-                logging.error("-"*80)
+                logging.error("-" * 80)
             raise ex
 
     # are the variables not available in all files?
@@ -481,14 +486,14 @@ def __open_dataset(filename, client, worker, decode_times=True, **kwargs):
         # use h5netcdf to read HDF5-Files
         engine = None
         if file_type == "HDF":
-            engine="h5netcdf"
+            engine = "h5netcdf"
         if kwargs.get("in_memory", False) and client is None:
             result0 = xarray.open_dataset(filename, engine=engine, decode_times=decode_times)
             result = result0.compute().chunk()
             result0.close()
             result.close()
         else:
-            result = xarray.open_dataset(filename, engine=engine, decode_times=decode_times, chunks={})
+            result = xarray.open_dataset(filename, engine=engine, decode_times=decode_times, chunks={}, **kwargs)
             if client is not None:
                 if worker is not None:
                     logging.debug("running on worker: %s" % worker.address)

@@ -4,7 +4,7 @@ import re
 import os
 
 
-def get_file_type(filename, only_extension=False):
+def get_file_type(filename: str, only_extension=False):
     """
     use the first bytes to guess the type of input files
 

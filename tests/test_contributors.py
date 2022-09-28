@@ -6,7 +6,7 @@ import pytest
 import re
 from collections import OrderedDict
 from subprocess import getstatusoutput
-
+from pathlib import Path
 
 @pytest.fixture
 def contributors():
@@ -51,8 +51,9 @@ def test_contributors(contributors):
     text += '\n'.join(list(map(lambda x:f'- {x}', contributors)))
     logging.error(text)
 
-    # read the content of the contributors file
-    with open("CONTRIBUTORS.md") as f:
+    # Read the content of the contributors file, which is in the parent folder.
+    contributors_file = Path(__file__).parent.parent.resolve() / "CONTRIBUTORS.md"
+    with contributors_file.open("r") as f:
         file_content = f.read()
 
     assert text == file_content
