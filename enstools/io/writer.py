@@ -6,6 +6,7 @@ import dask.array
 import six
 import xarray
 from xarray.backends.netCDF4_ import NetCDF4DataStore
+from pathlib import Path
 
 try:
     from enstools.encoding.api import FilterEncodingForXarray, check_dataset_filters_availability
@@ -16,8 +17,14 @@ except ModuleNotFoundError:
 from .file_type import get_file_type
 
 
-def write(ds, filename, file_format=None, compression: Union[str, dict, None] = None,
-          compute=True, engine="h5netcdf", format="NETCDF4"):
+def write(ds: Union[xarray.Dataset, xarray.DataArray],
+          file_path: Union[str, Path],
+          file_format: Union[str, None] = None,
+          compression: Union[str, dict, None] = None,
+          compute: bool =True,
+          engine: str ="h5netcdf",
+          format: str ="NETCDF4",
+          ):
     """
     write a xarray dataset to a file
 
@@ -26,7 +33,7 @@ def write(ds, filename, file_format=None, compression: Union[str, dict, None] = 
     ds : xarray.Dataset
             the dataset to store
 
-    filename : string
+    file_path : string or Path
             the file to create
 
     file_format : {'NC'}
@@ -84,6 +91,9 @@ def write(ds, filename, file_format=None, compression: Union[str, dict, None] = 
     compute : bool 
             Dask delayed feature. Set to true to delay the file writing.
     """
+
+    file_path = Path(file_path).resolve()
+
     # if ds is a DataVariable instead of a Dataset, then convert it
     if isinstance(ds, xarray.DataArray):
         ds = ds.to_dataset()
@@ -93,7 +103,7 @@ def write(ds, filename, file_format=None, compression: Union[str, dict, None] = 
     if file_format is not None:
         selected_format = file_format
     else:
-        selected_format = get_file_type(filename, only_extension=True)
+        selected_format = get_file_type(file_path.name, only_extension=True)
     if selected_format not in valid_formats:
         raise ValueError("the format '%s' is not (yet) supported!" % selected_format)
 
@@ -123,11 +133,11 @@ def write(ds, filename, file_format=None, compression: Union[str, dict, None] = 
         # We can do the trick of changing the name to filename.tmp and changing it back after the process is completed
         # but only if we execute the task here ( i.e. compute==True).
         if compute:
-            final_filename = filename
-            filename = f"{filename}.tmp"
-        task = ds.to_netcdf(filename, engine=engine, encoding=dataset_encoding, compute=compute, format=format)
+            final_filename = file_path
+            file_path = f"{file_path}.tmp"
+        task = ds.to_netcdf(file_path, engine=engine, encoding=dataset_encoding, compute=compute, format=format)
         if compute:
-            rename(filename, final_filename)
+            rename(file_path, final_filename)
         return task
 
         """

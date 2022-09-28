@@ -1,7 +1,7 @@
 # Tests for functions from enstools.io.dataset
 import xarray
 import numpy
-from enstools.io.api import drop_unused
+from enstools.io import drop_unused
 
 
 def test_drop_unused_coords():
