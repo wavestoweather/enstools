@@ -18,7 +18,7 @@ try:
     import enstools.compression
     compression_available = True
 except ModuleNotFoundError:
-    compression_available = True
+    compression_available = False
 
 from .file_type import get_file_type
 
