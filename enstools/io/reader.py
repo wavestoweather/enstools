@@ -22,6 +22,13 @@ try:
     enstools_encoding_available = True
 except ModuleNotFoundError:
     enstools_encoding_available = False
+
+try:
+    import enstools.compression
+    compression_available = True
+except ModuleNotFoundError:
+    compression_available = True
+
 from .dataset import drop_unused
 from .file_type import get_file_type
 
@@ -116,10 +123,9 @@ def read(
     xarray.Dataset
             in-memory representation of the content of the input file(s)
     """
-    if enstools_encoding_available:
-        # we need to make sure that we are able to read compressed files
-        if not check_filters_availability():
-            import hdf5plugin
+    if compression_available and not check_filters_availability():
+        # We need to make sure that we are able to read compressed files
+            import hdf5plugin # noqa
 
     filenames = clean_paths(filenames)
 

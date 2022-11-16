@@ -14,6 +14,12 @@ try:
 except ModuleNotFoundError:
     encoding_available = False
 
+try:
+    import enstools.compression
+    compression_available = True
+except ModuleNotFoundError:
+    compression_available = True
+
 from .file_type import get_file_type
 
 
@@ -109,8 +115,8 @@ def write(ds: Union[xarray.Dataset, xarray.DataArray],
 
     if compression is not None:
         help_message = "To use the compression argument please install enstools-encoding:\n" \
-                       "pip install @ git+https://github.com/wavestoweather/enstools-encoding.git"
-        assert encoding_available, ModuleNotFoundError(help_message)
+                       "pip install enstools-compression"
+        assert compression_available, ModuleNotFoundError(help_message)
         # If a compression variable has been provided, define the proper encoding for HDF5 filters:
         dataset_encoding = FilterEncodingForXarray(dataset=ds, compression=compression)
         dataset_encoding.add_metadata()
