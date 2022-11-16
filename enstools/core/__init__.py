@@ -20,7 +20,9 @@ from .cluster import init_cluster, get_num_available_procs, get_client_and_worke
 from .os_support import getstatusoutput, get_cache_dir
 
 # to convert enstools into a namespace package, the version is now listed here and not in the level above
-__version__ = "2022.9.4"
+import pkg_resources  # part of setuptools
+version = pkg_resources.require("enstools")[0].version
+__version__ = version
 
 
 class UnitRegistry(pint.UnitRegistry):

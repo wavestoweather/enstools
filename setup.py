@@ -13,19 +13,11 @@ except FileNotFoundError:
 
 
 def get_version():
-    """
-    read version string from enstools package without importing it
+    from pathlib import Path
+    version_path = Path(__file__).parent / "VERSION"
+    with version_path.open() as version_file:
+        return version_file.read().strip()
 
-    Returns
-    -------
-    str:
-            version string
-    """
-    with open("enstools/core/__init__.py") as f:
-        for line in f:
-            match = re.search(r'__version__\s*=\s*"([a-zA-Z0-9_.]+)"', line)
-            if match is not None:
-                return match.group(1)
 
 def find_enstools_packages():
     """

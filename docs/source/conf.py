@@ -6,8 +6,16 @@ project = 'enstools'
 copyright = '2022'
 author = 'Robert Redl'
 
-release = '0.1'
-version = '0.1.0'
+
+def get_version():
+    from pathlib import Path
+    version_path = Path(__file__).parent.parent.parent / "VERSION"
+    with version_path.open() as version_file:
+        return version_file.read().strip()
+
+
+version = get_version()
+release = version
 
 # -- General configuration
 
