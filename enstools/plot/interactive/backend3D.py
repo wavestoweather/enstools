@@ -10,7 +10,10 @@ from math import sqrt, floor
 from collections import OrderedDict
 from scipy.interpolate import interp2d
 
-import cartopy
+try:
+    import cartopy
+except ModuleNotFoundError:
+    raise AssertionError("This feature requires cartopy which is not installed.")
 from matplotlib import cm
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize

@@ -1,7 +1,11 @@
 """
 Basic plot routines usable to construct more advanced plots
 """
-import cartopy.crs as ccrs
+try:
+    import cartopy.crs as ccrs
+except ModuleNotFoundError:
+    raise AssertionError("This feature requires cartopy which is not installed.")
+
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 from matplotlib.axes import Axes
