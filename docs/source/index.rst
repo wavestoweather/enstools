@@ -6,10 +6,14 @@
 Welcome to Ensemble Tools's documentation!
 ==========================================
 
-Contents:
+**Ensemble Tools** its open source and can be found in its `Github repository <https://github.com/wavestoweather/enstools>`_.
+
+
+Modules:
+---------
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
 
     clustering.rst
     io.rst
