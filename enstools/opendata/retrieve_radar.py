@@ -26,10 +26,6 @@ def retrieve_radar(product=None, data_time=None, forecast_time=0, dest=None, fil
         list :
                 names of downloaded files.
 
-    Returns
-    -------
-    list :
-            names of downloaded files.
     """
     content = getDWDRadar()
     download_files = content.retrieve(product=product, data_time=data_time, forecast_time=forecast_time,

@@ -1,5 +1,7 @@
-Postprocessing
-==============
+.. _post-api:
+
+Postprocessing API
+==================
 
 .. automodule:: enstools.post
     :members:

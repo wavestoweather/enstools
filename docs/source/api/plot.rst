@@ -1,5 +1,7 @@
-Plot
-====
+.. _plot-api:
+
+Plot API
+========
 
 .. automodule:: enstools.plot
     :members:

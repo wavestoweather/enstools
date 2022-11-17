@@ -1,5 +1,9 @@
-Clustering
-==========
+.. _clustering-api:
+
+Clustering API
+==============
+
+:ref:`clustering-api`.
 
 .. automodule:: enstools.clustering
     :members:

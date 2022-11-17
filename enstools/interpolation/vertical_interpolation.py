@@ -7,6 +7,9 @@ import logging
 
 
 class model2pressure:
+    """
+        Interpolator object for the interpolation from model to pressure level
+    """
 
     def __init__(self, src_p, dst_p, vertical_dim=None):
         """

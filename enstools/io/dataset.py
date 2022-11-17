@@ -20,6 +20,7 @@ def drop_unused(ds):
     -------
     xarray.Dataset:
             a copy of the input dataset with removed coordinates.
+
     """
     # list of unremovable coordinates
     unremovable = ["rotated_pole"]

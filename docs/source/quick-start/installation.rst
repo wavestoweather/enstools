@@ -8,13 +8,16 @@ The easiest way of installing enstools is using **pip**
 
 Dependencies
 ____________
-Besides the dependencies that are handled by **pip**, the `GEOS package<https://libgeos.org/>`_ is required by **cartopy**.
+Besides the dependencies that are handled by **pip**, `GEOS`_ is required by **cartopy**.
 In **Ubuntu** it can be installed by doing:
     >>> apt install libgeos-dev
 
 Workaround for GEOS
 ...................
-In case the user has no root permissions and can't manage to install the `GEOS package<https://libgeos.org/>`_ it is possible to install enstools
+
+.. _GEOS: https://libgeos.org
+
+In case the user has no root permissions and don't manage to install GEOS`_ it is possible to install enstools
 without cartopy. To do that:
 
     1. Install enstools without its dependencies:
