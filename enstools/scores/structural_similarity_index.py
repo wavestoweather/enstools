@@ -19,16 +19,24 @@ def check_coordinates(data_array: xarray.DataArray):
 
 
 def structural_similarity_index(reference: xarray.DataArray, target: xarray.DataArray) -> xarray.DataArray:
-    """
-    Description: A meaningful description of the metric with references if necessary would be nice.
+    r"""
+    Returns the Structural Similarity Index Metric of the full DataArray.
+    For more than two spatial dimensions the computation its done slice by slice.
 
-    Functions
-    :param reference:
-    :param target:
-    :return:
-    """
-    """
-    Returns the SSIM of the full DataArray. The computation its done slice by slice.
+    Relies on
+    `skimage <https://scikit-image.org/docs/stable/api/skimage.metrics.html#skimage.metrics.structural_similarity>`_
+    to compute the SSIM of each slice.
+
+    Parameters
+    ----------
+    reference : xarray.DataArray
+    target : xarray.DataArray
+
+    Returns
+    -------
+    SSIM: xarray.DataArray
+        A data array with the time-series of the SSIM
+
     """
     check_coordinates(reference)
 

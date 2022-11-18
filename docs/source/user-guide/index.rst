@@ -7,7 +7,13 @@ User Guide
 .. grid:: 3
 
     .. grid-item-card::
-        :img-top: ../images/icons/clustering.svg
+        :columns: 4
+
+        .. image:: ../images/icons/clustering.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
+
 
         +++
 
@@ -20,7 +26,13 @@ User Guide
 
 
     .. grid-item-card::
-        :img-top: ../images/icons/interpolation.svg
+        :columns: 4
+
+        .. image:: ../images/icons/interpolation.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
+
 
         +++
 
@@ -32,7 +44,12 @@ User Guide
             Interpolation
 
     .. grid-item-card::
-        :img-top: ../images/icons/io.svg
+        :columns: 4
+
+        .. image:: ../images/icons/io.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         +++
 
@@ -44,7 +61,12 @@ User Guide
             Input/Output
 
     .. grid-item-card::
-        :img-top: ../images/icons/opendata.svg
+        :columns: 4
+
+        .. image:: ../images/icons/opendata.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         +++
 
@@ -57,7 +79,12 @@ User Guide
 
 
     .. grid-item-card::
-        :img-top: ../images/icons/post.svg
+        :columns: 4
+
+        .. image:: ../images/icons/post.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         +++
 
@@ -71,7 +98,12 @@ User Guide
 
 
     .. grid-item-card::
-        :img-top: ../images/icons/scores.svg
+        :columns: 4
+
+        .. image:: ../images/icons/scores.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         +++
 
@@ -84,7 +116,12 @@ User Guide
             Scores
 
     .. grid-item-card::
-        :img-top: ../images/icons/compression.svg
+        :columns: 4
+
+        .. image:: ../images/icons/compression.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         +++
 

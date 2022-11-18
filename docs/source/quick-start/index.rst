@@ -7,8 +7,12 @@ First steps with **enstools**.
 .. grid:: 1
 
     .. grid-item-card::
-        :columns: 5
-        :img-top: ../images/icons/installation.svg
+        :columns: 7
+
+        .. image:: ../images/icons/installation.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         .. button-ref:: installation
             :expand:
@@ -17,19 +21,21 @@ First steps with **enstools**.
 
             How to install **enstools**.
 
-.. grid:: 1
-
     .. grid-item-card::
-        :columns: 5
-        :img-top: ../images/icons/start.svg
+        :columns: 7
+
+        .. image:: ../images/icons/examples.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
 
-        .. button-ref:: first-example
+        .. button-ref:: examples
             :expand:
             :color: secondary
             :click-parent:
 
-            enstools's Hello World.
+            Some examples using enstools.
 
 
 
@@ -38,5 +44,5 @@ First steps with **enstools**.
     :hidden:
 
     installation.rst
-    first-example.rst
+    examples.rst
 

@@ -1,4 +1,4 @@
-Enstools-Compression
+Compression
 ====================
 
 The I/O :ref:`enstools-io` functions provided by enstools can use **lossless** and **lossy** compression.

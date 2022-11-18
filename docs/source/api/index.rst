@@ -6,7 +6,13 @@ Select the module to see the detailed **API**:
 .. grid:: 3
 
     .. grid-item-card::
-        :img-top: ../images/icons/clustering.svg
+        :columns: 4
+
+        .. image:: ../images/icons/clustering.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
+
 
         +++
 
@@ -19,7 +25,13 @@ Select the module to see the detailed **API**:
 
 
     .. grid-item-card::
-        :img-top: ../images/icons/interpolation.svg
+        :columns: 4
+
+        .. image:: ../images/icons/interpolation.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
+
 
         +++
 
@@ -31,7 +43,12 @@ Select the module to see the detailed **API**:
             Interpolation
 
     .. grid-item-card::
-        :img-top: ../images/icons/io.svg
+        :columns: 4
+
+        .. image:: ../images/icons/io.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         +++
 
@@ -43,7 +60,12 @@ Select the module to see the detailed **API**:
             Input/Output
 
     .. grid-item-card::
-        :img-top: ../images/icons/opendata.svg
+        :columns: 4
+
+        .. image:: ../images/icons/opendata.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         +++
 
@@ -56,7 +78,12 @@ Select the module to see the detailed **API**:
 
 
     .. grid-item-card::
-        :img-top: ../images/icons/post.svg
+        :columns: 4
+
+        .. image:: ../images/icons/post.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         +++
 
@@ -70,7 +97,12 @@ Select the module to see the detailed **API**:
 
 
     .. grid-item-card::
-        :img-top: ../images/icons/scores.svg
+        :columns: 4
+
+        .. image:: ../images/icons/scores.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         +++
 

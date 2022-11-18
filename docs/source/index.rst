@@ -12,11 +12,15 @@ This package provides core functionality to Python-based tools developed within
 the framework of `Waves to Weather - Transregional Collaborative Research
 Project (SFB/TRR165) <https://wavestoweather.de>`_.
 
-.. grid:: 4
+.. grid:: 2
 
     .. grid-item-card::
         :columns: 5
-        :img-top: ./images/icons/getting_started.svg
+
+        .. image:: ./images/icons/getting_started.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         .. button-ref:: quick-start/index
             :expand:
@@ -27,7 +31,11 @@ Project (SFB/TRR165) <https://wavestoweather.de>`_.
 
     .. grid-item-card::
         :columns: 5
-        :img-top: ./images/icons/user_guide.svg
+
+        .. image:: ./images/icons/user_guide.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         .. button-ref:: user-guide/index
             :expand:
@@ -38,7 +46,11 @@ Project (SFB/TRR165) <https://wavestoweather.de>`_.
 
     .. grid-item-card::
         :columns: 5
-        :img-top: ./images/icons/api.svg
+
+        .. image:: ./images/icons/api.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         .. button-ref:: api/index
             :expand:
@@ -49,7 +61,11 @@ Project (SFB/TRR165) <https://wavestoweather.de>`_.
 
     .. grid-item-card::
         :columns: 5
-        :img-top: ./images/icons/contributor.svg
+
+        .. image:: ./images/icons/contributor.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
 
         .. button-ref:: contribute
             :expand:

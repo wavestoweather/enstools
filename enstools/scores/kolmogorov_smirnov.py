@@ -9,14 +9,26 @@ from enstools.core.errors import EnstoolsError
 
 def kolmogorov_smirnov(reference: xarray.DataArray, target: xarray.DataArray, to_return="pvalue")\
         -> Union[xarray.DataArray, xarray.Dataset]:
-    """
-    Description: Compute the KS statistic of the full domain and return the pvalue .
 
-    Functions
-    :param reference:
-    :param target:
-    :param to_return: select between returning the 'pvalue', the 'statistic' as a data Arrays or 'both' as a Dataset
-    :return:
+    r"""
+    Compute the KS statistic of the full domain and return the pvalue .
+
+    Relies on the two-sample Kolmogorov-Smirnov implementation
+    `from scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html>`_.
+
+    Parameters
+    ----------
+    reference : xarray.DataArray
+    target : xarray.DataArray
+    to_return: str
+        Can select between 'pvalue', 'statistic' or 'both'. In this last case it will return a dataset containing both
+        variables as a DataArrays
+
+    Returns
+    -------
+    result: xarray.DataArray or xarray.Dataset
+        A data array with the time-series of the pvalue, statistic or a dataset with both time-series.
+
     """
 
     ks_statistic = reference.copy(deep=True)

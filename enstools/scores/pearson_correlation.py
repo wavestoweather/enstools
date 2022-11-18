@@ -12,13 +12,21 @@ def pearsonr_wrapper(a: numpy.ndarray, b: numpy.ndarray) -> float:
 
 
 def pearson_correlation(reference: xarray.DataArray, target: xarray.DataArray) -> xarray.DataArray:
-    """
-    Description:     It returns the Pearson's correlation. Uses implementation from scipy.
 
-    Functions
-    :param reference:
-    :param target:
-    :return:
+    r"""
+    It returns the Pearson's correlation.
+    Uses `implementation from scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.pearsonr.html>`_.
+
+    Parameters
+    ----------
+    reference : xarray.DataArray
+    target : xarray.DataArray
+
+    Returns
+    -------
+    pearson_correlation: xarray.DataArray
+        A data array with the time-series of the pearson correlation
+
     """
     import warnings
     with warnings.catch_warnings():

@@ -3,22 +3,45 @@ import xarray
 
 
 def mean_square_error(reference: xarray.DataArray, target: xarray.DataArray) -> xarray.DataArray:
+    r"""
+    Compute the mean square error:
+
+    .. math::
+        \frac{1}{n}\sum_{i=1}^{n}(reference_i-target_i)^2
+
+    Parameters
+    ----------
+    reference : xarray.DataArray
+    target : xarray.DataArray
+
+    Returns
+    -------
+    mean_square_error: xarray.DataArray
+        A data array with the time-series of the mean square error
+
     """
-    Description: Compute the mean square error.
-    :param reference:
-    :param target:
-    :return:
-    """
+
     non_temporal_dimensions = [d for d in reference.dims if d != "time"]
     return ((target - reference) ** 2).mean(dim=non_temporal_dimensions)
 
 
 def root_mean_square_error(reference: xarray.DataArray, target: xarray.DataArray) -> xarray.DataArray:
-    """
-    Description: A meaningful description of the metric with references if necessary would be nice.
-    :param reference:
-    :param target:
-    :return:
+    r"""
+    Compute the root mean square error:
+
+    .. math::
+        \sqrt{\frac{1}{n}\sum_{i=1}^{n}(reference_i-target_i)^2}
+
+    Parameters
+    ----------
+    reference : xarray.DataArray
+    target : xarray.DataArray
+
+    Returns
+    -------
+    root_mean_square_error: xarray.DataArray
+        A data array with the time-series of the root mean square error
+
     """
     return mean_square_error(reference, target) ** .5
 
@@ -44,15 +67,25 @@ def value_range(array: xarray.DataArray) -> xarray.DataArray:
 
 def normalized_root_mean_square_error(reference: xarray.DataArray, target: xarray.DataArray,
                                       method: str = "iqr") -> xarray.DataArray:
-    """
-
-    Description: Normalized RMSE with two normalization methods, absolute range and inter quartile range
+    r"""
+    Normalized RMSE with two normalization methods, absolute range and inter quartile range
     (less sensitive to outliers)
-    :param reference:
-    :param target:
-    :param method: method used to normalize the root mean square error. Can be 'iqr' for inter quartile range or 'range'
-    for the absolute value range.
-    :return:
+
+    .. math::
+        \sqrt{\frac{1}{n}\sum_{i=1}^{n}(reference_i-target_i)^2}/range
+
+    Parameters
+    ----------
+    reference : xarray.DataArray
+    target : xarray.DataArray
+    method: str
+        select between the iqr (inter quartile range) or the range (absolute range). Default is "iqr"
+
+    Returns
+    -------
+    root_mean_square_error: xarray.DataArray
+        A data array with the time-series of the root mean square error
+
     """
     if method == "iqr":
         normalization_range = inter_quartile_range(reference)
