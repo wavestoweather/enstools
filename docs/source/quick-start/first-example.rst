@@ -1,18 +1,21 @@
-First example
-=============
+Examples
+========
 
-A small example
+Few examples:
 
-.. code::
 
-    # Import
-    import enstools.io
+Plot ICON data
+-------------------
 
-    # Define file name
-    input_file = "input.nc"
+.. literalinclude:: ../../../examples/example_plot_icon_01.png
 
-    # Open file as an xarray dataset
-    with enstools.io.read(input_file) as dataset:
-        # Loop over the different variables
-        for variable in dataset.data_vars:
-           print(dataset[variable])
+Compute DAS score
+-------------------
+
+.. literalinclude:: ../../../examples/example_das_score_01.py
+
+Read Cosmo Data
+-------------------
+
+.. literalinclude:: ../../../examples/example_io_read_cosmo_02.py
+
