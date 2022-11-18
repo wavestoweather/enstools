@@ -22,7 +22,7 @@ Shared functionality includes:
 
 # Documentation
 
-Check our documentation in [readthedocs](https//enstools.readthedocs.io)     
+Explore [our documentation](https://enstools.readthedocs.io).     
 
 # Acknowledgment and license
 

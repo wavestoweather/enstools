@@ -1,16 +1,15 @@
-Welcome to Ensemble Tools's documentation!
+Welcome to Ensemble Tools's documentation! |docsbadge|
 ==========================================
+
+.. |docsbadge| image:: https://readthedocs.org/projects/enstools/badge/?version=latest
+    :target: https://enstools.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 **Ensemble Tools** its open source and publicly available in `its Github repository <https://github.com/wavestoweather/enstools>`_.
 
-.. image:: ./images/logos/w2w_400x400.jpg
-   :width: 300
-   :align: center
-   :target: https://www.wavestoweather.de/
 
 This package provides core functionality to Python-based tools developed within
-the framework of `Waves to Weather - Transregional Collaborative Research
-Project (SFB/TRR165) <https://wavestoweather.de>`_.
+the framework of **Waves to Weather** [1]_.
 
 .. grid:: 2
 
@@ -76,6 +75,7 @@ Project (SFB/TRR165) <https://wavestoweather.de>`_.
 
 
 .. toctree::
+    :caption: Ensemble Tools
     :maxdepth: 2
     :hidden:
 
@@ -83,3 +83,17 @@ Project (SFB/TRR165) <https://wavestoweather.de>`_.
     user-guide/index.rst
     api/index.rst
     contribute.rst
+
+.. toctree::
+    :caption: Related packages
+    :hidden:
+
+    Ensemble-Compression <https://enstools-compression.readthedocs.io>
+    Enstools-Encoding <https://enstools-encoding.readthedocs.io>
+
+
+.. |w2wlogo| image:: ./images/logos/w2w_400x400.jpg
+   :width: 100
+   :target: https://www.wavestoweather.de/
+
+.. [1] Waves to Weather - Transregional Collaborative Research Project (SFB/TRR165) https://wavestoweather.de  |w2wlogo|
