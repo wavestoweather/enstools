@@ -85,3 +85,19 @@ def test_open_with_wrong_argument():
     """
     with numpy.testing.assert_raises(NotImplementedError):
         ds = enstools.io.read(None)
+
+
+def test_open_with_wrong_path():
+    """
+    try to open an something with an unsupported argument type
+    """
+    with numpy.testing.assert_raises(FileNotFoundError):
+        ds = enstools.io.read("/non/existing/file.nc")
+
+
+def test_open_with_wrong_pattern():
+    """
+    try to open an something with an unsupported argument type
+    """
+    with numpy.testing.assert_raises(FileNotFoundError):
+        ds = enstools.io.read("/non/existing/file/pattern_*.nc")

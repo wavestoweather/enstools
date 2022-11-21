@@ -19,7 +19,6 @@ def clean_paths(paths: Union[Path, List[Path], List[str], str],
 
     # Check arguments
 
-
     if not isinstance(paths, (list, str, tuple, Path)):
         raise NotImplementedError("Unsupported type of argument: %s" % type(paths))    
 
@@ -31,6 +30,10 @@ def clean_paths(paths: Union[Path, List[Path], List[str], str],
 
     # Merge elements in a flat list
     expanded_paths = [item for sublist in expanded_paths for item in sublist]
+
+    # Check that there are actually files.
+    if not expanded_paths:
+        raise FileNotFoundError(f"Files {str(paths)} don't exist.")
 
     # Convert the elements to Path and expand
     path_objects = [Path(fp).resolve() for fp in expanded_paths]
