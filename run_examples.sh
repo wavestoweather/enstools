@@ -37,6 +37,3 @@ python example_plot_icon_01.py --save example_plot_icon_01.png
 
 # Example das score 01
 python example_das_score_01.py
-
-# Example IO read Cosmo 02
-python example_io_read_cosmo_02.py
