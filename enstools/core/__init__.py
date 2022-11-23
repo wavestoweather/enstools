@@ -20,11 +20,14 @@ from .cluster import init_cluster, get_num_available_procs, get_client_and_worke
 from .os_support import getstatusoutput, get_cache_dir
 
 
+"""
 # To have the Version number in a single place, there's a VERSION file in the package root directory.
 # Here we read that file.
 from pathlib import Path
 version_file = Path(__file__).resolve().parent.parent.parent / "VERSION"
 __version__ = version_file.read_text().strip()
+"""
+# FIXME: There should be a proper way of doing this. Meanwhile I just keep it without a __version__ variable.
 
 
 class UnitRegistry(pint.UnitRegistry):
