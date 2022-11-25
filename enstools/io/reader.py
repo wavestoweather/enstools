@@ -66,6 +66,7 @@ def __read_one_file(filename: Path, constant=None, decode_times=True, **kwargs):
         # do we have a client, but we are not running inside of a worker?
         if client is not None and worker is None:
             return dask.compute(dask.delayed(read)(filename, **kwargs))[0]
+
         return __open_dataset(filename, client, worker, decode_times=decode_times, **kwargs)
 
 
@@ -499,7 +500,9 @@ def __open_dataset(filename, client, worker, decode_times=True, **kwargs):
             result0.close()
             result.close()
         else:
-            result = xarray.open_dataset(filename, engine=engine, decode_times=decode_times, chunks={}, **kwargs)
+            # The keyword argument create_ens_dim isn't supposed to be passed to xarray.
+            _kwargs = {key: value for key, value in kwargs.items() if key != "create_ens_dim"}
+            result = xarray.open_dataset(filename, engine=engine, decode_times=decode_times, chunks={}, **_kwargs)
             if client is not None:
                 if worker is not None:
                     logging.debug("running on worker: %s" % worker.address)
