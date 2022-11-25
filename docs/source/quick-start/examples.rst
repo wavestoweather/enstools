@@ -1,21 +1,39 @@
-Examples
-========
+Basic Example
+=============
 
-Few examples:
+**Ensemble Tools** have many features. In this example we show how we can use it to download, plot and save weather data as a compressed netCDF.
+
+.. code::
+
+    
+    from enstools.opendata import retrieve_nwp
+
+    # download the ICON-EU 24h forecast from today 00 UTC.
+    grib_file = retrieve_nwp(variable=["tot_prec"],
+                             model="icon-eu",
+                             grid_type="regular-lat-lon",
+                             level_type="single",
+                             init_time=0,
+                             forecast_hour=[24],
+                             dest=args.data,
+                             merge_files=True)
 
 
-Plot ICON data
--------------------
+    
+    # read the grib file using enstools.io.read
+    import enstools.io
 
-.. literalinclude:: ../../../examples/example_plot_icon_01.py
+    with enstools.io.read(grib_file) as dataset:
 
-Compute DAS score
--------------------
+        # create a basic contour plot and show it
+        import matplotlib.pyplot as plt
+        import enstools.plot
+        fig, ax = enstools.plot.contour(dataset["tp"][0, :, :], coastlines="50m")    
+    
+        plt.show()
+    
+    
+        # Save the dataset using lossy compression
+        enstools.io.write(dataset, "my_new_file.nc", compression="lossy,sz,pw_rel,1.e-5")
 
-.. literalinclude:: ../../../examples/example_das_score_01.py
-
-Read Cosmo Data
--------------------
-
-.. literalinclude:: ../../../examples/example_io_read_cosmo_02.py
-
+Explore the :ref:`UserGuide` to find more examples!
