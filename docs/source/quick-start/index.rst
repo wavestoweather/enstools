@@ -14,6 +14,8 @@ First steps with **enstools**.
             :alt: Alternative text
             :align: center
 
+        +++
+
         .. button-ref:: installation
             :expand:
             :color: secondary
@@ -29,6 +31,7 @@ First steps with **enstools**.
             :alt: Alternative text
             :align: center
 
+        +++
 
         .. button-ref:: examples
             :expand:
@@ -36,7 +39,6 @@ First steps with **enstools**.
             :click-parent:
 
             Some examples using enstools.
-
 
 
 .. toctree::
