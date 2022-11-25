@@ -27,6 +27,8 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx_design',
     'numpydoc',
+    'sphinxcontrib.autoprogram',
+    'sphinx_copybutton',
 ]
 
 intersphinx_mapping = {

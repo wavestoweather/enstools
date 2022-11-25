@@ -6,18 +6,18 @@ from .normalized_root_mean_square_error import mean_square_error
 
 def peak_signal_to_noise_ratio(reference: xarray.DataArray, target: xarray.DataArray) -> xarray.DataArray:
     r"""
-     It returns the Peak Sign to Noise Ratio.
-        With images, it is usually defined as:
+    Computes the Peak Sign to Noise Ratio.
+    With images, it is usually defined as:
 
-        .. math::
-            20 \cdot log10(maxValue)-10 \cdot log10(mse)
+    .. math::
+        20 \cdot log10(maxValue)-10 \cdot log10(mse)
 
-        with all the values being between 0 and max_value.
+    with all the values being between 0 and max_value.
 
-        However, because we are dealing with real values we will use:
+    However, because we are dealing with real values we will use:
 
-        .. math::
-            20 \cdot log10(range)-10 \cdot log10(mse)
+    .. math::
+        20 \cdot log10(range)-10 \cdot log10(mse)
 
     Parameters
     ----------

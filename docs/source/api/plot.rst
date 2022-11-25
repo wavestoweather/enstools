@@ -3,7 +3,10 @@
 Plot API
 ========
 
-.. automodule:: enstools.plot
-    :members:
-    :undoc-members:
-    :imported-members:
+.. autosummary::
+   :toctree: contents
+
+        enstools.plot.contour
+        enstools.plot.grid
+        enstools.plot.interactive_contours
+        enstools.plot.interactive_streamlines

@@ -1,3 +1,5 @@
 numpydoc
 sphinx_design
 sphinx_rtd_theme
+sphinxcontrib-autoprogram
+sphinx-copybutton

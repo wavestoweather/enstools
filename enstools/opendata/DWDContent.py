@@ -130,6 +130,7 @@ class DWDContent:
     def get_grid_types(self, model=None):
         """
         Gives the available grid_types for a specific model
+        
         Parameters
         ----------
         model: str

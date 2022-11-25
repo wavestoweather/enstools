@@ -14,7 +14,7 @@ def pearsonr_wrapper(a: numpy.ndarray, b: numpy.ndarray) -> float:
 def pearson_correlation(reference: xarray.DataArray, target: xarray.DataArray) -> xarray.DataArray:
 
     r"""
-    It returns the Pearson's correlation.
+    Compute the Pearson's correlation.
     Uses `implementation from scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.pearsonr.html>`_.
 
     Parameters

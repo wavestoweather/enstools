@@ -185,7 +185,7 @@ def __parse_init_time(args):
         error_exit(str(ex))
 
 
-def main():
+def get_parser():
     # parse command line arguments
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(help="Searching and downloading data is available as sub-commands.")
@@ -207,7 +207,11 @@ def main():
     parser_query.add_argument("--get-lead-times", action='store_true', help="get the available times since model start for --model, --grid-type, --init-time, and --level-type.")
     __add_common_args(parser_query)
     parser_query.set_defaults(func=query)
+    return parser
 
+    
+def main():
+    parser = get_parser()
     args = parser.parse_args()
     __parse_init_time(args)
     args.func(args)

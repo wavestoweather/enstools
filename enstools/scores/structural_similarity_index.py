@@ -20,7 +20,7 @@ def check_coordinates(data_array: xarray.DataArray):
 
 def structural_similarity_index(reference: xarray.DataArray, target: xarray.DataArray) -> xarray.DataArray:
     r"""
-    Returns the Structural Similarity Index Metric of the full DataArray.
+    Compute the Structural Similarity Index Metric of the full DataArray.
     For more than two spatial dimensions the computation its done slice by slice.
 
     Relies on

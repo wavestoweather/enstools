@@ -5,6 +5,7 @@ def retrieve_nwp(service="DWD", model="ICON", eps=None, grid_type=None, variable
                  levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
     """
     Downloads numerical weather prediction (NWP) datasets from opendata server.
+    
     Parameters
     ----------
     service : str

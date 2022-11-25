@@ -4,6 +4,7 @@ from .DWDRadar import getDWDRadar
 def retrieve_radar(product=None, data_time=None, forecast_time=0, dest=None, file_format=None):
     """
     Downloads radar datasets from opendata server.
+    
     Parameters
     ----------
         product: str
