@@ -1,2 +1,3 @@
 numpydoc
 sphinx_design
+sphinx_rtd_theme
