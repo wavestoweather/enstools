@@ -77,6 +77,22 @@ User Guide
 
             Open Data
 
+    .. grid-item-card::
+        :columns: 4
+
+        .. image:: ../images/icons/plot.svg
+            :width: 50%
+            :alt: Alternative text
+            :align: center
+
+        +++
+
+        .. button-ref:: plot
+            :expand:
+            :color: secondary
+            :click-parent:
+
+            Plot
 
     .. grid-item-card::
         :columns: 4

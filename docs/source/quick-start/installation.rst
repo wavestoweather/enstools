@@ -17,8 +17,8 @@ Workaround for GEOS
 
 .. _GEOS: https://libgeos.org
 
-In case the user has no root permissions and don't manage to install GEOS`_ it is possible to install enstools
-without cartopy. To do that:
+In case the user has no root permissions and don't manage to install `GEOS`_ it is possible to install enstools
+**without cartopy**. To do that:
 
     1. Install enstools without its dependencies:
         >>> pip install enstools --no-deps
@@ -30,7 +30,7 @@ without cartopy. To do that:
         >>> pip install -r pending_requirements.txt
 
 This will allow the installation of **enstools** but
- it won't be possible to use the features that require cartopy.
+it won't be possible to use the features that require cartopy (enstools.plot).
 
 For development
 ---------------

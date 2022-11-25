@@ -7,7 +7,7 @@ Few examples:
 Plot ICON data
 -------------------
 
-.. literalinclude:: ../../../examples/example_plot_icon_01.png
+.. literalinclude:: ../../../examples/example_plot_icon_01.py
 
 Compute DAS score
 -------------------

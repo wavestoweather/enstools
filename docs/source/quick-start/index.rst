@@ -7,7 +7,7 @@ First steps with **enstools**.
 .. grid:: 1
 
     .. grid-item-card::
-        :columns: 7
+        :columns: 5
 
         .. image:: ../images/icons/installation.svg
             :width: 50%
@@ -22,9 +22,9 @@ First steps with **enstools**.
             How to install **enstools**.
 
     .. grid-item-card::
-        :columns: 7
+        :columns: 5
 
-        .. image:: ../images/icons/examples.svg
+        .. image:: ../images/icons/getting_started.svg
             :width: 50%
             :alt: Alternative text
             :align: center
