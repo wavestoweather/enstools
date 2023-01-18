@@ -17,17 +17,10 @@ from enstools.core import get_client_and_worker
 from packaging import version
 
 try:
-    from enstools.encoding.api import check_dataset_filters_availability, check_filters_availability
-
+    import enstools.encoding.api
     enstools_encoding_available = True
 except ModuleNotFoundError:
     enstools_encoding_available = False
-
-try:
-    import enstools.compression
-    compression_available = True
-except ModuleNotFoundError:
-    compression_available = False
 
 from .dataset import drop_unused
 from .file_type import get_file_type
@@ -124,7 +117,7 @@ def read(
     xarray.Dataset
             in-memory representation of the content of the input file(s)
     """
-    if compression_available and not check_filters_availability():
+    if enstools_encoding_available:
         # We need to make sure that we are able to read compressed files
             import hdf5plugin # noqa
 
@@ -272,9 +265,6 @@ def read(
             result = xarray.combine_by_coords(datasets)
         else:
             result = xarray.auto_combine(datasets)
-
-    if enstools_encoding_available:
-        assert check_dataset_filters_availability(result), "The dataset uses some filters that are not available."
 
     return result
 
