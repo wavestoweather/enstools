@@ -1,3 +1,4 @@
+import logging
 from distutils.version import LooseVersion
 from os import rename
 from typing import Union
@@ -9,13 +10,15 @@ from xarray.backends.netCDF4_ import NetCDF4DataStore
 from pathlib import Path
 
 try:
-    from enstools.encoding.api import FilterEncodingForXarray, check_dataset_filters_availability
+    from enstools.encoding.api import DatasetEncoding
+
     encoding_available = True
 except ModuleNotFoundError:
     encoding_available = False
 
 try:
     import enstools.compression
+
     compression_available = True
 except ModuleNotFoundError:
     compression_available = False
@@ -27,9 +30,9 @@ def write(ds: Union[xarray.Dataset, xarray.DataArray],
           file_path: Union[str, Path],
           file_format: Union[str, None] = None,
           compression: Union[str, dict, None] = None,
-          compute: bool =True,
-          engine: str ="h5netcdf",
-          format: str ="NETCDF4",
+          compute: bool = True,
+          engine: str = "h5netcdf",
+          format: str = "NETCDF4",
           ):
     """
     write a xarray dataset to a file
@@ -115,14 +118,13 @@ def write(ds: Union[xarray.Dataset, xarray.DataArray],
 
     if compression is not None:
         help_message = "To use the compression argument please install enstools-encoding:\n" \
-                       "pip install enstools-compression"
+                       "pip install enstools-encoding"
         assert compression_available, ModuleNotFoundError(help_message)
         # If a compression variable has been provided, define the proper encoding for HDF5 filters:
-        dataset_encoding = FilterEncodingForXarray(dataset=ds, compression=compression)
+        dataset_encoding = DatasetEncoding(dataset=ds, compression=compression)
         dataset_encoding.add_metadata()
     else:
         dataset_encoding = None
-
 
     if format == "NETCDF4_CLASSIC" and engine == "h5netcdf":
         raise AssertionError(
