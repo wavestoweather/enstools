@@ -1,6 +1,9 @@
 stages:
     - test
     - examples
+    - deploy_test
+    - test_install
+    - deploy_prod
 
 test_slurm:
     stage: test
@@ -52,4 +55,49 @@ run_examples_docker:
             paths:
                     - examples/example_plot_icon_01.png
  
+deploy-to-testpypi:
+  stage: deploy_test
+  image: python:3.8
+  tags:
+    - docker.meteo.physik.lmu.de
+  only:
+    - tags
+  script:
+    - pip install twine
+    - python setup.py sdist bdist_wheel
+    - twine upload -u "__token__" -p "$PYPI_TEST_PASSWORD" --repository-url https://test.pypi.org/legacy/ --skip-existing dist/*
 
+install-from-testpypi:
+  stage: test_install
+  image: ubuntu:rolling
+  tags:
+    - docker.meteo.physik.lmu.de
+  only:
+    - tags
+  needs: ["deploy-to-testpypi"]
+  before_script:
+    - apt update
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt-get install -y libproj-dev proj-data proj-bin
+    - apt-get install -y libgeos-dev
+    - apt-get install -y libeccodes-dev
+    - apt install -yq git vim python3 python3-pip python3-venv
+  script:
+    - pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ enstools-compression
+  artifacts:
+    when: on_failure
+    paths:
+      - "*.log"
+
+deploy-to-pypi:
+  stage: deploy_prod
+  image: python:3.8
+  only:
+    - tags
+  tags:
+    - docker.meteo.physik.lmu.de
+  needs: ["install-from-testpypi"]
+  script:
+    - pip install twine
+    - python setup.py sdist bdist_wheel
+    - twine upload -u "__token__" -p "$PYPI_PASSWORD" --skip-existing dist/*
