@@ -507,7 +507,8 @@ def __open_dataset(filename, client, worker, decode_times=True, **kwargs):
                                 in_memory=kwargs.get("in_memory", False),
                                 leadtime_from_filename=kwargs.get("leadtime_from_filename", False),
                                 client=client,
-                                worker=worker)
+                                worker=worker,
+                                decode_times=decode_times)
     else:
         raise ValueError("unknown file type '%s' for file '%s'" % (file_type, filename))
 
