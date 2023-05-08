@@ -273,7 +273,6 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
         for time in times:
             time = int((time - time_min).total_seconds())
             new_times.append(time)
-        times = new_times
     coordinates["time"] = ("time", sorted(list(times)))
 
     # add vertical coordinates
@@ -452,6 +451,7 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
         dataset["lat"].attrs["long_name"] = "latitude"
         dataset["lat"].attrs["units"] = "degrees_north"
     if "time" in dataset and not decode_times:
+        dataset = dataset.assign_coords(time=new_times)
         dataset["time"].attrs["units"] = f"seconds since {time_min}"
 
     # data from one ensemble member? store as attribute
