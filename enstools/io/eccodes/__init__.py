@@ -21,7 +21,7 @@ import distributed
 from enstools.core import all_workers_are_local
 
 
-def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False, client=None, worker=None):
+def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filename=False, client=None, worker=None, decode_times=True):
     """
     Read the contents of a grib1 or grib2 file
 
@@ -46,6 +46,9 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     worker : distributed.worker
             dask-distributed Worker object. This is supposed to be not None when the routine is called inside of a
             worker process.
+
+    decode_times: bool
+            decode the times.
 
     Returns
     -------
@@ -139,6 +142,7 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
             if validityDate.startswith("0000"):
                 validityDate = "2" + validityDate[1:]
             time_stamp = datetime.strptime(validityDate, "%Y%m%d%H%M")
+
         if time_stamp not in times:
             times.add(time_stamp)
 
@@ -262,6 +266,13 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     # create the coordinate definition for the dataset
     if len(ensemble_members) > 0:
         coordinates["ens"] = ("ens", numpy.array(sorted(list(ensemble_members)), dtype=numpy.int32))
+
+    if not decode_times:
+        new_times=[]
+        time_min = min(times)
+        for time in times:
+            time = int((time - time_min).total_seconds())
+            new_times.append(time)
     coordinates["time"] = ("time", sorted(list(times)))
 
     # add vertical coordinates
@@ -439,6 +450,9 @@ def read_grib_file(filename, debug=False, in_memory=False, leadtime_from_filenam
     if "lat" in dataset:
         dataset["lat"].attrs["long_name"] = "latitude"
         dataset["lat"].attrs["units"] = "degrees_north"
+    if "time" in dataset and not decode_times:
+        dataset = dataset.assign_coords(time=new_times)
+        dataset["time"].attrs["units"] = f"seconds since {time_min}"
 
     # data from one ensemble member? store as attribute
     if "ens" in coordinates and len(coordinates["ens"][1]) == 1:

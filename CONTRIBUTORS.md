@@ -4,8 +4,8 @@ Sorted by the number of commits.
 
 - Oriol Tintó
 - Robert Redl
-- T. Bardachova
 - B. Giebl
+- T. Bardachova
 - Florian Baur
 - Manuel Klar
 - Joachim Eichhorn
