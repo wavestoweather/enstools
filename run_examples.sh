@@ -1,6 +1,6 @@
 # Load virtual environment
 
-# create a virtual environement and install all dependencies
+# create a virtual environment and install all dependencies
 if [[ ! -d venv ]] ; then
     python3 -m venv --prompt enstools venv
     source venv/bin/activate
@@ -9,7 +9,7 @@ if [[ ! -d venv ]] ; then
     pip install cartopy==0.19.0.post1
 
     pip install wheel
-    pip install -e .
+    pip install -e .[plot]
     pip install --force-reinstall pytest
 fi
 

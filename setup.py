@@ -53,7 +53,6 @@ setup(name="enstools",
           "numba",
           "toolz",
           "pint",
-          "cartopy",
           "matplotlib",
           "decorator",
           "multipledispatch",
@@ -67,11 +66,21 @@ setup(name="enstools",
           "scikit-image",
           "scikit-learn",
           "scipy",
-          "plotly",
-          "bokeh",
           "statsmodels",
           "dataclasses",
       ],
+    extras_require={
+        'plot': [
+            'cartopy',
+            'plotly',
+            'bokeh']
+        ,
+
+        'compression': ['enstools-compression',]
+        ,
+
+        # you can define other optional groups of dependencies here
+    },
       entry_points={
           'console_scripts': [
               'enstools-opendata=enstools.opendata.cli:main',

@@ -3,8 +3,10 @@ Basic plot routines usable to construct more advanced plots
 """
 try:
     import cartopy.crs as ccrs
-except ModuleNotFoundError:
-    raise AssertionError("This feature requires cartopy which is not installed.")
+except ModuleNotFoundError as err:
+    print(err)
+    raise AssertionError("This feature requires cartopy which is not installed."
+                         "Try 'pip install cartopy' or 'pip install enstools[plot] to fulfill all plotting dependencies")
 
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
