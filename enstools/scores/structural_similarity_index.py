@@ -4,14 +4,15 @@ from skimage.metrics import structural_similarity
 
 from enstools.core.errors import EnstoolsError
 
-horizontal_spatial_dimensions = ["lat", "lon"]
+horizontal_spatial_dimensions = [("lat", "latitude"), ("lon", "longitude")]
 
 
 def check_coordinates(data_array: xarray.DataArray):
     """
     Check that the provided data has the horizontal spatial coordinates.
     """
-    missing_dimensions = [d for d in horizontal_spatial_dimensions if d not in data_array.dims]
+    missing_dimensions = [d for d in horizontal_spatial_dimensions if not any(dim in data_array.dims for dim in d)]
+    missing_dimensions = [f"{d[0]}/{d[1]}" for d in missing_dimensions]
     if missing_dimensions:
         message = f"Structural similarity index expects data with dimensions {horizontal_spatial_dimensions}.\n" \
                   f"Dimension/s {missing_dimensions} missing."
@@ -44,11 +45,16 @@ def structural_similarity_index(reference: xarray.DataArray, target: xarray.Data
     reference.load()
     target.load()
 
+    # Determine which dimension names exist in the data arrays
+    ref_dims = [dim for dims in horizontal_spatial_dimensions for dim in dims if dim in reference.dims]
+    tgt_dims = [dim for dims in horizontal_spatial_dimensions for dim in dims if dim in target.dims]
+    input_core_dims = [ref_dims, tgt_dims]
+
     # Apply wrapper to horizontal slices
     res = xarray.apply_ufunc(compute_ssim_slice, reference, target,
                              #
                              vectorize=True,
-                             input_core_dims=[horizontal_spatial_dimensions, horizontal_spatial_dimensions],
+                             input_core_dims=input_core_dims,
                              output_core_dims=[[]],
                              )
     pending_dimensions = [d for d in res.dims if d != "time"]

@@ -4,16 +4,22 @@ import numpy as np
 from math import sqrt
 from enstools.plot.core import get_coordinates_from_xarray
 
-from .backend import InteractiveBackend, Backend, Stream, Function
-from .backend_plotly import InteractiveBackendPlotly
-from .backend_bokeh import InteractiveBackendBokeh
-from .backend3D import InteractiveBackend3D
+try:
+    from .backend import InteractiveBackend, Backend, Stream, Function
+    from .backend_plotly import InteractiveBackendPlotly
+    from .backend_bokeh import InteractiveBackendBokeh
+    from .backend3D import InteractiveBackend3D
 
-import plotly.graph_objs as go
-import plotly.figure_factory as ff 
+    import plotly.graph_objs as go
+    import plotly.figure_factory as ff
 
-from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, Legend
+    from bokeh.plotting import figure
+    from bokeh.models import ColumnDataSource, Legend
+except ModuleNotFoundError as err:
+    print(err)
+    raise AssertionError("This feature requires plotting libraries that are not installed."
+                         "Try installing the missing dependencies manually or by using 'pip install enstools[plot]")
+
 
 from ...core import check_arguments
 
