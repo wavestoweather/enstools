@@ -378,6 +378,10 @@ class DWDContent:
         init_time:  int or datetime or list of int or datetime
                     if an integer is given, the column init_time is used. For da datetime object
                     the column abs_init_time is used.
+                    
+        content:    pandas.DataFrame
+                    Reference to the content to select from. If None, self.content is chosen.
+                    Can also be a subset of the content for more efficient parsing.
         Returns
         -------
         Series:
