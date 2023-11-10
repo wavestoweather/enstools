@@ -1,6 +1,7 @@
 import logging
 import os
 import pandas
+import itertools
 from datetime import datetime
 from enstools.misc import download, bytes2human, concat
 from urllib.error import HTTPError
@@ -368,25 +369,37 @@ class DWDContent:
         avail_levels.sort()
         return avail_levels
 
-    def __init_time_selection(self, init_time):
+    def __init_time_selection(self, init_time, content=None):
         """
         this function is internally used for indexing and selecting a specific init time.
 
         Parameters
         ----------
-        init_time:  int or datetime
-                    if an integer is given, the column inti_time is used. For da datetime object
+        init_time:  int or datetime or list of int or datetime
+                    if an integer is given, the column init_time is used. For da datetime object
                     the column abs_init_time is used.
         Returns
         -------
         Series:
                     pandas series object used for indexing.
         """
+        if content is None:
+            content = self.content
+        
         if type(init_time) == int:
-            return self.content["init_time"] == init_time
+            return content["init_time"] == init_time
         elif isinstance(init_time, datetime):
-            return self.content["abs_init_time"] == init_time.strftime("%Y%m%d%H")
-        else:
+            return content["abs_init_time"] == init_time.strftime("%Y%m%d%H")
+        
+        elif isinstance(init_time, list):
+            if len(init_time) == 0:
+                return None
+            
+            if type(init_time[0]) == int:
+                return content["init_time"].isin(init_time)
+            elif isinstance(init_time[0], datetime):
+                return content["abs_init_time"].isin([it.strftime("%Y%m%d%H") for it in init_time])
+            
             raise ValueError(f"invalid data type for init_time: {type(init_time)}")
 
     def __get_uniq_content_line(self, model=None, grid_type=None, init_time=None, variable=None,
@@ -397,19 +410,19 @@ class DWDContent:
         Parameters
         ----------
         model: str
-            The model of the file for which the url wants to be known.
+            The model of the file to subset.
         grid_type: str
             The type of the geo grid.
         init_time: int
-            The initialization time of the forecast of the file for which the url wants to be known.
+            The initialization time of the forecast of the file to subset.
         variable: str
-            The variable of the file for which the url wants to be known.
+            The variable of the file to subset.
         level_type: str
-            The type of level of the file for which the url wants to be known.
+            The type of level of the file to subset.
         forecast_hour: int
-            The hours since the initialization of the forecast of the file for which the url wants to be known.
+            The hours since the initialization of the forecast of the file to subset.
         level: int
-            The level of the file for which the url wants to be known.
+            The level of the file to subset.
 
         Returns
         -------
@@ -438,6 +451,56 @@ class DWDContent:
                                     level))
             result = result.sort_values(by="time", ascending=False).iloc[0]
         return result
+    
+    
+    
+    def __get_content_block(self, model=None, grid_type=None, level_type=None, init_times=None, 
+                            variables=None,  forecast_hours=None, levels=None):
+        """
+        Given the parameters, return a list of contents from the content file. Call this instead of 
+        @ref __get_uniq_content_line when you need entire blocks, this is much faster.
+        
+        Parameters
+        ----------
+        model: str
+            The model of the file to subset.
+        grid_type: str
+            The type of the geo grid.
+        init_times: list(int) or list(datetime)
+            The initialization times of the forecast to subset.
+        variables: list(str)
+            The variables of the file to subset.
+        level_type: str
+            The type of level of the file to subset.
+        forecast_hours: list(int)
+            The hours since the initialization of the forecast of the file to subset.
+        levels: list(int)
+            The levels of the file to subset.
+
+        Returns
+        -------
+        pandas.DataFrame
+        """
+        
+        grid_type = self.check_grid_type(model=model, grid_type=grid_type)
+        content = self.content
+        data_subset = content[(content["model"] == model)
+                         & (content["level_type"] == level_type)
+                         & (content["grid_type"] == grid_type)]
+        
+        if variables is not None:
+            data_subset = data_subset[data_subset["variable"].isin(variables)]
+        if forecast_hours is not None:
+            data_subset = data_subset[data_subset["forecast_hour"].isin(forecast_hours)]
+        if levels is not None:
+            data_subset = data_subset[data_subset["level"].isin(levels)]
+        if init_times is not None:
+            data_subset = data_subset[self.__init_time_selection(init_times, content=data_subset)]
+        
+        return data_subset
+        
+        
+        
 
     def get_url(self, model=None, grid_type=None, init_time=None, variable=None,
                 level_type=None, forecast_hour=None, level=None):
@@ -531,7 +594,7 @@ class DWDContent:
         return total_size
 
     def check_parameters(self, model=None, grid_type=None, init_time=None, variable=None,
-                         level_type=None, forecast_hour=None, levels=None):
+                         level_type=None, forecast_hour=None, levels=None, check_urls=True):
         """
         Checks if there are all files available for the given parameters.
         If not, the DWDContent object will be refreshed.
@@ -553,22 +616,25 @@ class DWDContent:
             The hours of the forecast since the initialization of the simulation.
         levels: list or int
             The levels.
+        check_urls: bool
+            Whether to ping all download URLs to check their availability. 
+            Might take a while with high-dimensional data sets.
 
         Returns
         -------
 
         """
         grid_type = self.check_grid_type(model=model, grid_type=grid_type)
-
         params_available = True
         if model not in self.get_models():
             params_available = False
 
         if init_time not in self.get_avail_init_times(model=model, grid_type=grid_type):
             params_available = False
-
+            
+        avail_vars = self.get_avail_vars(model=model, grid_type=grid_type, init_time=init_time)
+        
         for var in variable:
-            avail_vars = self.get_avail_vars(model=model, grid_type=grid_type, init_time=init_time)
             if var not in avail_vars:
                 params_available = False
                 break
@@ -578,35 +644,45 @@ class DWDContent:
             if level_type not in avail_level_types:
                 params_available = False
                 break
-
+            
+            avail_forecast_hours = self.get_avail_forecast_hours(model=model, grid_type=grid_type, init_time=init_time,
+                                                             variable=var, level_type=level_type)
+            avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_time, variable=var, 
+                                                             level_type=level_type)
+            
             for hour in forecast_hour:
-                if hour not in self.get_avail_forecast_hours(model=model, grid_type=grid_type, init_time=init_time,
-                                                             variable=var, level_type=level_type):
+                if hour not in avail_forecast_hours:
                     params_available = False
                     break
 
-                for lev in levels:
-                    avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_time,
-                                                         variable=var, level_type=level_type)
-
-                    if lev not in avail_levels:
-                        params_available = False
-                        break
+            for lev in levels:
+                if lev not in avail_levels:
+                    params_available = False
+                    break
+                        
+            if not params_available:
+                break
 
         if not params_available:
             logging.warning("Parameters not available")
-        else:
-            for hour in forecast_hour:
-                for var in variable:
-                    for lev in levels:
-                        if not self.check_url_available(model=model, grid_type=grid_type, init_time=init_time,
-                                                        variable=var, level_type=level_type, forecast_hour=hour,
-                                                        level=lev):
-                            params_available = False
-                            break
+            
+        elif check_urls or (init_time is not None and type(init_time) == int):
+            # Ping URLs if flag is set. We need to check anyways if init time is only given as int, cant deduce actual 
+            # timesteps from it. An init_time of "0" is in the cache, but the remote's "0" might correspond to a different day.
+            logging.info("Pinging URLs for availability...")
+            if (init_time is not None and type(init_time) == int):
+                 logging.info("Consider setting init_time to an actual datetime instead of int, then this step can be skipped.")
+                    
+            url_indices = itertools.product(forecast_hour, variable, levels)
+            for hour, var, lev in url_indices:
+                if not self.check_url_available(model=model, grid_type=grid_type, init_time=init_time,
+                                                variable=var, level_type=level_type, forecast_hour=hour, level=lev):
+                    params_available = False
+                    break
+                    
             if not params_available:
                 logging.warning("Database outdated.")
-
+        
         if not params_available:
             self.refresh_content()
 
@@ -634,17 +710,17 @@ class DWDContent:
                 avail_forecast_hours = self.get_avail_forecast_hours(model=model, grid_type=grid_type,
                                                                      init_time=init_time, variable=var,
                                                                      level_type=level_type)
+                avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_time,
+                                                             variable=var, level_type=level_type)
                 for hour in forecast_hour:
-
                     if hour not in avail_forecast_hours:
                         raise ValueError(
                             "The forecast hour {} is not available for the variable {}. Possible values: {}"
                                 .format(hour, var, avail_forecast_hours))
-                    for lev in levels:
-                        avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_time,
-                                                             variable=var, level_type=level_type)
-                        if lev not in avail_levels:
-                            raise ValueError("The level {} is not available for the variable {} and the level type {}."
+                        
+                for lev in levels:
+                    if lev not in avail_levels:
+                        raise ValueError("The level {} is not available for the variable {} and the level type {}."
                                              .format(lev, var, level_type)
                                              + " Possible Values: {}".format(avail_levels))
 
@@ -674,7 +750,7 @@ class DWDContent:
         return merge_name + ".grib2"
 
     def retrieve(self, service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
-                 levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
+                 levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None, validate_urls=True):
         """
         Downloads datasets from opendata server. Faster access to the database.
         Parameters
@@ -710,7 +786,12 @@ class DWDContent:
         dest : str
                 Destination folder for downloaded data. If the files are already available,
                 they are not downloaded again.
-
+        
+        validate_urls : bool
+                Whether to ping all download URLs first before starting to download the data. 
+                Updates the cache if some URLs are not there. Considering setting this flag to 
+                False for faster downloads, especially if you download sizeable amounts.
+        
         Returns
         -------
         list :
@@ -742,15 +823,14 @@ class DWDContent:
         elif eps is True and not model.endswith("-eps"):
             model = model + "-eps"
 
-        download_files = []
-        download_urls = []
-
         grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         level_type = self.check_level_type(model=model, grid_type=grid_type, init_time=init_time,
                                            variable=variable, level_type=level_type)
-
+        
+        logging.info("Checking parameter consistency with data source...")
         self.check_parameters(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
-                              level_type=level_type, forecast_hour=forecast_hour, levels=levels)
+                              level_type=level_type, forecast_hour=forecast_hour, levels=levels, check_urls=validate_urls)
+        
         if merge_files:
             merge_dataset_name = dest + "/" + self.get_merge_dataset_name(model=model, variable=variable,
                                                                           level_type=level_type, init_time=init_time,
@@ -759,17 +839,14 @@ class DWDContent:
                 logging.warning("file not downloaded because it is already present: " + merge_dataset_name)
                 return [merge_dataset_name]
         total_size = 0
-        for var in variable:
-            for hour in forecast_hour:
-                for lev in levels:
-                    content_entry = self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time,
-                                                                 variable=var, level_type=level_type,
-                                                                 forecast_hour=hour,
-                                                                 level=lev)
-                    download_urls.append(content_entry["file"].values[0])
-                    download_files.append(content_entry["filename"].values[0])
-                    total_size += content_entry["size"].values[0]
-
+        
+        content_entries = self.__get_content_block(model=model, grid_type=grid_type, level_type=level_type,
+                                 init_times=init_time, variables=variable,  forecast_hours=forecast_hour, levels=levels)
+        
+        download_urls = content_entries["file"].to_list()
+        download_files = content_entries["filename"].to_list()
+        total_size = content_entries["size"].sum() 
+        
         download_files = [dest + "/" + file[:-4] for file in download_files]
 
         total_size_human = bytes2human(total_size)

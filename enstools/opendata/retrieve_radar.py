@@ -1,7 +1,7 @@
 from .DWDRadar import getDWDRadar
 
 
-def retrieve_radar(product=None, data_time=None, forecast_time=0, dest=None, file_format=None):
+def retrieve_radar(product=None, data_time=None, forecast_time=0, dest=None, file_format=None, validate_urls=True):
     """
     Downloads radar datasets from opendata server.
     
@@ -22,6 +22,10 @@ def retrieve_radar(product=None, data_time=None, forecast_time=0, dest=None, fil
         file_format: str
             The file format (eg. 'gz'). Only has to be specified when there are more than one available.
 
+        validate_urls : bool
+                Whether to ping all download URLs first to validate state of the cache. Might slow
+                down the process significantly for bigger data requests.
+                
         Returns
         -------
         list :
@@ -30,5 +34,5 @@ def retrieve_radar(product=None, data_time=None, forecast_time=0, dest=None, fil
     """
     content = getDWDRadar()
     download_files = content.retrieve(product=product, data_time=data_time, forecast_time=forecast_time,
-                                      dest=dest, file_format=file_format)
+                                      dest=dest, file_format=file_format, validate_urls=validate_urls)
     return download_files

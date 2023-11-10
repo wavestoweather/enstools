@@ -16,7 +16,8 @@ Basic Example
                              init_time=0,
                              forecast_hour=[24],
                              dest=args.data,
-                             merge_files=True)
+                             merge_files=True,
+                             validate_urls=True)
 
 
     
