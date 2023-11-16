@@ -7,61 +7,52 @@ from enstools.core.errors import EnstoolsError
 horizontal_spatial_dimensions = [("lat", "latitude"), ("lon", "longitude")]
 
 
-def check_coordinates(data_array: xarray.DataArray):
+def check_dimensions(data_array: xarray.DataArray):
     """
-    Check that the provided data has the horizontal spatial coordinates.
+    Check that the provided data has at least two dimensions other than 'time'.
     """
-    missing_dimensions = [d for d in horizontal_spatial_dimensions if not any(dim in data_array.dims for dim in d)]
-    missing_dimensions = [f"{d[0]}/{d[1]}" for d in missing_dimensions]
-    if missing_dimensions:
-        message = f"Structural similarity index expects data with dimensions {horizontal_spatial_dimensions}.\n" \
-                  f"Dimension/s {missing_dimensions} missing."
-        raise EnstoolsError(message)
+    non_time_dimensions = [dim for dim in data_array.dims if dim != "time"]
+    if len(non_time_dimensions) < 2:
+        raise EnstoolsError("Data must have at least two dimensions other than 'time'.")
+
+
 
 
 def structural_similarity_index(reference: xarray.DataArray, target: xarray.DataArray) -> xarray.DataArray:
-    r"""
-    Compute the Structural Similarity Index Metric of the full DataArray.
-    For more than two spatial dimensions the computation its done slice by slice.
-
-    Relies on
-    `skimage <https://scikit-image.org/docs/stable/api/skimage.metrics.html#skimage.metrics.structural_similarity>`_
-    to compute the SSIM of each slice.
-
-    Parameters
-    ----------
-    reference : xarray.DataArray
-    target : xarray.DataArray
-
-    Returns
-    -------
-    SSIM: xarray.DataArray
-        A data array with the time-series of the SSIM
-
-    """
-    check_coordinates(reference)
+    check_dimensions(reference)
+    check_dimensions(target)
 
     # Load data
     reference.load()
     target.load()
 
-    # Determine which dimension names exist in the data arrays
-    ref_dims = [dim for dims in horizontal_spatial_dimensions for dim in dims if dim in reference.dims]
-    tgt_dims = [dim for dims in horizontal_spatial_dimensions for dim in dims if dim in target.dims]
-    input_core_dims = [ref_dims, tgt_dims]
+    # Determine non-time dimensions and sort them by size, largest first
+    non_time_dims = sorted([dim for dim in reference.dims if dim != 'time'],
+                           key=lambda d: reference[d].size, reverse=True)
 
-    # Apply wrapper to horizontal slices
-    res = xarray.apply_ufunc(compute_ssim_slice, reference, target,
-                             #
-                             vectorize=True,
-                             input_core_dims=input_core_dims,
-                             output_core_dims=[[]],
-                             )
-    pending_dimensions = [d for d in res.dims if d != "time"]
+    if len(non_time_dims) < 2:
+        raise ValueError("Data must have at least two spatial dimensions")
 
-    if pending_dimensions:
-        res = res.mean(dim=pending_dimensions)
-    return res
+    # Use the two largest dimensions for SSIM computation
+    largest_dims = non_time_dims[:2]
+
+    # Compute SSIM for each 2D slice along the largest dimensions
+    ref_slice = reference.isel({dim: 0 for dim in reference.dims if dim not in largest_dims})
+    target_slice = target.isel({dim: 0 for dim in target.dims if dim not in largest_dims})
+
+    ssim_value = compute_ssim_slice(ref_slice.values, target_slice.values)
+
+    # Create a DataArray to store the SSIM value
+    # Check if 'time' dimension exists in the data arrays
+    if 'time' in reference.dims:
+        result = xarray.DataArray(ssim_value, coords={'time': reference['time']}, dims=['time'])
+    else:
+        # If there's no 'time' dimension, create a DataArray without it
+        result = xarray.DataArray(ssim_value)
+
+    return result
+
+    return result
 
 
 def compute_ssim_slice(target: np.ndarray, reference: np.ndarray) -> float:
