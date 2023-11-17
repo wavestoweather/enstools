@@ -488,19 +488,63 @@ class DWDContent:
         
         grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         content = self.content
+        subset_columns = ["model", "level_type", "grid_type"]
         data_subset = content[(content["model"] == model)
                          & (content["level_type"] == level_type)
                          & (content["grid_type"] == grid_type)]
         
         if variables is not None:
             data_subset = data_subset[data_subset["variable"].isin(variables)]
+            subset_columns.append("variable")
         if forecast_hours is not None:
             data_subset = data_subset[data_subset["forecast_hour"].isin(forecast_hours)]
+            subset_columns.append("forecast_hour")
         if levels is not None:
             data_subset = data_subset[data_subset["level"].isin(levels)]
+            subset_columns.append("level")
         if init_times is not None:
             data_subset = data_subset[self.__init_time_selection(init_times, content=data_subset)]
+            if (type(init_times) == int) or (isinstance(init_times, list) and type(init_times[0]) == int):
+                subset_columns.append("init_time")
+            elif (isinstance(init_times, datetime)) or (isinstance(init_times, list) and isinstance(init_times[0], datetime)):
+                subset_columns.append("abs_init_time")
         
+        # Check whether the subset actually contains all possible combinations of the given input fields
+        count_rows = data_subset.shape[0]
+        
+        # Drop duplicates and count them
+        dropped_dups = data_subset[subset_columns].drop_duplicates()
+        dropped_dups_count = dropped_dups.shape[0]
+        
+        # Get expected number of rows as product of number of unique elements along all dimensions
+        uniques = data_subset[subset_columns].nunique()
+        expected_rows = uniques.prod() 
+        
+        if dropped_dups_count < count_rows:
+            # There are some rows duplicated. Log them and raise an error.
+            dup_rows = data_subset[data_subset.duplicated(keep=False)]
+            logging.warning(f"Duplicated entries found in cached content block. Duplicated data:\n {dup_rows}")
+            return data_subset[data_subset.duplicated(keep='first')] # return only first occurrences
+        
+        elif expected_rows > count_rows:
+            # There are some rows missing, we couldn't find all combinations.
+            # Extract actually which ones are missing and log them.
+            unique_vals_per_col = [data_subset[col].unique() for col in subset_columns]
+            # Use multiindex to create all combinations and see which of them are missing in our data frame
+            multiindex = pandas.MultiIndex.from_product(
+                    unique_vals_per_col,
+                    names=subset_columns
+            )
+            data_subset_multi_index = (
+                    data_subset
+                    .set_index(subset_columns)
+                    .reindex(multiindex, fill_value = 0)
+                    .reset_index()
+            )
+            # missing -> concat and drop duplicates
+            missing_rows = pandas.concat([data_subset, data_subset_multi_index]).drop_duplicates(keep=False)
+            raise KeyError(f"Missing entries for retrieve request in cached content block. Missing rows:\n {missing_rows}")
+            
         return data_subset
         
         
