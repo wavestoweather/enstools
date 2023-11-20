@@ -654,7 +654,7 @@ class DWDContent:
             The model of the file.
         grid_type: str
             The type of the geo grid.
-        init_time: int
+        init_time: int, datetime, or list of int or datetime
             The initialization time of the file.
         variable: list or str
             The variable of the file.
@@ -676,11 +676,17 @@ class DWDContent:
         params_available = True
         if model not in self.get_models():
             params_available = False
-
-        if init_time not in self.get_avail_init_times(model=model, grid_type=grid_type):
-            params_available = False
             
-        avail_vars = self.get_avail_vars(model=model, grid_type=grid_type, init_time=init_time)
+        # make init times a list if it isn't
+        init_times = init_time if isinstance(init_time, list) else [init_time]
+        avail_init_times = self.get_avail_init_times(model=model, grid_type=grid_type)
+        
+        for init_time in init_times:
+            if init_time not in avail_init_times:
+                params_available = False
+                break
+            
+        avail_vars = self.get_avail_vars(model=model, grid_type=grid_type, init_time=init_times)
         
         for var in variable:
             if var not in avail_vars:
@@ -688,14 +694,14 @@ class DWDContent:
                 break
 
             avail_level_types = self.get_avail_level_types(model=model, grid_type=grid_type,
-                                                           init_time=init_time, variable=var)
+                                                           init_time=init_times, variable=var)
             if level_type not in avail_level_types:
                 params_available = False
                 break
             
-            avail_forecast_hours = self.get_avail_forecast_hours(model=model, grid_type=grid_type, init_time=init_time,
+            avail_forecast_hours = self.get_avail_forecast_hours(model=model, grid_type=grid_type, init_time=init_times,
                                                              variable=var, level_type=level_type)
-            avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_time, variable=var, 
+            avail_levels = self.get_avail_levels(model=model, grid_type=grid_type, init_time=init_times, variable=var, 
                                                              level_type=level_type)
             
             for hour in forecast_hour:
@@ -714,16 +720,16 @@ class DWDContent:
         if not params_available:
             logging.warning("Parameters not available")
             
-        elif check_urls or (init_time is not None and type(init_time) == int):
+        elif check_urls or (init_times is not None and (isinstance(init_times, list) and init_times[0] == int)):
             # Ping URLs if flag is set. We need to check anyways if init time is only given as int, cant deduce actual 
             # timesteps from it. An init_time of "0" is in the cache, but the remote's "0" might correspond to a different day.
             logging.info("Pinging URLs for availability...")
-            if (init_time is not None and type(init_time) == int):
+            if (init_times is not None and type(init_times[0]) == int):
                  logging.info("Consider setting init_time to an actual datetime instead of int, then this step can be skipped.")
                     
             url_indices = itertools.product(forecast_hour, variable, levels)
             for hour, var, lev in url_indices:
-                if not self.check_url_available(model=model, grid_type=grid_type, init_time=init_time,
+                if not self.check_url_available(model=model, grid_type=grid_type, init_time=init_times,
                                                 variable=var, level_type=level_type, forecast_hour=hour, level=lev):
                     params_available = False
                     break
@@ -739,8 +745,9 @@ class DWDContent:
                 raise ValueError("The model {} is not available. Possible Values: {}".format(model, avail_models))
 
             avail_init_times = self.get_avail_init_times(model=model, grid_type=grid_type)
-            if init_time not in avail_init_times:
-                raise ValueError("The initial time {} is not available. Possible Values: {}"
+            for init_time in init_times:
+                if init_time not in avail_init_times:
+                    raise ValueError("The initial time {} is not available. Possible Values: {}"
                                  .format(init_time, avail_init_times))
 
             for var in variable:
@@ -870,7 +877,7 @@ class DWDContent:
             raise ValueError("{} is a ensemble forecast, but eps was set to False!".format(model))
         elif eps is True and not model.endswith("-eps"):
             model = model + "-eps"
-
+            
         grid_type = self.check_grid_type(model=model, grid_type=grid_type)
         level_type = self.check_level_type(model=model, grid_type=grid_type, init_time=init_time,
                                            variable=variable, level_type=level_type)
