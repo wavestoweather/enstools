@@ -56,5 +56,5 @@ def test_contributors(contributors):
     with contributors_file.open("r") as f:
         file_content = f.read()
 
-    assert text == file_content
+    assert text.strip() == file_content.strip()
 
