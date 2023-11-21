@@ -320,7 +320,7 @@ class DWDRadar:
                                                  forecast_time=ftime, file_format=file_format)
         return total_size
 
-    def check_parameters(self, product=None, data_time=None, forecast_time=None, file_format=None):
+    def check_parameters(self, product=None, data_time=None, forecast_time=None, file_format=None, check_urls=True):
         """
         Checks if there are all files available for the given parameters.
         If not, the DWDRadar object will be refreshed.
@@ -336,6 +336,9 @@ class DWDRadar:
             The minutes since the data_time of the radar data.
         file_format: str
             The file format (eg. 'gz').
+        check_urls: bool
+            Whether to ping all download URLs to check their availability. 
+            Might take a while with high-dimensional data sets.
 
         Returns
         -------
@@ -360,7 +363,7 @@ class DWDRadar:
 
         if not params_available:
             logging.warning("Parameters not available")
-        else:
+        elif check_urls:
             for dtime in data_time:
                 for ftime in forecast_time:
                     if not self.check_url_available(product=product, data_time=dtime,
@@ -387,7 +390,7 @@ class DWDRadar:
                         raise ValueError("The forecast time {} is not available for the data time {}. "
                                          "Possible values:{}".format(ftime, dtime, avail_forecast_times))
 
-    def retrieve(self, product=None, data_time=None, forecast_time=0, dest=None, file_format=None):
+    def retrieve(self, product=None, data_time=None, forecast_time=0, dest=None, file_format=None, validate_urls=True):
         """
         Downloads datasets from opendata server.
         Parameters
@@ -408,6 +411,11 @@ class DWDRadar:
                 Destination folder for downloaded data. If the files are already available,
                 they are not downloaded again.
 
+        validate_urls : bool
+                Whether to ping all download URLs first before starting to download the data. 
+                Updates the cache if some URLs are not there. Considering setting this flag to 
+                False for faster downloads, especially if you download sizeable amounts.
+                
         Returns
         -------
         list :
@@ -437,7 +445,7 @@ class DWDRadar:
         download_urls = []
 
         self.check_parameters(product=product, data_time=data_time,
-                              forecast_time=forecast_time, file_format=file_format)
+                              forecast_time=forecast_time, file_format=file_format, check_urls=validate_urls)
         for dtime in data_time:
             for ftime in forecast_time:
                 download_urls.append(self.get_url(product=product, data_time=dtime,
