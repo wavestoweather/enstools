@@ -30,7 +30,8 @@ This small example downloads total precipitation data from ICON-EU for 0,6,12,18
                              init_time=0,
                              forecast_hour=[0,6,12,18,24],
                              dest="data",
-                             merge_files=True)
+                             merge_files=True,
+                             validate_urls=True)
 
 
 

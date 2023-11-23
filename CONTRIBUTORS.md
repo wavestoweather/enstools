@@ -6,6 +6,7 @@ Sorted by the number of commits.
 - Robert Redl
 - B. Giebl
 - T. Bardachova
+- Christoph Fischer
 - Florian Baur
 - Manuel Klar
 - Joachim Eichhorn

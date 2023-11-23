@@ -2,7 +2,7 @@ from .DWDContent import getDWDContent
 
 
 def retrieve_nwp(service="DWD", model="ICON", eps=None, grid_type=None, variable=None, level_type=None,
-                 levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None):
+                 levels=0, init_time=None, forecast_hour=None, merge_files=False, dest=None, validate_urls=True):
     """
     Downloads numerical weather prediction (NWP) datasets from opendata server.
     
@@ -39,6 +39,10 @@ def retrieve_nwp(service="DWD", model="ICON", eps=None, grid_type=None, variable
     dest : str
             Destination folder for downloaded data. If the files are already available,
             they are not downloaded again.
+            
+    validate_urls : bool
+            Whether to ping all download URLs first to validate state of the cache. Might slow
+            down the process significantly for bigger data requests.
 
     Returns
     -------
@@ -49,5 +53,5 @@ def retrieve_nwp(service="DWD", model="ICON", eps=None, grid_type=None, variable
     download_files = content.retrieve(service=service, model=model, eps=eps, grid_type=grid_type,
                                                variable=variable, level_type=level_type, levels=levels,
                                                init_time=init_time, forecast_hour=forecast_hour,
-                                               merge_files=merge_files, dest=dest)
+                                               merge_files=merge_files, dest=dest, validate_urls=validate_urls)
     return download_files

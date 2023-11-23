@@ -62,7 +62,8 @@ def retrieve_data(args):
                              init_time=args.init_time,
                              forecast_hour=args.lead_time,
                              dest=args.dest,
-                             merge_files=args.merge)
+                             merge_files=args.merge, 
+                             validate_urls=not args.skip_url_validation)
         for one_file in files:
             logging.info(f"downloaded: {one_file}")
     except ValueError as ve:
@@ -194,6 +195,7 @@ def get_parser():
     parser_retrieve = subparsers.add_parser("retrieve", help="download files from an opendata service provider")
     parser_retrieve.add_argument("--dest", help="destination folder for downloaded data.")
     parser_retrieve.add_argument("--merge", action='store_true', help="merge multiple downloaded files.")
+    parser_retrieve.add_argument("--skip-url-validation", action='store_true', help="enables skipping of validating all download URLs before starting to download them.")
     __add_common_args(parser_retrieve)
     parser_retrieve.set_defaults(func=retrieve_data)
 
