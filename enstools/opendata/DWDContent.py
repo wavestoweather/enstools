@@ -453,7 +453,7 @@ class DWDContent:
                             "taking the newest!"
                             .format(len(result), model, grid_type, init_time, variable, level_type, forecast_hour,
                                     level))
-            result = result.sort_values(by="time", ascending=False).iloc[0]
+            result = result.sort_values(by="time", ascending=False).iloc[[0]]
         return result
     
     
@@ -522,9 +522,9 @@ class DWDContent:
         
         if dropped_dups_count < count_rows:
             # There are some rows duplicated. Log them and raise an error.
-            dup_rows = data_subset[data_subset.duplicated(keep=False)]
+            dup_rows = data_subset[data_subset[subset_columns].duplicated(keep=False)]
             logging.warning(f"Duplicated entries found in cached content block. Duplicated data:\n {dup_rows}")
-            return data_subset[data_subset.duplicated(keep='first')] # return only first occurrences
+            return data_subset[~data_subset[subset_columns].duplicated(keep='first')] # return only first occurrences
         
         elif expected_rows > count_rows:
             # There are some rows missing, we couldn't find all combinations.
