@@ -80,10 +80,13 @@ class DWDContent:
 
             content["level"] = "0"
             content.loc[content["level_type"] == "single", ["level"]] = "0"
-            content.loc[content["level_type"] == "pressure", ["level"]] = content[content.level_type == "pressure"][
-                "filename"].apply(lambda x: x.split("_")[6])
-            content.loc[content["level_type"] == "model", ["level"]] = content[content.level_type == "model"][
-                "filename"].apply(lambda x: x.split("_")[6])
+            content.loc[content["level_type"] == "pressure", ["level"]] = \
+                    content[content.level_type == "pressure"]["filename"].apply(lambda x: x.split("_")[6])
+            content.loc[content["level_type"] == "model", ["level"]] = \
+                    content[content.level_type == "model"]["filename"].apply(lambda x: x.split("_")[6])
+            content.loc[content["level_type"] == "soil", ["level"]] = \
+                    content[content.level_type == "soil"]["filename"].apply(lambda x: x.split("_")[6])
+
             content["level"] = content["level"].astype(int)
             content.to_pickle(self.content_pkl)
 
@@ -407,7 +410,7 @@ class DWDContent:
             raise ValueError(f"invalid data type for init_time: {type(init_time)}")
 
     def __get_uniq_content_line(self, model=None, grid_type=None, init_time=None, variable=None,
-                                level_type=None, forecast_hour=None, level=None):
+                                level_type=None, forecast_hour=None, level=None, refreshed=False):
         """
         Use the given parameters to find ONE entry of the content.
 
@@ -427,6 +430,8 @@ class DWDContent:
             The hours since the initialization of the forecast of the file to subset.
         level: int
             The level of the file to subset.
+        refreshed: bool
+            Shows that the content database has just been updated before the method call.
 
         Returns
         -------
@@ -448,18 +453,26 @@ class DWDContent:
                            "level_type: {}, forecast_hour: {}, level: {})"
                            .format(model, grid_type, init_time, variable, level_type, forecast_hour, level))
         elif len(result) > 1:
-            logging.warning("{} entries found in content, only one expected for (model: {}, grid_type: {}, "
-                            "init_time: {}, variable: {}, level_type: {}, forecast_hour: {}, level: {}), "
-                            "taking the newest!"
-                            .format(len(result), model, grid_type, init_time, variable, level_type, forecast_hour,
-                                    level))
-            result = result.sort_values(by="time", ascending=False).iloc[[0]]
+            if refreshed:
+                # This happens when the database has just been updated before the method call
+                logging.warning("{} entries found in content, only one expected for (model: {}, grid_type: {}, "
+                                "init_time: {}, variable: {}, level_type: {}, forecast_hour: {}, level: {}), "
+                                "taking the newest!"
+                                .format(len(result), model, grid_type, init_time, variable, level_type, forecast_hour,
+                                        level))
+                result = result.sort_values(by="time", ascending=False).iloc[[0]]
+            else:
+                # If there are duplicated entries found then update the database first and try it again:
+                logging.warning("There have been some duplicated entries found, trying again with refreshed database.")
+                self.refresh_content()
+                return self.__get_uniq_content_line(model=model, grid_type=grid_type, init_time=init_time, variable=variable,
+                                                    level_type=level_type, forecast_hour=forecast_hour, level=level, refreshed=True)
         return result
     
     
     
     def __get_content_block(self, model=None, grid_type=None, level_type=None, init_times=None, 
-                            variables=None,  forecast_hours=None, levels=None):
+                            variables=None,  forecast_hours=None, levels=None, refreshed=False):
         """
         Given the parameters, return a list of contents from the content file. Call this instead of 
         @ref __get_uniq_content_line when you need entire blocks, this is much faster.
@@ -480,6 +493,8 @@ class DWDContent:
             The hours since the initialization of the forecast of the file to subset.
         levels: list(int)
             The levels of the file to subset.
+        refreshed: bool
+            Shows that the content database has just been updated before the method call.
 
         Returns
         -------
@@ -521,10 +536,16 @@ class DWDContent:
         expected_rows = uniques.prod() 
         
         if dropped_dups_count < count_rows:
-            # There are some rows duplicated. Log them and raise an error.
-            dup_rows = data_subset[data_subset[subset_columns].duplicated(keep=False)]
-            logging.warning(f"Duplicated entries found in cached content block. Duplicated data:\n {dup_rows}")
-            return data_subset[~data_subset[subset_columns].duplicated(keep='first')] # return only first occurrences
+            if refreshed:
+                # There are some rows duplicated. Log them and raise an error.
+                dup_rows = data_subset[data_subset[subset_columns].duplicated(keep=False)]
+                logging.warning(f"Duplicated entries found in cached content block. Duplicated data:\n {dup_rows}")
+                return data_subset[~data_subset[subset_columns].duplicated(keep='first')] # return only first occurrences
+            else:
+                logging.warning("There have been some duplicated entries found, trying again with refreshed database.")
+                self.refresh_content()
+                return self.__get_content_block(model=model, grid_type=grid_type, level_type=level_type, init_times=init_times,
+                                                variables=variables, forecast_hours=forecast_hours, levels=levels, refreshed=True)
         
         elif expected_rows > count_rows:
             # There are some rows missing, we couldn't find all combinations.
