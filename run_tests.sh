@@ -42,8 +42,10 @@ if [[ ! -d venv ]] ; then
     # Previous versions
     # We'll check ubuntu's version and in case its previous to 22.04 we'll preinstall cartopy 0.19
     source /etc/os-release
-    if (( $(echo "${VERSION_ID} < 22.04" |bc -l) )); then
-        pip install cartopy==0.19.0.post1
+    if [ "$ID" = "ubuntu" ]; then
+        if (( $(echo "${VERSION_ID} < 22.04" |bc -l) )); then
+            pip install cartopy==0.19.0.post1
+        fi
     fi
 	    
     pip install -e .
