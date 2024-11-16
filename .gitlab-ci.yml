@@ -10,7 +10,7 @@ test_slurm:
     stage: test
     script: ./run_tests.sh
     tags:
-            - slurm.meteo.physik.lmu.de
+            - slurm.physik.lmu.de
 
 test_docker:
     stage: test
