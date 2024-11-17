@@ -96,7 +96,7 @@ def cluster(algorithm, data, n_clusters=None, n_clusters_max=None, sort=True, **
     if sort:
         # calculate the variance for each cluster
         cluster_in_res = np.unique(result)
-        cluster_var = list(map(lambda x: data[np.asarray(result) == x, ...].var(axis=0).mean(), cluster_in_res))
+        cluster_var = list(map(lambda x: np.asarray(data[np.asarray(result) == x, ...]).var(axis=0).mean(), cluster_in_res))
 
         # sort the clusters by their variance between the members
         sorted_clusters = sorted(zip(cluster_in_res, cluster_var), key=lambda x: x[1])
