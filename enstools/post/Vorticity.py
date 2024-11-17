@@ -6,7 +6,7 @@ from numba import njit
 
 
 @check_arguments(dims={'u': ('lat', 'lon'), 'v': ('lat', 'lon')}, shape={'lon': (0,), 'lat': (0,)})
-def vorticity(u, v, lon, lat, fill_value=np.NaN):
+def vorticity(u, v, lon, lat, fill_value=np.nan):
     """
     Calculate relative vorticity and its components shear and curvature on a regular lat-lon-grid.
 
@@ -78,9 +78,9 @@ def __vorticity(u, v, lon, lat, fill_value):
                 or np.isnan(u[y+1,x]) or np.isnan(u[y-1,x]) \
                 or np.isnan(v[y,x]) or np.isnan(v[y,x+1]) or np.isnan(v[y,x-1]) \
                 or np.isnan(v[y+1,x]) or np.isnan(v[y-1,x]):
-                vor[y,x] = np.NaN
-                shear[y,x] = np.NaN
-                curve[y,x] = np.NaN
+                vor[y,x] = np.nan
+                shear[y,x] = np.nan
+                curve[y,x] = np.nan
             
             # distance on globe
             dx = distance(lat[y], lat[y], lon[x+1], lon[x-1], input_in_radian=False)
@@ -134,18 +134,18 @@ def __vorticity(u, v, lon, lat, fill_value):
             shear[y,x] = (v_a-v_b) / dx - (u_c-u_d) / dy
     
     # fill values at the borders
-    vor[0,:] = np.NaN
-    vor[-1,:] = np.NaN
-    vor[:,0] = np.NaN
-    vor[:,-1] = np.NaN
+    vor[0,:] = np.nan
+    vor[-1,:] = np.nan
+    vor[:,0] = np.nan
+    vor[:,-1] = np.nan
     
-    shear[0,:] = np.NaN
-    shear[-1,:] = np.NaN
-    shear[:,0] = np.NaN
-    shear[:,-1] = np.NaN
+    shear[0,:] = np.nan
+    shear[-1,:] = np.nan
+    shear[:,0] = np.nan
+    shear[:,-1] = np.nan
     
     # calculate curvature-vorticity 
-    curve = np.where(np.logical_or(np.isnan(vor), np.isnan(shear)), np.NaN, vor-shear)
+    curve = np.where(np.logical_or(np.isnan(vor), np.isnan(shear)), np.nan, vor-shear)
 
     # replace fill values if something different from NaN is used
     if not np.isnan(fill_value):

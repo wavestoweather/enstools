@@ -2,17 +2,18 @@ import numpy
 from enstools.clustering import prepare
 from enstools.clustering import cluster
 from sklearn.cluster import KMeans
+import pytest
 
-variables = []
 ens_members = 20
 n_variables = 2
 
-
-def setup():
+@pytest.fixture
+def variables():
     """
     create two variables for clustering
     """
 
+    result = []
     for ivar in range(n_variables):
         var = numpy.random.randn(ens_members, 10, 10)
         for iens in range(ens_members):
@@ -20,10 +21,11 @@ def setup():
                 var[iens, 0:5, :] += 1
             else:
                 var[iens, 5:10, :] += 1
-        variables.append(var)
+        result.append(var)
+    return result
 
 
-def test_prepare():
+def test_prepare(variables):
     """
     test of the variable preparation enstools.cluster.prepare
     """
@@ -36,7 +38,7 @@ def test_prepare():
     numpy.testing.assert_array_equal(x.shape, (ens_members, 200))
 
 
-def test_prepare_kmeans():
+def test_prepare_kmeans(variables):
     """
     use the prepare function to perform a kmeans clustering
     """
@@ -53,7 +55,7 @@ def test_prepare_kmeans():
     numpy.testing.assert_equal(even[0] != odd[0], True)
 
 
-def test_prepare_cluster():
+def test_prepare_cluster(variables):
     """
     test sklearn wrapper with automatic number of cluster estimation
     """

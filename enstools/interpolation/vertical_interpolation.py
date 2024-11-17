@@ -86,7 +86,7 @@ class model2pressure:
 
         # if the input pressure field is 3d, then flatten to two leftmost dimensions
         if src_p.ndim > 2:
-            src_p = np.asarray(src_p).reshape((src_p.shape[0], np.product(src_p.shape[1:])))
+            src_p = np.asarray(src_p).reshape((src_p.shape[0], np.prod(src_p.shape[1:])))
 
         # calculate the weights for each horizontal grid point
         self._indices, self._weights = get_weights(np.asarray(src_p), np.asarray(dst_p))
@@ -123,7 +123,7 @@ class model2pressure:
 
         # if the input data field is 3d, then flatten to two leftmost dimensions
         if data.ndim > 2:
-            data = np.asarray(data).reshape((data.shape[0], np.product(data.shape[1:])))
+            data = np.asarray(data).reshape((data.shape[0], np.prod(data.shape[1:])))
 
         # perform the interpolation
         result_data = apply_weights(np.asarray(data), self._indices, self._weights)

@@ -73,7 +73,7 @@ def prepare(*variables, **kwargs):
 
     feature_shape = list(shape)
     del feature_shape[ens_dim]
-    feature_shape = (np.product(feature_shape),)
+    feature_shape = (np.prod(feature_shape),)
 
     # 3. flatten all arrays
     var_list = []
