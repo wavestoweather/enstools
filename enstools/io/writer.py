@@ -1,5 +1,4 @@
 import logging
-from distutils.version import LooseVersion
 from os import rename
 from typing import Union
 
@@ -147,50 +146,3 @@ def write(ds: Union[xarray.Dataset, xarray.DataArray],
         if compute:
             rename(file_path, final_filename)
         return task
-
-        """
-        #Old workaround (need to be sure that its not needed anymore)
-        # are there dask arrays in the dataset? if so, write the file variable by variable
-        if not has_dask_arrays(ds):
-            ds.to_netcdf(filename)
-        else:
-            __to_netcdf(ds, filename)
-        """
-
-
-def __to_netcdf(ds, filename):
-    """
-    workaround for bug if dask arrays
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-            dataset to store
-
-    filename : string
-            name of the new file
-    """
-    print("Its using __to_netcdf!")
-    # store the complete file without the dask arrays
-    ds_copy = ds.copy(deep=False)
-    dask_variables = []
-    for varname, var in six.iteritems(ds.variables):
-        if isinstance(var.data, dask.array.core.Array):
-            dask_variables.append(varname)
-    for one_var in dask_variables:
-        del ds_copy[one_var]
-    ds_copy.to_netcdf(filename, format="NETCDF4_CLASSIC")
-
-    # open it again and add the dask arrays
-    if LooseVersion(xarray.__version__) > LooseVersion('0.9.6'):
-        nc = NetCDF4DataStore.open(filename, "a")
-    else:
-        nc = NetCDF4DataStore(filename, "a")
-
-    # add the variables
-    for varname, var in six.iteritems(ds.variables):
-        if isinstance(var.data, dask.array.core.Array):
-            nc.store({varname: var.compute()}, {})
-
-    # close the file
-    nc.close()
