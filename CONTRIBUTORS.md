@@ -9,6 +9,7 @@ Sorted by the number of commits.
 - Christoph Fischer
 - Florian Baur
 - Manuel Klar
+- Fabian Jakub
 - Joachim Eichhorn
 - Kevin Bachmann
 - Sebastian Lerch
