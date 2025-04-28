@@ -61,54 +61,109 @@ class DWDContent:
             # fix for json data, no json support now:
             content = content[~content.file.str.contains("json")]
 
-            content["model"] = content["file"].apply(lambda x: x.split("/")[1])
-            content["file_type"] = content["file"].apply(lambda x: x.split("/")[2])
-            content["init_time"] = content["file"].apply(lambda x: x.split("/")[3])
+            # Helper functions that catch out of range array accessing.
+            def get_string_segment(input, idx, delim):
+                splitted = input.split(delim)
+                if (len(splitted) < idx + 1):
+                    return ""
+                return splitted[idx]
+            
+            def to_int_or_zero(input):
+                try:
+                    return int(input)
+                except:
+                    return 0
+
+            content["model"] = content["file"].apply(lambda x: get_string_segment(x, 1, '/'))
+            content["file_type"] = content["file"].apply(lambda x: get_string_segment(x, 2, '/'))
+
+            # Init time: Convert safely to int type.
+            content["init_time"] = content["file"].apply(lambda x: get_string_segment(x, 3, '/'))
+            content["init_time"] = content["init_time"].apply(to_int_or_zero)
             content["init_time"] = content["init_time"].astype(int)
-            content["variable"] = content["file"].apply(lambda x: x.split("/")[4])
-            content["filename"] = content["file"].apply(lambda x: x.split("/")[5])
+            
+            content["variable"] = content["file"].apply(lambda x: get_string_segment(x, 4, '/'))
+            content["filename"] = content["file"].apply(lambda x: get_string_segment(x, 5, '/'))
             content["file"] = content["file"].apply(lambda x: "https://opendata.dwd.de/weather/nwp" + x[1:])
 
-            content["abs_init_time"] = content["filename"].apply(lambda x: x.split("_")[4])
-            content["level_type"] = content["filename"].apply(lambda x: x.split("_")[3])
-            content["grid_type"] = content["filename"].apply(lambda x: x.split("_")[2])
+            content["abs_init_time"] = content["filename"].apply(lambda x: get_string_segment(x, 4, '_'))
+            content["level_type"] = content["filename"].apply(lambda x: get_string_segment(x, 3, '_'))
+            content["grid_type"] = content["filename"].apply(lambda x: get_string_segment(x, 2, '_'))
             content["level_type"] = content["level_type"].apply(lambda x: x[:-6])
 
-            content["forecast_hour"] = content["filename"].apply(lambda x: x.split("_")[5])
+            content["forecast_hour"] = content["filename"].apply(lambda x: get_string_segment(x, 5, '_'))
             content.loc[content["level_type"] == "time-inv", ["forecast_hour"]] = "0"
+            content["forecast_hour"] = content["forecast_hour"].apply(to_int_or_zero)
             content["forecast_hour"] = content["forecast_hour"].astype(int)
 
             content["level"] = "0"
             content.loc[content["level_type"] == "single", ["level"]] = "0"
             content.loc[content["level_type"] == "pressure", ["level"]] = \
-                    content[content.level_type == "pressure"]["filename"].apply(lambda x: x.split("_")[6])
+                    content[content.level_type == "pressure"]["filename"].apply(lambda x: get_string_segment(x, 6, '_'))
             content.loc[content["level_type"] == "model", ["level"]] = \
-                    content[content.level_type == "model"]["filename"].apply(lambda x: x.split("_")[6])
+                    content[content.level_type == "model"]["filename"].apply(lambda x: get_string_segment(x, 6, '_'))
             content.loc[content["level_type"] == "soil", ["level"]] = \
-                    content[content.level_type == "soil"]["filename"].apply(lambda x: x.split("_")[6])
+                    content[content.level_type == "soil"]["filename"].apply(lambda x: get_string_segment(x, 6, '_'))
 
             content["level"] = content["level"].astype(int)
             content.to_pickle(self.content_pkl)
 
             return content
+
+        # Downloaded database file and pickle file.
+        self.content_log_path = os.path.join(DWDContent.cache_path, "content_nwp.log.bz2")
         self.content_pkl = os.path.join(DWDContent.cache_path, "opendata_dwd_content_nwp.pkl")
-        if os.path.exists(self.content_pkl) and not refresh_content:
-            logging.info(f"Reading content database from {self.content_pkl}")
-            content_old = pandas.read_pickle(self.content_pkl)
-            self.content = content_old
+        # Lock to avoid simultaneous writing to contents.
+        self.lock_file = os.path.join(DWDContent.cache_path, "content_nwp_lock")
+        
+        # Wait until the lock file does not exist anymore. If the file exists, the database is currently
+        # updated by another enstools instance. As soon the lock file does not exist anymore,
+        # we create the file and therefore acquire the lock ourselves.
+        wait_time = 0.1
+        while os.path.exists(self.lock_file):
+            time.sleep(wait_time)
+            wait_time = min(wait_time * 2, 10) # Exponential backoff
+        
+        # Locking file.
+        f = open(self.lock_file, 'w')
+        f.close()
 
-        else:
-            if refresh_content:
-                logging.info("Refreshing content database")
+        # Check if checksum of file at "https://opendata.dwd.de/weather/nwp/content.log.bz2"
+        # matches checksum of local file. If not, redownload.
+        with open(self.content_log_path, 'rb') as fh:
+            local_md5 = hashlib.md5(fh.read()).hexdigest()
+
+        r = requests.get("https://opendata.dwd.de/weather/nwp/content.log.bz2")
+        remote_md5 = hashlib.md5(r.content).hexdigest()
+
+        if local_md5 != remote_md5:
+            refresh_content = True
+            logging.info("Non-matching MD5 checksums for database, refreshing database.")
+
+        try:
+            if os.path.exists(self.content_pkl) and not refresh_content:
+                logging.info(f"Reading content database from {self.content_pkl}")
+                content_old = pandas.read_pickle(self.content_pkl)
+                self.content = content_old
+
             else:
-                logging.info("Initializing content database")
-            self.content_log_path = os.path.join(DWDContent.cache_path, "content_nwp.log.bz2")
-            if os.path.exists(self.content_log_path):
-                os.remove(self.content_log_path)
+                if refresh_content:
+                    logging.info("Refreshing content database")
+                else:
+                    logging.info("Initializing content database")
+                if os.path.exists(self.content_log_path):
+                    os.remove(self.content_log_path)
 
-            download("https://opendata.dwd.de/weather/nwp/content.log.bz2",
-                     destination=self.content_log_path, uncompress=False)
-            self.content = create_dataframe(self.content_log_path)
+                download("https://opendata.dwd.de/weather/nwp/content.log.bz2",
+                        destination=self.content_log_path, uncompress=False)
+                self.content = create_dataframe(self.content_log_path)
+        except:
+            pass
+
+        # Finished updating database. Deleting the lock file.
+        if os.path.exists(self.lock_file):
+            os.remove(self.lock_file)
+            
 
     def refresh_content(self):
         """
