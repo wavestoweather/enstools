@@ -1,7 +1,10 @@
 import logging
 import os
+import time
 import pandas
 import itertools
+import hashlib
+import requests
 from datetime import datetime
 from enstools.misc import download, bytes2human, concat
 from urllib.error import HTTPError
@@ -119,6 +122,7 @@ class DWDContent:
         # Wait until the lock file does not exist anymore. If the file exists, the database is currently
         # updated by another enstools instance. As soon the lock file does not exist anymore,
         # we create the file and therefore acquire the lock ourselves.
+        logging.info("Acquiring content file lock...")
         wait_time = 0.1
         while os.path.exists(self.lock_file):
             time.sleep(wait_time)
@@ -128,19 +132,25 @@ class DWDContent:
         f = open(self.lock_file, 'w')
         f.close()
 
-        # Check if checksum of file at "https://opendata.dwd.de/weather/nwp/content.log.bz2"
-        # matches checksum of local file. If not, redownload.
-        with open(self.content_log_path, 'rb') as fh:
-            local_md5 = hashlib.md5(fh.read()).hexdigest()
-
-        r = requests.get("https://opendata.dwd.de/weather/nwp/content.log.bz2")
-        remote_md5 = hashlib.md5(r.content).hexdigest()
-
-        if local_md5 != remote_md5:
-            refresh_content = True
-            logging.info("Non-matching MD5 checksums for database, refreshing database.")
-
+        # Put this in try block so we release the lock also if an error occurs.
         try:
+            logging.info("File lock acquired.")
+            logging.info("Comparing hashes of current database and server database...")
+
+            # Check if checksum of file at "https://opendata.dwd.de/weather/nwp/content.log.bz2"
+            # matches checksum of local file. If not, redownload.
+            with open(self.content_log_path, 'rb') as fh:
+                local_md5 = hashlib.md5(fh.read()).hexdigest()
+            logging.info(local_md5)
+
+            r = requests.get("https://opendata.dwd.de/weather/nwp/content.log.bz2")
+            remote_md5 = hashlib.md5(r.content).hexdigest()
+            logging.info(remote_md5)
+
+            if local_md5 != remote_md5:
+                refresh_content = True
+                logging.info("Non-matching MD5 checksums for database, refreshing database.")
+
             if os.path.exists(self.content_pkl) and not refresh_content:
                 logging.info(f"Reading content database from {self.content_pkl}")
                 content_old = pandas.read_pickle(self.content_pkl)
@@ -157,12 +167,15 @@ class DWDContent:
                 download("https://opendata.dwd.de/weather/nwp/content.log.bz2",
                         destination=self.content_log_path, uncompress=False)
                 self.content = create_dataframe(self.content_log_path)
-        except:
-            pass
 
-        # Finished updating database. Deleting the lock file.
-        if os.path.exists(self.lock_file):
-            os.remove(self.lock_file)
+            # Finished updating database. Deleting the lock file.
+            if os.path.exists(self.lock_file):
+                os.remove(self.lock_file)
+                
+        except:
+            # Delete lock file if something went wrong and we abort.
+            if os.path.exists(self.lock_file):
+                os.remove(self.lock_file)
             
 
     def refresh_content(self):
