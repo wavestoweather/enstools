@@ -16,7 +16,7 @@ test_docker:
     stage: test
     image: ubuntu:rolling
     tags: 
-            - docker.meteo.physik.lmu.de
+            - docker.physik.lmu.de
     before_script:
             - apt update
             - export DEBIAN_FRONTEND=noninteractive
@@ -41,7 +41,7 @@ run_examples_docker:
     stage: examples
     image: ubuntu:rolling
     tags: 
-            - docker.meteo.physik.lmu.de
+            - docker.physik.lmu.de
     before_script:
             - apt update
             - export DEBIAN_FRONTEND=noninteractive
@@ -60,7 +60,7 @@ deploy-to-testpypi:
   stage: deploy_test
   image: python:3.10
   tags:
-    - docker.meteo.physik.lmu.de
+    - docker.physik.lmu.de
   only:
     - tags
   script:
@@ -72,7 +72,7 @@ install-from-testpypi:
   stage: test_install
   image: ubuntu:rolling
   tags:
-    - docker.meteo.physik.lmu.de
+    - docker.physik.lmu.de
   only:
     - tags
   needs: ["deploy-to-testpypi"]
@@ -93,7 +93,7 @@ deploy-to-pypi:
   only:
     - tags
   tags:
-    - docker.meteo.physik.lmu.de
+    - docker.physik.lmu.de
   needs: ["install-from-testpypi"]
   script:
     - pip install twine
@@ -104,7 +104,7 @@ install-from-pypi:
   stage: test_pypi
   image: ubuntu:rolling
   tags:
-    - docker.meteo.physik.lmu.de
+    - docker.physik.lmu.de
   only:
     - tags
   needs: ["deploy-to-pypi"]
