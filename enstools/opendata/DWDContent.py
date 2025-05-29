@@ -139,13 +139,19 @@ class DWDContent:
 
             # Check if checksum of file at "https://opendata.dwd.de/weather/nwp/content.log.bz2"
             # matches checksum of local file. If not, redownload.
-            with open(self.content_log_path, 'rb') as fh:
-                local_md5 = hashlib.md5(fh.read()).hexdigest()
-            logging.info(local_md5)
+            if os.path.exists(self.content_log_path):
+                with open(self.content_log_path, 'rb') as fh:
+                    local_md5 = hashlib.md5(fh.read()).hexdigest()
+                logging.info(f"Local hash: {local_md5}")
+            else:
+                local_md5 = 'missing'
+                logging.info("Local content.log.bz2 does not exist.")
 
+            # Download checksum of server file.
+            logging.info("Downloading checksum of server file...")
             r = requests.get("https://opendata.dwd.de/weather/nwp/content.log.bz2")
             remote_md5 = hashlib.md5(r.content).hexdigest()
-            logging.info(remote_md5)
+            logging.info(f"Remote hash: {remote_md5}")
 
             if local_md5 != remote_md5:
                 refresh_content = True
@@ -172,10 +178,12 @@ class DWDContent:
             if os.path.exists(self.lock_file):
                 os.remove(self.lock_file)
                 
-        except:
+        except Exception as e:
+            logging.error(e)
             # Delete lock file if something went wrong and we abort.
             if os.path.exists(self.lock_file):
                 os.remove(self.lock_file)
+            raise e
             
 
     def refresh_content(self):
